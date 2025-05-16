@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "991351593285",
+    "project_id": "pelayananupa-tik",
+    "storage_bucket": "pelayananupa-tik.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:991351593285:android:4b29cae1058014b07a462c",
+        "android_client_info": {
+          "package_name": "com.dicoding.pelayananupa_tik"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "991351593285-0j6qvla8r0dr81g3e78gsnc4pvugorkk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dicoding.pelayananupa_tik",
+            "certificate_hash": "26665aed696582db702060ca1c39e41bb8a2f87c"
+          }
+        },
+        {
+          "client_id": "991351593285-i4ismmlkqkdiqoetm9641uqkv54lppmg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJAtQa3P1TuMIbtBQ7_IMBtDQTVuvETFM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "991351593285-i4ismmlkqkdiqoetm9641uqkv54lppmg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

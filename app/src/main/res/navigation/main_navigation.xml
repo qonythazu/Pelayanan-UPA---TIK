@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main_navigation"
+    app:startDestination="@id/homeFragment">
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.HomeFragment"
+        android:label="fragment_home"
+        tools:layout="@layout/fragment_home" >
+        <action
+            android:id="@+id/action_homeFragment_to_productListFragment"
+            app:destination="@id/productListFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_formPengaduanLayananFragment"
+            app:destination="@id/formPengaduanLayananFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_formBantuanOperatorFragment"
+            app:destination="@id/formBantuanOperatorFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_formPemeliharaanAkunFragment"
+            app:destination="@id/formPemeliharaanAkunFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_formPemasanganPerangkatFragment"
+            app:destination="@id/formPemasanganPerangkatFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_formPembuatanWebDllFragment"
+            app:destination="@id/formPembuatanWebDllFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/historyFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.HistoryFragment"
+        android:label="fragment_history"
+        tools:layout="@layout/fragment_history" >
+        <action
+            android:id="@+id/action_historyFragment_to_historyPeminjamanBarangFragment"
+            app:destination="@id/historyPeminjamanBarangFragment" />
+        <action
+            android:id="@+id/action_historyFragment_to_historyLayananFragment"
+            app:destination="@id/historyLayananFragment" />
+    </fragment>
+    <dialog
+        android:id="@+id/scanFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.ScanFragment"
+        android:label="fragment_scan"
+        tools:layout="@layout/fragment_scan" >
+    </dialog>
+    <fragment
+        android:id="@+id/profileFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.ProfileFragment"
+        android:label="fragment_profile"
+        tools:layout="@layout/fragment_profile" />
+    <fragment
+        android:id="@+id/productListFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.ProductListFragment"
+        android:label="fragment_product_list"
+        tools:layout="@layout/fragment_product_list" >
+        <action
+            android:id="@+id/action_productListFragment_to_boxFragment"
+            app:destination="@id/boxFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/boxFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.BoxFragment"
+        android:label="fragment_box"
+        tools:layout="@layout/fragment_box" >
+        <action
+            android:id="@+id/action_boxFragment_to_formPeminjamanFragment"
+            app:destination="@id/formPeminjamanFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/formPeminjamanFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.FormPeminjamanFragment"
+        android:label="fragment_form_peminjaman"
+        tools:layout="@layout/fragment_form_peminjaman" />
+    <fragment
+        android:id="@+id/formBantuanOperatorFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.FormBantuanOperatorFragment"
+        android:label="fragment_form_bantuan_operator"
+        tools:layout="@layout/fragment_form_bantuan_operator" />
+    <fragment
+        android:id="@+id/formLaporKerusakanFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.FormLaporKerusakanFragment"
+        android:label="fragment_form_lapor_kerusakan"
+        tools:layout="@layout/fragment_form_lapor_kerusakan" />
+    <fragment
+        android:id="@+id/formPemasanganPerangkatFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.FormPemasanganPerangkatFragment"
+        android:label="fragment_form_pemasangan_perangkat"
+        tools:layout="@layout/fragment_form_pemasangan_perangkat" />
+    <fragment
+        android:id="@+id/formPembuatanWebDllFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.FormPembuatanWebDllFragment"
+        android:label="fragment_form_pembuatan_web_dll"
+        tools:layout="@layout/fragment_form_pembuatan_web_dll" />
+    <fragment
+        android:id="@+id/formPemeliharaanAkunFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.FormPemeliharaanAkunFragment"
+        android:label="fragment_form_pemeliharaan_akun"
+        tools:layout="@layout/fragment_form_pemeliharaan_akun" />
+    <fragment
+        android:id="@+id/formPengaduanLayananFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.FormPengaduanLayananFragment"
+        android:label="fragment_form_pengaduan_layanan"
+        tools:layout="@layout/fragment_form_pengaduan_layanan" />
+    <fragment
+        android:id="@+id/historyPeminjamanBarangFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.HistoryPeminjamanBarangFragment"
+        android:label="fragment_history_peminjaman_barang"
+        tools:layout="@layout/fragment_history_peminjaman_barang" />
+    <fragment
+        android:id="@+id/historyLayananFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.HistoryLayananFragment"
+        android:label="fragment_history_layanan"
+        tools:layout="@layout/fragment_history_layanan" />
+    <fragment
+        android:id="@+id/detailBarangFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.DetailBarangFragment"
+        android:label="fragment_detail_barang"
+        tools:layout="@layout/fragment_detail_barang" >
+
+        <action
+            android:id="@+id/action_detailBarangFragment_to_formLaporKerusakanFragment"
+            app:destination="@id/formLaporKerusakanFragment" />
+    </fragment>
+</navigation>
