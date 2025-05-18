@@ -17,8 +17,10 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentManager
+import androidx.navigation.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.utils.ProgressDialogFragment
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.firebase.firestore.FirebaseFirestore
@@ -99,6 +101,12 @@ class ScanFragment : BottomSheetDialogFragment() {
         startScanLineAnimation()
         checkCameraPermission()
         Log.d(TAG, "Fragment view created")
+
+        try {
+            GoogleApiAvailability.getInstance().makeGooglePlayServicesAvailable(requireActivity())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking Google Play Services", e)
+        }
     }
 
     private fun checkCameraPermission() {
@@ -193,13 +201,17 @@ class ScanFragment : BottomSheetDialogFragment() {
                     )
 
                     isScanning = true
+                    Log.d(TAG, "Processing image for barcode, rotation: ${imageProxy.imageInfo.rotationDegrees}")
                     barcodeScanner.process(image)
                         .addOnSuccessListener { barcodes ->
+                            Log.d(TAG, "Barcodes found: ${barcodes.size}")
                             for (barcode in barcodes) {
                                 val rawValue = barcode.rawValue
+                                Log.d(TAG, "Raw barcode value: $rawValue")
                                 if (rawValue != null) {
                                     Log.d(TAG, "Barcode detected: $rawValue")
-
+                                    val valueType = barcode.valueType
+                                    Log.d(TAG, "Barcode type: $valueType")
                                     // Gunakan activity yang dikontrol terlebih dahulu
                                     val activity = activity
                                     if (activity != null && !activity.isFinishing && isAdded) {
@@ -236,6 +248,7 @@ class ScanFragment : BottomSheetDialogFragment() {
         // Periksa lagi apakah fragment masih terpasang
         if (!isAdded) {
             Log.d(TAG, "Fragment not attached, skipping Firestore fetch")
+            hideLoading()
             return
         }
 
@@ -243,13 +256,14 @@ class ScanFragment : BottomSheetDialogFragment() {
             .document(serialNumber)
             .get()
             .addOnSuccessListener { document ->
+                // Pastikan loading berhenti terlepas dari hasil
+                hideLoading()
+
                 // Periksa lagi apakah fragment masih terpasang
                 if (!isAdded) {
                     Log.d(TAG, "Fragment no longer attached after Firestore fetch")
                     return@addOnSuccessListener
                 }
-
-                hideLoading()
 
                 if (document.exists()) {
                     Log.d(TAG, "Document found: ${document.data}")
@@ -264,9 +278,13 @@ class ScanFragment : BottomSheetDialogFragment() {
 
                     Log.d(TAG, "Data extracted: $nama, $jenis, $serialNum")
 
-                    // Pass result to listener
-                    val detailFragment = DetailBarangFragment().apply {
-                        arguments = Bundle().apply {
+                    // Perbaikan: Navigasi dengan NavController
+                    try {
+                        // Tutup scanner dialog terlebih dahulu
+                        dismiss()
+
+                        // Buat bundle data
+                        val bundle = Bundle().apply {
                             putString("nama_barang", nama)
                             putString("tanggal_masuk", tanggalMasuk)
                             putString("jenis_barang", jenis)
@@ -274,35 +292,39 @@ class ScanFragment : BottomSheetDialogFragment() {
                             putString("letak_barang", letakBarang)
                             putString("serial_number", serialNum)
                         }
-                    }
 
-                    parentFragmentManager.beginTransaction()
-                        .replace(R.id.main_navigation, detailFragment) // ganti dengan ID container-mu
-                        .addToBackStack(null)
-                        .commit()
+                        // Gunakan navController dari activity
+                        val navController = requireActivity().findNavController(R.id.nav_home_fragment) // Sesuaikan dengan ID NavHostFragment Anda
+                        navController.navigate(R.id.detailBarangFragment, bundle)
 
-                    dismiss()
-
-                } else {
-                    Log.d(TAG, "No document found with serial: $serialNumber")
-
-                    // Periksa apakah fragment masih terpasang sebelum menampilkan Toast
-                    if (isAdded) {
+                        // Log untuk debugging
+                        Log.d(TAG, "Navigation attempted to DetailBarangFragment with data")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error navigating to DetailBarangFragment", e)
                         Toast.makeText(
                             requireContext(),
-                            "Data barang dengan kode $serialNumber tidak ditemukan",
-                            Toast.LENGTH_LONG
+                            "Gagal membuka detail: ${e.message}",
+                            Toast.LENGTH_SHORT
                         ).show()
                     }
+                } else {
+                    Log.d(TAG, "No document found with serial: $serialNumber")
+                    Toast.makeText(
+                        requireContext(),
+                        "Data barang dengan kode $serialNumber tidak ditemukan",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
             .addOnFailureListener { e ->
+                // Pastikan loading berhenti
+                hideLoading()
+
                 // Periksa apakah fragment masih terpasang
                 if (!isAdded) {
                     return@addOnFailureListener
                 }
 
-                hideLoading()
                 Log.e(TAG, "Firestore query failed", e)
                 Toast.makeText(
                     requireContext(),
@@ -324,8 +346,15 @@ class ScanFragment : BottomSheetDialogFragment() {
     }
 
     private fun hideLoading() {
-        progressDialog?.dismissAllowingStateLoss()
-        Log.d(TAG, "Loading dialog hidden")
+        try {
+            if (progressDialog != null && progressDialog?.isAdded == true) {
+                progressDialog?.dismissAllowingStateLoss()
+                progressDialog = null
+            }
+            Log.d(TAG, "Loading dialog hidden")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error hiding loading dialog", e)
+        }
     }
 
     override fun onPause() {

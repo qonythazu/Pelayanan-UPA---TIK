@@ -121,6 +121,31 @@
         android:label="fragment_detail_barang"
         tools:layout="@layout/fragment_detail_barang" >
 
+        <argument
+            android:name="nama_barang"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="tanggal_masuk"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="jenis_barang"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="pemilik_barang"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="letak_barang"
+            app:argType="string"
+            app:nullable="true" />
+        <argument
+            android:name="serial_number"
+            app:argType="string"
+            app:nullable="true" />
+
         <action
             android:id="@+id/action_detailBarangFragment_to_formLaporKerusakanFragment"
             app:destination="@id/formLaporKerusakanFragment" />
