@@ -1,5 +1,6 @@
 package com.dicoding.pelayananupa_tik.fragment
 
+import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -7,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
@@ -26,7 +28,16 @@ class FormPengaduanLayananFragment : Fragment() {
 
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         imageUri = uri
-        binding.tvFileName.text = uri?.lastPathSegment ?: "File selected"
+        if (uri != null) {
+            binding.tvFileName.text = uri.lastPathSegment ?: "File selected"
+
+            binding.btnChooseFile.apply {
+                backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                text = getString(R.string.change_image)
+                strokeWidth = 0
+            }
+        }
     }
 
     override fun onCreateView(
@@ -48,18 +59,6 @@ class FormPengaduanLayananFragment : Fragment() {
         toolbar.setNavigationOnClickListener {
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        (activity as? MainActivity)?.hideBottomNavigation()
-        (activity as? MainActivity)?.hideToolbar()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        (activity as? MainActivity)?.showBottomNavigation()
-        (activity as? MainActivity)?.showToolbar()
     }
 
     private fun submitForm() {
@@ -132,7 +131,26 @@ class FormPengaduanLayananFragment : Fragment() {
         binding.kontakLayout.editText?.text?.clear()
         binding.keluhanAndaLayout.editText?.text?.clear()
         binding.tvFileName.text = ""
+        binding.btnChooseFile.apply {
+            backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.white))
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+            text = getString(R.string.choose_file)
+            strokeWidth = 2
+            strokeColor = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+        }
         imageUri = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (activity as? MainActivity)?.hideBottomNavigation()
+        (activity as? MainActivity)?.hideToolbar()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        (activity as? MainActivity)?.showBottomNavigation()
+        (activity as? MainActivity)?.showToolbar()
     }
 
     override fun onDestroyView() {
