@@ -99,6 +99,7 @@
             android:layout_height="wrap_content"
             android:hint="@string/sebutkan_layanan_lainnya"
             android:layout_marginTop="8dp"
+            android:layout_marginHorizontal="20dp"
             android:visibility="gone"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -119,7 +120,7 @@
             app:boxStrokeColor="@color/black"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/radioGroupServices"
+            app:layout_constraintTop_toBottomOf="@+id/textInputLayoutOther"
             android:layout_marginHorizontal="20dp"
             android:layout_marginTop="16dp">
 
@@ -148,7 +149,7 @@
                 android:layout_height="wrap_content"
                 android:text=""
                 android:textColor="@color/black"
-                android:inputType="text"/>
+                android:inputType="number"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -168,7 +169,7 @@
                 android:layout_height="wrap_content"
                 android:text=""
                 android:textColor="@color/black"
-                android:inputType="number"/>
+                android:inputType="text"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.button.MaterialButton
