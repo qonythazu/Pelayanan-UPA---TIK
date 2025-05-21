@@ -45,6 +45,15 @@ class FormPemasanganPerangkatFragment : Fragment() {
         return view
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        toolbar.setNavigationOnClickListener {
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
+    }
+
     private fun submitForm() {
         val jenisPerangkat = jenisPerangkatInput.text?.toString()?.trim() ?: ""
         val kontak = kontakInput.text?.toString()?.trim() ?: ""
@@ -59,6 +68,7 @@ class FormPemasanganPerangkatFragment : Fragment() {
             "jenis_perangkat" to jenisPerangkat,
             "kontak_penanggung_jawab" to kontak,
             "tujuan_pemasangan" to tujuanPemasangan,
+            "status" to "Terkirim",
             "timestamp" to System.currentTimeMillis()
         )
 

@@ -8,10 +8,12 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPengaduanLayananBinding
-import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.firestore.FirebaseFirestore
+import java.io.File
+import java.io.FileOutputStream
 import java.util.UUID
 
 class FormPengaduanLayananFragment : Fragment() {
@@ -20,7 +22,6 @@ class FormPengaduanLayananFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var firestore: FirebaseFirestore
-    private lateinit var storage: FirebaseStorage
     private var imageUri: Uri? = null
 
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -39,10 +40,14 @@ class FormPengaduanLayananFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
-        storage = FirebaseStorage.getInstance()
 
         binding.btnChooseFile.setOnClickListener { pickImageLauncher.launch("image/*") }
         binding.btnSubmit.setOnClickListener { submitForm() }
+
+        val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        toolbar.setNavigationOnClickListener {
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
     }
 
     override fun onResume() {
@@ -67,47 +72,67 @@ class FormPengaduanLayananFragment : Fragment() {
             return
         }
 
-        if (imageUri != null) {
-            uploadImageAndSaveData(layanan, kontak, keluhan)
+        val localImagePath = if (imageUri != null) {
+            saveImageLocally()
         } else {
-            saveDataToFirestore(layanan, kontak, keluhan, null)
+            null
+        }
+
+        saveDataToFirestore(layanan, kontak, keluhan, localImagePath)
+    }
+
+    private fun saveImageLocally(): String? {
+        if (imageUri == null) return null
+
+        try {
+            val filename = "IMG_${UUID.randomUUID()}.jpg"
+            val imagesDir = File(requireContext().filesDir, "images")
+            if (!imagesDir.exists()) {
+                imagesDir.mkdir()
+            }
+
+            val destinationFile = File(imagesDir, filename)
+
+            requireContext().contentResolver.openInputStream(imageUri!!)?.use { inputStream ->
+                FileOutputStream(destinationFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+
+            return destinationFile.absolutePath
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Gagal menyimpan gambar: ${e.message}", Toast.LENGTH_SHORT).show()
+            return null
         }
     }
 
-    private fun uploadImageAndSaveData(layanan: String, kontak: String, keluhan: String) {
-        val fileName = "images/${UUID.randomUUID()}"
-        val storageRef = storage.reference.child(fileName)
-
-        imageUri?.let {
-            storageRef.putFile(it)
-                .addOnSuccessListener {
-                    storageRef.downloadUrl.addOnSuccessListener { uri ->
-                        saveDataToFirestore(layanan, kontak, keluhan, uri.toString())
-                    }
-                }
-                .addOnFailureListener {
-                    Toast.makeText(requireContext(), "Gagal mengupload gambar", Toast.LENGTH_SHORT).show()
-                }
-        }
-    }
-
-    private fun saveDataToFirestore(layanan: String, kontak: String, keluhan: String, imageUrl: String?) {
+    private fun saveDataToFirestore(layanan: String, kontak: String, keluhan: String, localImagePath: String?) {
         val pengaduan = hashMapOf(
             "layanan" to layanan,
             "kontak" to kontak,
             "keluhan" to keluhan,
-            "imageUrl" to imageUrl,
+            "localImagePath" to localImagePath,
+            "status" to "Terkirim",
             "timestamp" to System.currentTimeMillis()
         )
 
-        firestore.collection("pengaduan")
+        firestore.collection("form_pengaduan")
             .add(pengaduan)
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
+                clearForm()
             }
             .addOnFailureListener {
                 Toast.makeText(requireContext(), "Gagal mengirim pengaduan", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    private fun clearForm() {
+        binding.layananLayout.editText?.text?.clear()
+        binding.kontakLayout.editText?.text?.clear()
+        binding.keluhanAndaLayout.editText?.text?.clear()
+        binding.tvFileName.text = ""
+        imageUri = null
     }
 
     override fun onDestroyView() {

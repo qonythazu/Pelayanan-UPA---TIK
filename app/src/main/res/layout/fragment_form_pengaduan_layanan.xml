@@ -71,7 +71,7 @@
                 android:layout_height="wrap_content"
                 android:text=""
                 android:textColor="@color/black"
-                android:inputType="text"/>
+                android:inputType="number"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -91,7 +91,7 @@
                 android:layout_height="wrap_content"
                 android:text=""
                 android:textColor="@color/black"
-                android:inputType="number"/>
+                android:inputType="text"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <TextView

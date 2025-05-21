@@ -357,11 +357,6 @@ class ScanFragment : BottomSheetDialogFragment() {
         }
     }
 
-    override fun onPause() {
-        super.onPause()
-        Log.d(TAG, "Fragment paused")
-    }
-
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "Fragment resumed")
@@ -375,6 +370,11 @@ class ScanFragment : BottomSheetDialogFragment() {
                 Log.e(TAG, "Failed to rebind camera uses cases on resume", e)
             }
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d(TAG, "Fragment paused")
     }
 
     override fun onDestroyView() {

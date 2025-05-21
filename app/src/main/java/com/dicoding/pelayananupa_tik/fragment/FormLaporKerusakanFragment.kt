@@ -39,6 +39,15 @@ class FormLaporKerusakanFragment : Fragment() {
         return inflater.inflate(R.layout.fragment_form_lapor_kerusakan, container, false)
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        toolbar.setNavigationOnClickListener {
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
+    }
+
     companion object {
         /**
          * Use this factory method to create a new instance of

@@ -31,6 +31,11 @@ class HistoryPeminjamanBarangFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        toolbar.setNavigationOnClickListener {
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
+
         tabLayout = view.findViewById(R.id.tab_layout)
         viewPager2 = view.findViewById(R.id.view_pager_2)
 

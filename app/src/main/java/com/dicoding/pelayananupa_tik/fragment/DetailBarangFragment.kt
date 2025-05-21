@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentDetailBarangBinding
 
 class DetailBarangFragment : Fragment() {
@@ -50,6 +51,18 @@ class DetailBarangFragment : Fragment() {
         binding.pemilikBarangEditText.setText(pemilikBarang)
         binding.letakBarangEditText.setText(letakBarang)
         binding.serialNumberEditText.setText(serialNumber)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (activity as? MainActivity)?.hideBottomNavigation()
+        (activity as? MainActivity)?.hideToolbar()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        (activity as? MainActivity)?.showBottomNavigation()
+        (activity as? MainActivity)?.showToolbar()
     }
 
     override fun onDestroyView() {
