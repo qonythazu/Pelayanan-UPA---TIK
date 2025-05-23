@@ -115,4 +115,9 @@ class FormPembuatanWebDllFragment : Fragment() {
         (activity as? MainActivity)?.showBottomNavigation()
         (activity as? MainActivity)?.showToolbar()
     }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
 }

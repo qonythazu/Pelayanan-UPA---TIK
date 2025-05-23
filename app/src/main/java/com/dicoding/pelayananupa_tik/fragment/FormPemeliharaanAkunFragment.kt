@@ -1,46 +1,69 @@
 package com.dicoding.pelayananupa_tik.fragment
 
+import android.content.res.ColorStateList
+import android.net.Uri
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.RadioButton
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
+import com.dicoding.pelayananupa_tik.databinding.FragmentFormPemeliharaanAkunBinding
+import com.google.firebase.firestore.FirebaseFirestore
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [FormPemeliharaanAkunFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class FormPemeliharaanAkunFragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
+    private var _binding: FragmentFormPemeliharaanAkunBinding? = null
+    private val binding get() = _binding!!
+
+    private lateinit var firestore: FirebaseFirestore
+    private var imageUri: Uri? = null
+
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        imageUri = uri
+        if (uri != null) {
+            binding.tvFileName.text = uri.lastPathSegment ?: "File selected"
+
+            binding.btnChooseFile.apply {
+                backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                text = getString(R.string.change_image)
+                strokeWidth = 0
+            }
         }
     }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_form_pemeliharaan_akun, container, false)
+    ): View {
+        _binding = FragmentFormPemeliharaanAkunBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        firestore = FirebaseFirestore.getInstance()
+
+        binding.radioGroupLayanan.setOnCheckedChangeListener { _, _ -> }
+        binding.radioGroupJenis.setOnCheckedChangeListener { _, checkedId ->
+            binding.textInputLayoutOther.visibility = if (checkedId == R.id.radioOther) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
+        }
+
+        binding.btnChooseFile.setOnClickListener { pickImageLauncher.launch("image/*") }
+        binding.btnSubmit.setOnClickListener { submitForm() }
 
         val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         toolbar.setNavigationOnClickListener {
@@ -48,25 +71,110 @@ class FormPemeliharaanAkunFragment : Fragment() {
         }
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment FormPemeliharaanAkunFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            FormPemeliharaanAkunFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
+    private fun submitForm() {
+        val selectedRadioButtonLayanan = binding.radioGroupLayanan.checkedRadioButtonId
+        val selectedRadioButtonJenis = binding.radioGroupJenis.checkedRadioButtonId
+
+        if (selectedRadioButtonLayanan == -1) {
+            Toast.makeText(requireContext(), "Harap pilih layanan yang diajukan", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (selectedRadioButtonJenis == -1) {
+            Toast.makeText(requireContext(), "Harap pilih jenis pemeliharaan yang diajukan", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val layanan = view?.findViewById<RadioButton>(selectedRadioButtonLayanan)?.text?.toString() ?: ""
+        val jenis = if (selectedRadioButtonJenis == R.id.radioOther) {
+            binding.editTextOther.text.toString()
+        } else {
+            val radioButton = view?.findViewById<RadioButton>(selectedRadioButtonJenis)
+            radioButton?.text?.toString() ?: ""
+        }
+
+        val akun = binding.namaAkunLayout.editText?.text.toString()
+        val alasan = binding.alasanLayout.editText?.text.toString()
+
+        if (layanan.isEmpty() || jenis.isEmpty() || akun.isEmpty() || alasan.isEmpty()) {
+            Toast.makeText(requireContext(), "Harap isi semua field", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val localImagePath = if (imageUri != null) {
+            saveImageLocally()
+        } else {
+            null
+        }
+
+        saveDataToFirestore(layanan, jenis, akun, alasan, localImagePath)
+    }
+
+    private fun saveImageLocally(): String? {
+        if (imageUri == null) return null
+
+        try {
+            val filename = "IMG_${UUID.randomUUID()}.jpg"
+            val imagesDir = File(requireContext().filesDir, "images")
+            if (!imagesDir.exists()) {
+                imagesDir.mkdir()
+            }
+
+            val destinationFile = File(imagesDir, filename)
+
+            requireContext().contentResolver.openInputStream(imageUri!!)?.use { inputStream ->
+                FileOutputStream(destinationFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
                 }
             }
+
+            return destinationFile.absolutePath
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Gagal menyimpan gambar: ${e.message}", Toast.LENGTH_SHORT).show()
+            return null
+        }
     }
+
+    private fun saveDataToFirestore(layanan: String, jenis: String, akun: String, alasan: String, localImagePath: String?) {
+        val pengaduan = hashMapOf(
+            "layanan" to layanan,
+            "jenis" to jenis,
+            "akun" to akun,
+            "alasan" to alasan,
+            "localImagePath" to localImagePath,
+            "status" to "Terkirim",
+            "timestamp" to System.currentTimeMillis()
+        )
+
+        firestore.collection("form_pemeliharaan_akun")
+            .add(pengaduan)
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
+                clearForm()
+            }
+            .addOnFailureListener {
+                Toast.makeText(requireContext(), "Gagal mengirim pengaduan", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun clearForm() {
+        binding.radioGroupLayanan.clearCheck()
+        binding.radioGroupJenis.clearCheck()
+        binding.textInputLayoutOther.visibility = View.GONE
+        binding.editTextOther.text?.clear()
+        binding.namaAkunLayout.editText?.text?.clear()
+        binding.alasanLayout.editText?.text?.clear()
+        binding.tvFileName.text = getString(R.string.no_file_selected)
+        binding.btnChooseFile.apply {
+            backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.white))
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+            text = getString(R.string.choose_file)
+            strokeWidth = 2
+            strokeColor = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+        }
+        imageUri = null
+    }
+
     override fun onResume() {
         super.onResume()
         (activity as? MainActivity)?.hideBottomNavigation()
@@ -77,5 +185,10 @@ class FormPemeliharaanAkunFragment : Fragment() {
         super.onPause()
         (activity as? MainActivity)?.showBottomNavigation()
         (activity as? MainActivity)?.showToolbar()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }
