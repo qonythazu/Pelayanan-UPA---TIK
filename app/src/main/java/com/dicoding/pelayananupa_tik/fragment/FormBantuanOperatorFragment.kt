@@ -7,7 +7,6 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.RadioButton
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -53,14 +52,6 @@ class FormBantuanOperatorFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
 
-        binding.radioGroupServices.setOnCheckedChangeListener { _, checkedId ->
-            binding.textInputLayoutOther.visibility = if (checkedId == R.id.radioOther) {
-                View.VISIBLE
-            } else {
-                View.GONE
-            }
-        }
-
         binding.btnChooseFile.setOnClickListener { pickImageLauncher.launch("image/*") }
         binding.btnSubmit.setOnClickListener { submitForm() }
 
@@ -71,20 +62,8 @@ class FormBantuanOperatorFragment : Fragment() {
     }
 
     private fun submitForm() {
-        val selectedRadioButtonId = binding.radioGroupServices.checkedRadioButtonId
 
-        if (selectedRadioButtonId == -1) {
-            Toast.makeText(requireContext(), "Harap pilih jumlah operator", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val jumlah = if (selectedRadioButtonId == R.id.radioOther) {
-            binding.editTextOther.text.toString()
-        } else {
-            val radioButton = view?.findViewById<RadioButton>(selectedRadioButtonId)
-            radioButton?.text?.toString() ?: ""
-        }
-
+        val jumlah = binding.jumlahLayout.editText?.text.toString()
         val kontak = binding.kontakLayout.editText?.text.toString()
         val tujuan = binding.tujuanPeminjamanLayout.editText?.text.toString()
 
@@ -149,9 +128,7 @@ class FormBantuanOperatorFragment : Fragment() {
     }
 
     private fun clearForm() {
-        binding.radioGroupServices.clearCheck()
-        binding.textInputLayoutOther.visibility = View.GONE
-        binding.editTextOther.text?.clear()
+        binding.jumlahLayout.editText?.text?.clear()
         binding.kontakLayout.editText?.text?.clear()
         binding.tujuanPeminjamanLayout.editText?.text?.clear()
         binding.tvFileName.text = getString(R.string.no_file_selected)

@@ -1,60 +1,66 @@
 package com.dicoding.pelayananupa_tik.fragment.layanan
 
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
+import com.dicoding.pelayananupa_tik.adapter.LayananAdapter
+import com.google.firebase.firestore.FirebaseFirestore
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [ServiceHistoryFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class ServiceHistoryFragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
-        }
-    }
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: LayananAdapter
+    private val layananList = mutableListOf<String>()
+    private val firestore = FirebaseFirestore.getInstance()
+    private val collections = listOf(
+        "form_bantuan_operator",
+        "form_pemasangan",
+        "form_pembuatan_web_dll",
+        "form_pemeliharaan_akun",
+        "form_pengaduan"
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_service_history, container, false)
+        val view = inflater.inflate(R.layout.fragment_service_history, container, false)
+        recyclerView = view.findViewById(R.id.recyclerView)
+
+        adapter = LayananAdapter(layananList)
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView.adapter = adapter
+
+        fetchAllLayanan()
+        return view
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment ServiceHistoryFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            ServiceHistoryFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
+    private fun fetchAllLayanan() {
+        layananList.clear()
+
+        var counter = 0
+        for (collection in collections) {
+            firestore.collection(collection).get()
+                .addOnSuccessListener { documents ->
+                    for (doc in documents) {
+                        val layanan = doc.getString("layanan")
+                        layanan?.let { layananList.add(it) }
+                    }
+                    counter++
+                    if (counter == collections.size) {
+                        adapter.notifyItemRangeInserted(0, layananList.size)
+                    }
                 }
-            }
+                .addOnFailureListener { e ->
+                    Log.w("FirestoreError", "Error getting documents from $collection", e)
+                    counter++
+                }
+        }
     }
 }

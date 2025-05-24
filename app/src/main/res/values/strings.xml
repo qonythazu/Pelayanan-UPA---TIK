@@ -108,4 +108,5 @@
     <string name="serial_number">Serial Number</string>
     <string name="change_image">File Selected</string>
     <string name="sebutkan_jenis_pemeliharaan">Sebutkan Jenis Pemeliharaan</string>
+    <string name="box">Box</string>
 </resources>

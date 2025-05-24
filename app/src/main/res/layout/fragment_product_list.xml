@@ -19,7 +19,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:title="@string/peminjaman_barang"
         app:titleTextColor="@color/white"
-        app:navigationIcon="@drawable/ic_arrow_back"/>
+        app:navigationIcon="@drawable/ic_arrow_back" />
 
     <SearchView
         android:id="@+id/search_view"
@@ -33,6 +33,7 @@
         android:background="@drawable/rounded_border_gray"/>
 
     <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_view"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_margin="8dp"
