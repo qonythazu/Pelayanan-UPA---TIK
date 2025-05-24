@@ -18,6 +18,22 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:listitem="@layout/item_row_box" />
 
+    <TextView
+        android:id="@+id/empty_state_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/box_empty_message"
+        android:textSize="16sp"
+        android:textColor="@color/gray_text"
+        android:drawableTop="@drawable/ic_box"
+        android:drawablePadding="16dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        android:padding="32dp" />
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/linearLayout2"
         android:layout_width="match_parent"

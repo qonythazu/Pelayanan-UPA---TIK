@@ -1,45 +1,46 @@
 package com.dicoding.pelayananupa_tik.fragment
 
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
-import android.widget.Button
-import android.widget.CheckBox
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.adapter.BoxAdapter
 import com.dicoding.pelayananupa_tik.backend.model.Barang
 import com.dicoding.pelayananupa_tik.backend.viewmodel.BoxViewModel
+import com.dicoding.pelayananupa_tik.databinding.FragmentBoxBinding
 
-class BoxFragment : Fragment(R.layout.fragment_box) {
+class BoxFragment : Fragment() {
 
-    private lateinit var recyclerView: RecyclerView
+    private var _binding: FragmentBoxBinding? = null
+    private val binding get() = _binding!!
+
     private lateinit var adapter: BoxAdapter
     private lateinit var boxViewModel: BoxViewModel
-    private lateinit var checkboxSelectAll: CheckBox
-    private lateinit var btnPinjam: Button
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentBoxBinding.inflate(inflater, container, false)
+        return binding.root
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Initialize ViewModel - shared with ProductListFragment
         boxViewModel = ViewModelProvider(requireActivity())[BoxViewModel::class.java]
 
-        initViews(view)
         setupRecyclerView()
         setupClickListeners()
         observeData()
-    }
-
-    private fun initViews(view: View) {
-        recyclerView = view.findViewById(R.id.recyclerView)
-        checkboxSelectAll = view.findViewById(R.id.checkbox_select_all)
-        btnPinjam = view.findViewById(R.id.btn_pinjam)
     }
 
     private fun setupRecyclerView() {
@@ -51,13 +52,12 @@ class BoxFragment : Fragment(R.layout.fragment_box) {
             }
         }
 
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        recyclerView.adapter = adapter
+        binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        binding.recyclerView.adapter = adapter
     }
 
     private fun setupClickListeners() {
-        // Checkbox Select All
-        checkboxSelectAll.setOnCheckedChangeListener { _, isChecked ->
+        binding.checkboxSelectAll.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 boxViewModel.selectAll()
                 adapter.selectAll()
@@ -67,19 +67,16 @@ class BoxFragment : Fragment(R.layout.fragment_box) {
             }
         }
 
-        // Button Pinjam
-        btnPinjam.setOnClickListener {
+        binding.btnPinjam.setOnClickListener {
             proceedToPeminjaman()
         }
     }
 
     private fun observeData() {
-        // Observe box items
         boxViewModel.boxItems.observe(viewLifecycleOwner) { items ->
             updateUI(items)
         }
 
-        // Observe selected items
         boxViewModel.selectedItems.observe(viewLifecycleOwner) { selectedItems ->
             updateButtonState(selectedItems)
             updateSelectAllCheckbox(selectedItems)
@@ -96,18 +93,17 @@ class BoxFragment : Fragment(R.layout.fragment_box) {
     }
 
     private fun showEmptyState() {
-        recyclerView.visibility = View.GONE
-        checkboxSelectAll.visibility = View.GONE
-        btnPinjam.visibility = View.GONE
-
-        // You can add empty state view if needed
-        Toast.makeText(requireContext(), "Box kosong. Tambahkan barang dari daftar produk.", Toast.LENGTH_LONG).show()
+        binding.recyclerView.visibility = View.GONE
+        binding.checkboxSelectAll.visibility = View.GONE
+        binding.btnPinjam.visibility = View.GONE
+        binding.emptyStateText.visibility = View.VISIBLE
     }
 
     private fun showBoxContent(items: MutableList<Barang>) {
-        recyclerView.visibility = View.VISIBLE
-        checkboxSelectAll.visibility = View.VISIBLE
-        btnPinjam.visibility = View.VISIBLE
+        binding.recyclerView.visibility = View.VISIBLE
+        binding.checkboxSelectAll.visibility = View.VISIBLE
+        binding.btnPinjam.visibility = View.VISIBLE
+        binding.emptyStateText.visibility = View.GONE
 
         adapter.updateList(items)
     }
@@ -115,11 +111,11 @@ class BoxFragment : Fragment(R.layout.fragment_box) {
     private fun updateButtonState(selectedItems: MutableList<Barang>) {
         val selectedCount = selectedItems.size
         if (selectedCount > 0) {
-            btnPinjam.text = "Pinjam ($selectedCount)"
-            btnPinjam.isEnabled = true
+            binding.btnPinjam.text = getString(R.string.pinjam_with_count, selectedCount)
+            binding.btnPinjam.isEnabled = true
         } else {
-            btnPinjam.text = "Pinjam"
-            btnPinjam.isEnabled = false
+            binding.btnPinjam.text = getString(R.string.pinjam)
+            binding.btnPinjam.isEnabled = false
         }
     }
 
@@ -127,29 +123,28 @@ class BoxFragment : Fragment(R.layout.fragment_box) {
         val totalItems = boxViewModel.getBoxCount()
         val selectedCount = selectedItems.size
 
-        checkboxSelectAll.setOnCheckedChangeListener(null) // Remove listener temporarily
+        binding.checkboxSelectAll.setOnCheckedChangeListener(null) // Remove listener temporarily
 
-        when {
-            selectedCount == 0 -> {
-                checkboxSelectAll.isChecked = false
-                checkboxSelectAll.text = "Pilih Semua"
+        when (selectedCount) {
+            0 -> {
+                binding.checkboxSelectAll.isChecked = false
+                binding.checkboxSelectAll.text = getString(R.string.select_all)
             }
-            selectedCount == totalItems -> {
-                checkboxSelectAll.isChecked = true
-                checkboxSelectAll.text = "Pilih Semua"
+            totalItems -> {
+                binding.checkboxSelectAll.isChecked = true
+                binding.checkboxSelectAll.text = getString(R.string.select_all)
             }
             else -> {
-                checkboxSelectAll.isChecked = false
-                checkboxSelectAll.text = "Pilih Semua ($selectedCount/$totalItems)"
+                binding.checkboxSelectAll.isChecked = false
+                binding.checkboxSelectAll.text = getString(R.string.select_all_with_count, selectedCount, totalItems)
             }
         }
 
-        // Restore listener
         setupSelectAllListener()
     }
 
     private fun setupSelectAllListener() {
-        checkboxSelectAll.setOnCheckedChangeListener { _, isChecked ->
+        binding.checkboxSelectAll.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 boxViewModel.selectAll()
                 adapter.selectAll()
@@ -165,12 +160,15 @@ class BoxFragment : Fragment(R.layout.fragment_box) {
         val selectedCount = selectedItems.size
 
         if (selectedCount > 0) {
-            // Navigate to FormPeminjaman with selected items
-            // You can pass selected items via Safe Args or ViewModel
-            Toast.makeText(requireContext(), "Lanjut ke Form Peminjaman dengan $selectedCount barang", Toast.LENGTH_SHORT).show()
+            val selectedItemNames = selectedItems.joinToString(", ") { it.namaBarang }
+            val bundle = Bundle().apply {
+                putString("selectedItems", selectedItemNames)
+            }
 
-            // Example navigation (uncomment when FormPeminjaman is ready):
-            // findNavController().navigate(R.id.action_boxFragment_to_formPeminjamanFragment)
+            findNavController().navigate(
+                R.id.action_boxFragment_to_formPeminjamanFragment,
+                bundle
+            )
         } else {
             Toast.makeText(requireContext(), "Pilih minimal 1 barang untuk dipinjam", Toast.LENGTH_SHORT).show()
         }
@@ -186,5 +184,10 @@ class BoxFragment : Fragment(R.layout.fragment_box) {
         super.onPause()
         (activity as? MainActivity)?.showBottomNavigation()
         (activity as? MainActivity)?.showToolbar()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

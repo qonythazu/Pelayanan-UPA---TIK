@@ -1,5 +1,7 @@
 package com.dicoding.pelayananupa_tik.adapter
 
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,12 +18,23 @@ class BoxAdapter(
 ) : RecyclerView.Adapter<BoxAdapter.BoxViewHolder>() {
 
     private val selectedItems = mutableListOf<Barang>()
+    private var recyclerView: RecyclerView? = null
 
     inner class BoxViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val checkItem: CheckBox = itemView.findViewById(R.id.check_item)
         val imgProduct: ImageView = itemView.findViewById(R.id.img_product)
         val tvProductName: TextView = itemView.findViewById(R.id.tv_product_name)
         val tvProductCategory: TextView = itemView.findViewById(R.id.tv_product_category)
+    }
+
+    override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
+        super.onAttachedToRecyclerView(recyclerView)
+        this.recyclerView = recyclerView
+    }
+
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView)
+        this.recyclerView = null
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BoxViewHolder {
@@ -34,29 +47,25 @@ class BoxAdapter(
     override fun onBindViewHolder(holder: BoxViewHolder, position: Int) {
         val barang = boxItems[position]
 
-        // Set data
         holder.tvProductName.text = barang.namaBarang
         holder.tvProductCategory.text = barang.jenis
         holder.imgProduct.setImageResource(R.mipmap.ic_launcher)
-
-        // Set checkbox state
         holder.checkItem.isChecked = selectedItems.any { it.namaBarang == barang.namaBarang }
-
-        // Handle checkbox click
         holder.checkItem.setOnCheckedChangeListener(null) // Clear previous listener
         holder.checkItem.setOnCheckedChangeListener { _, isChecked ->
-            onItemChecked(barang, isChecked)
+            recyclerView?.post {
+                onItemChecked(barang, isChecked)
 
-            if (isChecked) {
-                if (!selectedItems.any { it.namaBarang == barang.namaBarang }) {
-                    selectedItems.add(barang)
+                if (isChecked) {
+                    if (!selectedItems.any { it.namaBarang == barang.namaBarang }) {
+                        selectedItems.add(barang)
+                    }
+                } else {
+                    selectedItems.removeAll { it.namaBarang == barang.namaBarang }
                 }
-            } else {
-                selectedItems.removeAll { it.namaBarang == barang.namaBarang }
             }
         }
 
-        // Handle item click to toggle checkbox
         holder.itemView.setOnClickListener {
             holder.checkItem.isChecked = !holder.checkItem.isChecked
         }
@@ -64,23 +73,35 @@ class BoxAdapter(
 
     fun updateList(newList: MutableList<Barang>) {
         boxItems = newList
-        notifyDataSetChanged()
+        safeNotifyDataSetChanged()
     }
 
     fun updateSelectedItems(newSelectedItems: List<Barang>) {
         selectedItems.clear()
         selectedItems.addAll(newSelectedItems)
-        notifyDataSetChanged()
+        safeNotifyDataSetChanged()
     }
 
     fun selectAll() {
         selectedItems.clear()
         selectedItems.addAll(boxItems)
-        notifyDataSetChanged()
+        safeNotifyDataSetChanged()
     }
 
     fun unselectAll() {
         selectedItems.clear()
-        notifyDataSetChanged()
+        safeNotifyDataSetChanged()
+    }
+
+    // Helper method untuk menghindari crash saat RecyclerView sedang layout/scroll
+    private fun safeNotifyDataSetChanged() {
+        val rv = recyclerView
+        if (rv != null && !rv.isComputingLayout) {
+            notifyDataSetChanged()
+        } else {
+            Handler(Looper.getMainLooper()).post {
+                notifyDataSetChanged()
+            }
+        }
     }
 }

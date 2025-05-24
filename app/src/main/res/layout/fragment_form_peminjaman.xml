@@ -11,17 +11,28 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/white"
+            android:elevation="4dp"
+            android:theme="@style/ThemeOverlay.AppCompat.ActionBar"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:navigationIcon="@drawable/ic_arrow_back" />
+
         <TextView
             android:id="@+id/textView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="20dp"
-            android:layout_marginTop="40dp"
             android:text="@string/peminjaman_barang"
             android:textSize="20sp"
             android:textStyle="bold"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toBottomOf="@id/toolbar" />
 
 
         <com.google.android.material.textfield.TextInputLayout
@@ -37,10 +48,10 @@
             android:layout_marginTop="16dp">
 
             <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/namaPerangkatEditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textPersonName"
-                android:text="@string/router_mikrotik_hap_lite"
                 android:textColor="@color/black" />
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -81,7 +92,7 @@
                 android:layout_height="wrap_content"
                 android:text=""
                 android:textColor="@color/black"
-                android:inputType="number"/>
+                android:inputType="text"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -121,7 +132,7 @@
                 android:layout_height="wrap_content"
                 android:text=""
                 android:textColor="@color/black"
-                android:inputType="phone"/>
+                android:inputType="number"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <TextView

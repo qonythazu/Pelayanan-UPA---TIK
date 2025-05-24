@@ -109,4 +109,28 @@
     <string name="change_image">File Selected</string>
     <string name="sebutkan_jenis_pemeliharaan">Sebutkan Jenis Pemeliharaan</string>
     <string name="box">Box</string>
+    <!-- Form Peminjaman -->
+    <string name="submit_button">Submit</string>
+    <string name="submitting">Mengirim...</string>
+    <string name="peminjaman_success">Peminjaman berhasil diajukan!</string>
+    <string name="update_status_failed">Gagal mengupdate status barang</string>
+    <string name="peminjaman_failed">Gagal mengirim peminjaman: %1$s</string>
+
+    <!-- File Selection -->
+    <string name="file_selected">File dipilih: %1$s</string>
+    <string name="change_file">Ganti File</string>
+
+    <!-- ProductList -->
+    <string name="toolbar_title_with_box">Daftar Barang (Box: %1$d)</string>
+    <string name="toolbar_title">Daftar Barang</string>
+    <string name="item_already_in_box">%1$s sudah ada di box</string>
+    <string name="item_added_to_box">%1$s ditambahkan ke box</string>
+    <string name="failed_fetch_data">Gagal mengambil data</string>
+
+    <!-- Box Fragment -->
+    <string name="box_empty_message">Belum ada barang ditambahkan</string>
+    <string name="pinjam_with_count">Pinjam (%1$d)</string>
+    <string name="select_all">Pilih Semua</string>
+    <string name="select_all_with_count">Pilih Semua (%1$d/%2$d)</string>
+    <string name="_0">0</string>
 </resources>

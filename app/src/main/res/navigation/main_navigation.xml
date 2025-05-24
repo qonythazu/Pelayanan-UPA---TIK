@@ -74,7 +74,12 @@
         android:id="@+id/formPeminjamanFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.FormPeminjamanFragment"
         android:label="fragment_form_peminjaman"
-        tools:layout="@layout/fragment_form_peminjaman" />
+        tools:layout="@layout/fragment_form_peminjaman" >
+        <argument
+            android:name="selectedItems"
+            app:argType="string"
+            app:nullable="true" />
+    </fragment>
     <fragment
         android:id="@+id/formBantuanOperatorFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.FormBantuanOperatorFragment"

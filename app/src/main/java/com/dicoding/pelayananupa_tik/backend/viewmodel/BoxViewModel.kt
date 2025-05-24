@@ -9,7 +9,7 @@ class BoxViewModel : ViewModel() {
     private val _boxItems = MutableLiveData<MutableList<Barang>>(mutableListOf())
     val boxItems: LiveData<MutableList<Barang>> = _boxItems
 
-    private val _boxCount = MutableLiveData<Int>(0)
+    private val _boxCount = MutableLiveData(0)
     val boxCount: LiveData<Int> = _boxCount
 
     // For checkbox selections
@@ -18,8 +18,6 @@ class BoxViewModel : ViewModel() {
 
     fun addToBox(barang: Barang) {
         val currentList = _boxItems.value ?: mutableListOf()
-
-        // Cek apakah barang sudah ada di box
         val existingItem = currentList.find { it.namaBarang == barang.namaBarang }
         if (existingItem == null) {
             currentList.add(barang)
@@ -76,4 +74,8 @@ class BoxViewModel : ViewModel() {
     fun getSelectedCount(): Int = _selectedItems.value?.size ?: 0
 
     fun getSelectedItems(): List<Barang> = _selectedItems.value ?: emptyList()
+
+    fun clearAllItems() {
+        _selectedItems.value = mutableListOf()
+    }
 }
