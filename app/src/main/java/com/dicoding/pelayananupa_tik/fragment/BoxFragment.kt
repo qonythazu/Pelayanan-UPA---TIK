@@ -1,60 +1,190 @@
 package com.dicoding.pelayananupa_tik.fragment
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
+import android.widget.Button
+import android.widget.CheckBox
+import android.widget.Toast
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
+import com.dicoding.pelayananupa_tik.activity.MainActivity
+import com.dicoding.pelayananupa_tik.adapter.BoxAdapter
+import com.dicoding.pelayananupa_tik.backend.model.Barang
+import com.dicoding.pelayananupa_tik.backend.viewmodel.BoxViewModel
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
+class BoxFragment : Fragment(R.layout.fragment_box) {
 
-/**
- * A simple [Fragment] subclass.
- * Use the [BoxFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
-class BoxFragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: BoxAdapter
+    private lateinit var boxViewModel: BoxViewModel
+    private lateinit var checkboxSelectAll: CheckBox
+    private lateinit var btnPinjam: Button
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // Initialize ViewModel - shared with ProductListFragment
+        boxViewModel = ViewModelProvider(requireActivity())[BoxViewModel::class.java]
+
+        initViews(view)
+        setupRecyclerView()
+        setupClickListeners()
+        observeData()
+    }
+
+    private fun initViews(view: View) {
+        recyclerView = view.findViewById(R.id.recyclerView)
+        checkboxSelectAll = view.findViewById(R.id.checkbox_select_all)
+        btnPinjam = view.findViewById(R.id.btn_pinjam)
+    }
+
+    private fun setupRecyclerView() {
+        adapter = BoxAdapter(mutableListOf()) { barang, isChecked ->
+            if (isChecked) {
+                boxViewModel.selectItem(barang)
+            } else {
+                boxViewModel.unselectItem(barang)
+            }
+        }
+
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView.adapter = adapter
+    }
+
+    private fun setupClickListeners() {
+        // Checkbox Select All
+        checkboxSelectAll.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                boxViewModel.selectAll()
+                adapter.selectAll()
+            } else {
+                boxViewModel.unselectAll()
+                adapter.unselectAll()
+            }
+        }
+
+        // Button Pinjam
+        btnPinjam.setOnClickListener {
+            proceedToPeminjaman()
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_box, container, false)
+    private fun observeData() {
+        // Observe box items
+        boxViewModel.boxItems.observe(viewLifecycleOwner) { items ->
+            updateUI(items)
+        }
+
+        // Observe selected items
+        boxViewModel.selectedItems.observe(viewLifecycleOwner) { selectedItems ->
+            updateButtonState(selectedItems)
+            updateSelectAllCheckbox(selectedItems)
+            adapter.updateSelectedItems(selectedItems)
+        }
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment BoxFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            BoxFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
-                }
+    private fun updateUI(items: MutableList<Barang>) {
+        if (items.isEmpty()) {
+            showEmptyState()
+        } else {
+            showBoxContent(items)
+        }
+    }
+
+    private fun showEmptyState() {
+        recyclerView.visibility = View.GONE
+        checkboxSelectAll.visibility = View.GONE
+        btnPinjam.visibility = View.GONE
+
+        // You can add empty state view if needed
+        Toast.makeText(requireContext(), "Box kosong. Tambahkan barang dari daftar produk.", Toast.LENGTH_LONG).show()
+    }
+
+    private fun showBoxContent(items: MutableList<Barang>) {
+        recyclerView.visibility = View.VISIBLE
+        checkboxSelectAll.visibility = View.VISIBLE
+        btnPinjam.visibility = View.VISIBLE
+
+        adapter.updateList(items)
+    }
+
+    private fun updateButtonState(selectedItems: MutableList<Barang>) {
+        val selectedCount = selectedItems.size
+        if (selectedCount > 0) {
+            btnPinjam.text = "Pinjam ($selectedCount)"
+            btnPinjam.isEnabled = true
+        } else {
+            btnPinjam.text = "Pinjam"
+            btnPinjam.isEnabled = false
+        }
+    }
+
+    private fun updateSelectAllCheckbox(selectedItems: MutableList<Barang>) {
+        val totalItems = boxViewModel.getBoxCount()
+        val selectedCount = selectedItems.size
+
+        checkboxSelectAll.setOnCheckedChangeListener(null) // Remove listener temporarily
+
+        when {
+            selectedCount == 0 -> {
+                checkboxSelectAll.isChecked = false
+                checkboxSelectAll.text = "Pilih Semua"
             }
+            selectedCount == totalItems -> {
+                checkboxSelectAll.isChecked = true
+                checkboxSelectAll.text = "Pilih Semua"
+            }
+            else -> {
+                checkboxSelectAll.isChecked = false
+                checkboxSelectAll.text = "Pilih Semua ($selectedCount/$totalItems)"
+            }
+        }
+
+        // Restore listener
+        setupSelectAllListener()
+    }
+
+    private fun setupSelectAllListener() {
+        checkboxSelectAll.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                boxViewModel.selectAll()
+                adapter.selectAll()
+            } else {
+                boxViewModel.unselectAll()
+                adapter.unselectAll()
+            }
+        }
+    }
+
+    private fun proceedToPeminjaman() {
+        val selectedItems = boxViewModel.getSelectedItems()
+        val selectedCount = selectedItems.size
+
+        if (selectedCount > 0) {
+            // Navigate to FormPeminjaman with selected items
+            // You can pass selected items via Safe Args or ViewModel
+            Toast.makeText(requireContext(), "Lanjut ke Form Peminjaman dengan $selectedCount barang", Toast.LENGTH_SHORT).show()
+
+            // Example navigation (uncomment when FormPeminjaman is ready):
+            // findNavController().navigate(R.id.action_boxFragment_to_formPeminjamanFragment)
+        } else {
+            Toast.makeText(requireContext(), "Pilih minimal 1 barang untuk dipinjam", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (activity as? MainActivity)?.hideBottomNavigation()
+        (activity as? MainActivity)?.hideToolbar()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        (activity as? MainActivity)?.showBottomNavigation()
+        (activity as? MainActivity)?.showToolbar()
     }
 }
