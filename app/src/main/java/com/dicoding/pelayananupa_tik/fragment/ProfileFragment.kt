@@ -1,60 +1,168 @@
 package com.dicoding.pelayananupa_tik.fragment
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.dicoding.pelayananupa_tik.R
+import android.widget.Toast
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.dicoding.pelayananupa_tik.databinding.FragmentProfileBinding
+import com.dicoding.pelayananupa_tik.utils.UserManager
+import com.dicoding.pelayananupa_tik.utils.UserData
+import kotlinx.coroutines.launch
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [ProfileFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class ProfileFragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
-        }
-    }
+    private var _binding: FragmentProfileBinding? = null
+    private val binding get() = _binding!!
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_profile, container, false)
+    ): View {
+        _binding = FragmentProfileBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        setupUI()
+        loadUserProfile()
+    }
+
+    private fun setupUI() {
+        // Set all fields as non-editable initially
+        setFieldsEditable(false)
+    }
+
+    private fun loadUserProfile() {
+        if (!UserManager.isUserLoggedIn()) {
+            showError("User belum login")
+            return
+        }
+
+        showLoading(true)
+
+        lifecycleScope.launch {
+            UserManager.getCurrentUserData { userData ->
+                activity?.runOnUiThread {
+                    showLoading(false)
+
+                    if (userData != null) {
+                        populateFields(userData)
+                        Log.d(TAG, "Profile loaded for user: ${userData.email}")
+                    } else {
+                        showError("Gagal memuat data profil")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun populateFields(userData: UserData) {
+        with(binding) {
+            // Populate all fields with user data
+            namaLengkapLayout.editText?.setText(
+                userData.namaLengkap.ifEmpty { "Tidak tersedia" }
+            )
+
+            pekerjaanLayout.editText?.setText(
+                userData.pekerjaan.ifEmpty { "Tidak tersedia" }
+            )
+
+            nimLayout.editText?.setText(
+                userData.nim.ifEmpty { "Tidak tersedia" }
+            )
+
+            programStudiLayout.editText?.setText(
+                userData.programStudi.ifEmpty { "Tidak tersedia" }
+            )
+
+            nomorTeleponLayout.editText?.setText(
+                userData.nomorTelepon.ifEmpty { "Tidak tersedia" }
+            )
+        }
+
+        // Show different UI based on user type
+        if (UserManager.isCurrentUserPredefined()) {
+            showPredefinedUserUI()
+        } else {
+            showGenericUserUI(userData.email)
+        }
+    }
+
+    private fun showPredefinedUserUI() {
+        // For predefined users (ITK students), show complete profile
+        // All fields are already populated with actual data
+        Log.d(TAG, "Showing predefined user UI")
+
+        // You can add special UI elements here if needed
+        // For example, show a badge or special indicator
+    }
+
+    private fun showGenericUserUI(email: String) {
+        // For generic users, show limited profile
+        Log.d(TAG, "Showing generic user UI for: $email")
+
+        // You could show the email somewhere if needed
+        // Or add a message indicating limited profile
+        Toast.makeText(
+            requireContext(),
+            "Profil terbatas untuk akun: $email",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun setFieldsEditable(editable: Boolean) {
+        with(binding) {
+            namaLengkapLayout.editText?.isEnabled = editable
+            pekerjaanLayout.editText?.isEnabled = editable
+            nimLayout.editText?.isEnabled = editable
+            programStudiLayout.editText?.isEnabled = editable
+            nomorTeleponLayout.editText?.isEnabled = editable
+
+            namaLengkapLayout.editText?.isFocusable = editable
+            pekerjaanLayout.editText?.isFocusable = editable
+            nimLayout.editText?.isFocusable = editable
+            programStudiLayout.editText?.isFocusable = editable
+            nomorTeleponLayout.editText?.isFocusable = editable
+        }
+    }
+
+    private fun showLoading(show: Boolean) {
+        // You can implement loading indicator here
+        // For example, show/hide a progress bar or disable fields
+        with(binding) {
+            namaLengkapLayout.isEnabled = !show
+            pekerjaanLayout.isEnabled = !show
+            nimLayout.isEnabled = !show
+            programStudiLayout.isEnabled = !show
+            nomorTeleponLayout.isEnabled = !show
+        }
+    }
+
+    private fun showError(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+        Log.e(TAG, "Profile error: $message")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh profile data when fragment resumes
+        if (UserManager.isUserLoggedIn()) {
+            loadUserProfile()
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 
     companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment ProfileFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            ProfileFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
-                }
-            }
+        private const val TAG = "ProfileFragment"
     }
 }

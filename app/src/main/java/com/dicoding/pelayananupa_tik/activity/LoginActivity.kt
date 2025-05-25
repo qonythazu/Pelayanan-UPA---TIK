@@ -1,16 +1,18 @@
 package com.dicoding.pelayananupa_tik.activity
 
-import android.content.ContentValues.TAG
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.lifecycle.lifecycleScope
 import com.dicoding.pelayananupa_tik.R
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.android.gms.auth.api.identity.BeginSignInRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.SignInClient
@@ -20,6 +22,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var oneTapClient: SignInClient
@@ -57,7 +60,9 @@ class LoginActivity : AppCompatActivity() {
                             if (task.isSuccessful) {
                                 Log.d(TAG, "signInWithCredential:success")
                                 val user = auth.currentUser
-                                updateUI(user)
+
+                                // Initialize user data after successful login
+                                initializeUserAfterLogin(user)
                             } else {
                                 Log.w(TAG, "signInWithCredential:failure", task.exception)
                                 updateUI(null)
@@ -74,6 +79,52 @@ class LoginActivity : AppCompatActivity() {
         val btnLogin = findViewById<Button>(R.id.btn_login)
         btnLogin.setOnClickListener {
             signInWithGoogle()
+        }
+    }
+
+    private fun initializeUserAfterLogin(user: FirebaseUser?) {
+        if (user == null) {
+            updateUI(null)
+            return
+        }
+
+        Log.d(TAG, "Initializing user data for: ${user.email}")
+
+        lifecycleScope.launch {
+            UserManager.initializeUserData { success, userData ->
+                runOnUiThread {
+                    if (success && userData != null) {
+                        Log.d(TAG, "User data initialized successfully for: ${userData.email}")
+
+                        if (UserManager.isCurrentUserPredefined()) {
+                            Toast.makeText(
+                                this@LoginActivity,
+                                "Selamat datang, ${userData.namaLengkap}!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            Toast.makeText(
+                                this@LoginActivity,
+                                "Selamat datang, ${userData.email}!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+
+                        updateUI(user)
+                    } else {
+                        Log.e(TAG, "Failed to initialize user data")
+                        Toast.makeText(
+                            this@LoginActivity,
+                            "Gagal menginisialisasi data pengguna",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        // Sign out if initialization failed
+                        auth.signOut()
+                        updateUI(null)
+                    }
+                }
+            }
         }
     }
 
@@ -96,7 +147,26 @@ class LoginActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         val currentUser = auth.currentUser
-        updateUI(currentUser)
+
+        // Check if user is already logged in and has been initialized
+        if (currentUser != null && UserManager.isUserLoggedIn()) {
+            // User is already logged in, check if data exists
+            lifecycleScope.launch {
+                UserManager.getCurrentUserData { userData ->
+                    runOnUiThread {
+                        if (userData != null) {
+                            // User data exists, go to main activity
+                            updateUI(currentUser)
+                        } else {
+                            // User logged in but no data, initialize
+                            initializeUserAfterLogin(currentUser)
+                        }
+                    }
+                }
+            }
+        } else {
+            updateUI(null)
+        }
     }
 
     private fun updateUI(user: FirebaseUser?) {
@@ -106,5 +176,9 @@ class LoginActivity : AppCompatActivity() {
         } else {
             Log.d(TAG, "User is not signed in")
         }
+    }
+
+    companion object {
+        private const val TAG = "LoginActivity"
     }
 }
