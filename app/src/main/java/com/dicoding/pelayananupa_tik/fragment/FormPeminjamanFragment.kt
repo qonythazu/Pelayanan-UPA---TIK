@@ -18,6 +18,7 @@ import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.viewmodel.BoxViewModel
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPeminjamanBinding
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -205,7 +206,10 @@ class FormPeminjamanFragment : Fragment() {
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         val formattedDate = dateFormat.format(Date(currentTime))
 
+        val userEmail = UserManager.getCurrentUserEmail()
         val peminjamanData = hashMapOf(
+            "userEmail" to userEmail,
+            "judul" to "Form Peminjaman",
             "namaPerangkat" to namaPerangkat,
             "tujuanPeminjaman" to tujuanPeminjaman,
             "harapanAnda" to harapanAnda,

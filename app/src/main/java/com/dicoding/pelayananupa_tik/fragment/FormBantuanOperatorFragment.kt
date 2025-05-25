@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormBantuanOperatorBinding
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 import java.io.FileOutputStream
@@ -107,7 +108,10 @@ class FormBantuanOperatorFragment : Fragment() {
     }
 
     private fun saveDataToFirestore(jumlah: String, kontak: String, tujuan: String, localImagePath: String?) {
-        val pengaduan = hashMapOf(
+        val userEmail = UserManager.getCurrentUserEmail()
+        val bantuanOperator = hashMapOf(
+            "userEmail" to userEmail,
+            "judul" to "Bantuan Operator",
             "jumlah" to jumlah,
             "kontak" to kontak,
             "tujuan" to tujuan,
@@ -117,7 +121,7 @@ class FormBantuanOperatorFragment : Fragment() {
         )
 
         firestore.collection("form_bantuan_operator")
-            .add(pengaduan)
+            .add(bantuanOperator)
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
                 clearForm()

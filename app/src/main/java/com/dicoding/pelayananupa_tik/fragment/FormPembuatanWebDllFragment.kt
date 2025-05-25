@@ -10,6 +10,7 @@ import android.widget.Toast
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPembuatanWebDllBinding
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 
 class FormPembuatanWebDllFragment : Fragment() {
@@ -75,7 +76,10 @@ class FormPembuatanWebDllFragment : Fragment() {
     }
 
     private fun saveDataToFirestore(layanan: String, namaLayanan: String, kontak: String, tujuan: String) {
-        val pengaduan = hashMapOf(
+        val userEmail = UserManager.getCurrentUserEmail()
+        val pembuatanWebDll = hashMapOf(
+            "userEmail" to userEmail,
+            "judul" to "Form Pembuatan Web/DLL",
             "layanan" to layanan,
             "namaLayanan" to namaLayanan,
             "kontak" to kontak,
@@ -85,7 +89,7 @@ class FormPembuatanWebDllFragment : Fragment() {
         )
 
         firestore.collection("form_pembuatan_web_dll")
-            .add(pengaduan)
+            .add(pembuatanWebDll)
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
                 clearForm()

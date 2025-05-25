@@ -17,6 +17,7 @@ import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormLaporKerusakanBinding
 import com.dicoding.pelayananupa_tik.utils.ProgressDialogFragment
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 import java.io.FileOutputStream
@@ -181,19 +182,21 @@ class FormLaporKerusakanFragment : Fragment() {
         val currentTime = System.currentTimeMillis()
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         val formattedDate = dateFormat.format(Date(currentTime))
-
+        val userEmail = UserManager.getCurrentUserEmail()
         val laporanData = hashMapOf(
+            "userEmail" to userEmail,
+            "judul" to "Laporan Kerusakan",
             "nama_perangkat" to namaPerangkat,
             "serial_number" to serialNumber,
             "kontak_penanggung_jawab" to kontak,
             "keterangan_kerusakan" to keterangan,
             "tanggal_laporan" to formattedDate,
             "timestamp" to com.google.firebase.Timestamp.now(),
-            "status" to "Pending",
+            "status" to "Terkirim",
             "local_image_path" to localImagePath
         )
 
-        firestore.collection("laporan_kerusakan")
+        firestore.collection("form_lapor_kerusakan")
             .add(laporanData)
             .addOnSuccessListener { documentReference ->
                 hideLoading()

@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPemeliharaanAkunBinding
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 import java.io.FileOutputStream
@@ -136,7 +137,10 @@ class FormPemeliharaanAkunFragment : Fragment() {
     }
 
     private fun saveDataToFirestore(layanan: String, jenis: String, akun: String, alasan: String, localImagePath: String?) {
-        val pengaduan = hashMapOf(
+        val userEmail = UserManager.getCurrentUserEmail()
+        val pemeliharaan = hashMapOf(
+            "userEmail" to userEmail,
+            "judul" to "Form Pemeliharaan Akun",
             "layanan" to layanan,
             "jenis" to jenis,
             "akun" to akun,
@@ -147,7 +151,7 @@ class FormPemeliharaanAkunFragment : Fragment() {
         )
 
         firestore.collection("form_pemeliharaan_akun")
-            .add(pengaduan)
+            .add(pemeliharaan)
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
                 clearForm()

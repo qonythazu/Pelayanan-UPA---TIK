@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPengaduanLayananBinding
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 import java.io.FileOutputStream
@@ -106,7 +107,10 @@ class FormPengaduanLayananFragment : Fragment() {
     }
 
     private fun saveDataToFirestore(layanan: String, kontak: String, keluhan: String, localImagePath: String?) {
+        val userEmail = UserManager.getCurrentUserEmail()
         val pengaduan = hashMapOf(
+            "userEmail" to userEmail,
+            "judul" to "Form Pengaduan Layanan",
             "layanan" to layanan,
             "kontak" to kontak,
             "keluhan" to keluhan,

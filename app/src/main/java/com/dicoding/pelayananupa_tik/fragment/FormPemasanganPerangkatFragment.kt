@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputLayout
@@ -64,7 +65,10 @@ class FormPemasanganPerangkatFragment : Fragment() {
             return
         }
 
+        val userEmail = UserManager.getCurrentUserEmail()
         val formData = hashMapOf(
+            "userEmail" to userEmail,
+            "judul" to "Form Pemasangan Perangkat",
             "jenis_perangkat" to jenisPerangkat,
             "kontak_penanggung_jawab" to kontak,
             "tujuan_pemasangan" to tujuanPemasangan,

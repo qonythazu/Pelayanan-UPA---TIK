@@ -10,20 +10,23 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.adapter.LayananAdapter
+import com.dicoding.pelayananupa_tik.backend.model.LayananItem
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 
 class ServiceHistoryFragment : Fragment() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: LayananAdapter
-    private val layananList = mutableListOf<String>()
+    private val layananList = mutableListOf<LayananItem>()
     private val firestore = FirebaseFirestore.getInstance()
     private val collections = listOf(
         "form_bantuan_operator",
         "form_pemasangan",
         "form_pembuatan_web_dll",
         "form_pemeliharaan_akun",
-        "form_pengaduan"
+        "form_pengaduan",
+        "form_lapor_kerusakan"
     )
 
     override fun onCreateView(
@@ -44,22 +47,37 @@ class ServiceHistoryFragment : Fragment() {
     private fun fetchAllLayanan() {
         layananList.clear()
 
+        val userEmail = UserManager.getCurrentUserEmail()
+
+        if (userEmail.isNullOrEmpty()) {
+            Log.w("ServiceHistory", "User email is null or empty")
+            return
+        }
+
         var counter = 0
         for (collection in collections) {
-            firestore.collection(collection).get()
+            firestore.collection(collection)
+                .whereEqualTo("userEmail", userEmail)
+                .get()
                 .addOnSuccessListener { documents ->
                     for (doc in documents) {
-                        val layanan = doc.getString("layanan")
-                        layanan?.let { layananList.add(it) }
+                        val judul = doc.getString("judul") ?: "Tidak ada judul"
+                        val status = doc.getString("status") ?: "Tidak ada status"
+
+                        // Tambahkan sebagai satu item LayananItem
+                        layananList.add(LayananItem(judul, status))
                     }
                     counter++
                     if (counter == collections.size) {
-                        adapter.notifyItemRangeInserted(0, layananList.size)
+                        adapter.notifyDataSetChanged()
                     }
                 }
                 .addOnFailureListener { e ->
                     Log.w("FirestoreError", "Error getting documents from $collection", e)
                     counter++
+                    if (counter == collections.size) {
+                        adapter.notifyDataSetChanged()
+                    }
                 }
         }
     }
