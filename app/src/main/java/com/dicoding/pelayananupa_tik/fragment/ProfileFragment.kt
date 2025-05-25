@@ -34,8 +34,7 @@ class ProfileFragment : Fragment() {
     }
 
     private fun setupUI() {
-        // Set all fields as non-editable initially
-        setFieldsEditable(false)
+        setFieldsReadOnly()
     }
 
     private fun loadUserProfile() {
@@ -64,7 +63,6 @@ class ProfileFragment : Fragment() {
 
     private fun populateFields(userData: UserData) {
         with(binding) {
-            // Populate all fields with user data
             namaLengkapLayout.editText?.setText(
                 userData.namaLengkap.ifEmpty { "Tidak tersedia" }
             )
@@ -86,7 +84,6 @@ class ProfileFragment : Fragment() {
             )
         }
 
-        // Show different UI based on user type
         if (UserManager.isCurrentUserPredefined()) {
             showPredefinedUserUI()
         } else {
@@ -95,20 +92,12 @@ class ProfileFragment : Fragment() {
     }
 
     private fun showPredefinedUserUI() {
-        // For predefined users (ITK students), show complete profile
-        // All fields are already populated with actual data
         Log.d(TAG, "Showing predefined user UI")
-
-        // You can add special UI elements here if needed
-        // For example, show a badge or special indicator
     }
 
     private fun showGenericUserUI(email: String) {
-        // For generic users, show limited profile
         Log.d(TAG, "Showing generic user UI for: $email")
 
-        // You could show the email somewhere if needed
-        // Or add a message indicating limited profile
         Toast.makeText(
             requireContext(),
             "Profil terbatas untuk akun: $email",
@@ -116,31 +105,39 @@ class ProfileFragment : Fragment() {
         ).show()
     }
 
-    private fun setFieldsEditable(editable: Boolean) {
+    private fun setFieldsReadOnly() {
         with(binding) {
-            namaLengkapLayout.editText?.isEnabled = editable
-            pekerjaanLayout.editText?.isEnabled = editable
-            nimLayout.editText?.isEnabled = editable
-            programStudiLayout.editText?.isEnabled = editable
-            nomorTeleponLayout.editText?.isEnabled = editable
-
-            namaLengkapLayout.editText?.isFocusable = editable
-            pekerjaanLayout.editText?.isFocusable = editable
-            nimLayout.editText?.isFocusable = editable
-            programStudiLayout.editText?.isFocusable = editable
-            nomorTeleponLayout.editText?.isFocusable = editable
+            namaLengkapLayout.editText?.apply {
+                isEnabled = false
+                isFocusable = false
+            }
+            pekerjaanLayout.editText?.apply {
+                isEnabled = false
+                isFocusable = false
+            }
+            nimLayout.editText?.apply {
+                isEnabled = false
+                isFocusable = false
+            }
+            programStudiLayout.editText?.apply {
+                isEnabled = false
+                isFocusable = false
+            }
+            nomorTeleponLayout.editText?.apply {
+                isEnabled = false
+                isFocusable = false
+            }
         }
     }
 
     private fun showLoading(show: Boolean) {
-        // You can implement loading indicator here
-        // For example, show/hide a progress bar or disable fields
         with(binding) {
-            namaLengkapLayout.isEnabled = !show
-            pekerjaanLayout.isEnabled = !show
-            nimLayout.isEnabled = !show
-            programStudiLayout.isEnabled = !show
-            nomorTeleponLayout.isEnabled = !show
+            val alpha = if (show) 0.5f else 1.0f
+            namaLengkapLayout.alpha = alpha
+            pekerjaanLayout.alpha = alpha
+            nimLayout.alpha = alpha
+            programStudiLayout.alpha = alpha
+            nomorTeleponLayout.alpha = alpha
         }
     }
 
@@ -151,7 +148,6 @@ class ProfileFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh profile data when fragment resumes
         if (UserManager.isUserLoggedIn()) {
             loadUserProfile()
         }

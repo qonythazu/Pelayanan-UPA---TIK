@@ -18,10 +18,9 @@ object UserManager {
     private const val TAG = "UserManager"
     private const val USERS_COLLECTION = "users"
 
-    private val auth = FirebaseAuth.getInstance()
-    private val firestore = FirebaseFirestore.getInstance()
+    private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
+    private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 
-    // Predefined user data for ITK students
     private val predefinedUsers = mapOf(
         "11201076@student.itk.ac.id" to UserData(
             email = "11201076@student.itk.ac.id",
@@ -41,24 +40,14 @@ object UserManager {
         )
     )
 
-    /**
-     * Get current logged in user email
-     */
     fun getCurrentUserEmail(): String? {
         return auth.currentUser?.email
     }
 
-    /**
-     * Check if user is logged in
-     */
     fun isUserLoggedIn(): Boolean {
         return auth.currentUser != null
     }
 
-    /**
-     * Initialize user data when they first login
-     * This should be called after successful Google Sign In
-     */
     suspend fun initializeUserData(callback: (Boolean, UserData?) -> Unit) {
         val currentEmail = getCurrentUserEmail()
 
@@ -69,19 +58,16 @@ object UserManager {
         }
 
         try {
-            // Check if user already exists in Firestore
             val userDoc = firestore.collection(USERS_COLLECTION)
                 .document(currentEmail)
                 .get()
                 .await()
 
             if (userDoc.exists()) {
-                // User already exists, get their data
                 val userData = userDoc.toObject(UserData::class.java)
                 Log.d(TAG, "User data loaded for: $currentEmail")
                 callback(true, userData)
             } else {
-                // User doesn't exist, create new user data
                 val newUserData = createNewUserData(currentEmail)
 
                 firestore.collection(USERS_COLLECTION)
@@ -98,9 +84,6 @@ object UserManager {
         }
     }
 
-    /**
-     * Get user data for current logged in user
-     */
     suspend fun getCurrentUserData(callback: (UserData?) -> Unit) {
         val currentEmail = getCurrentUserEmail()
 
@@ -109,6 +92,8 @@ object UserManager {
             callback(null)
             return
         }
+
+        Log.d(TAG, "Getting user data for: $currentEmail")
 
         try {
             val userDoc = firestore.collection(USERS_COLLECTION)
@@ -121,18 +106,17 @@ object UserManager {
                 Log.d(TAG, "User data retrieved for: $currentEmail")
                 callback(userData)
             } else {
-                Log.w(TAG, "User data not found for: $currentEmail")
-                callback(null)
+                Log.w(TAG, "User data not found for: $currentEmail, initializing...")
+                initializeUserData { success, userData ->
+                    callback(if (success) userData else null)
+                }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting user data", e)
+            Log.e(TAG, "Error getting user data for: $currentEmail", e)
             callback(null)
         }
     }
 
-    /**
-     * Update user data (if needed in the future)
-     */
     suspend fun updateUserData(userData: UserData, callback: (Boolean) -> Unit) {
         val currentEmail = getCurrentUserEmail()
 
@@ -156,60 +140,21 @@ object UserManager {
         }
     }
 
-    /**
-     * Create new user data based on email
-     * If email is in predefined list, use complete data
-     * Otherwise, create with only email
-     */
     private fun createNewUserData(email: String): UserData {
         return if (predefinedUsers.containsKey(email)) {
-            // Use predefined data for ITK students
             predefinedUsers[email]!!
         } else {
-            // Create empty profile for other users
             UserData(email = email)
         }
     }
 
-    /**
-     * Sign out user
-     */
     fun signOut() {
         auth.signOut()
         Log.d(TAG, "User signed out")
     }
 
-    /**
-     * Check if current user is one of the predefined users
-     */
     fun isCurrentUserPredefined(): Boolean {
         val currentEmail = getCurrentUserEmail()
         return currentEmail != null && predefinedUsers.containsKey(currentEmail)
-    }
-
-    /**
-     * Get user data synchronously (for immediate use, but should be used carefully)
-     * Returns null if data is not available immediately
-     */
-    fun getCurrentUserDataSync(): UserData? {
-        val currentEmail = getCurrentUserEmail() ?: return null
-
-        // This is not ideal for production, but can be used for immediate checks
-        // Better to use the async version above
-        return try {
-            val userDoc = firestore.collection(USERS_COLLECTION)
-                .document(currentEmail)
-                .get()
-                .result
-
-            if (userDoc.exists()) {
-                userDoc.toObject(UserData::class.java)
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting user data sync", e)
-            null
-        }
     }
 }

@@ -43,12 +43,11 @@ class LoginActivity : AppCompatActivity() {
                 BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
                     .setSupported(true)
                     .setServerClientId(getString(R.string.default_web_client_id))
-                    .setFilterByAuthorizedAccounts(false) // Ubah ke false
+                    .setFilterByAuthorizedAccounts(false)
                     .build()
             )
             .build()
 
-        // Initialize sign-in launcher for One Tap sign-in result handling
         signInLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             try {
                 val googleCredential = oneTapClient.getSignInCredentialFromIntent(result.data)
@@ -60,8 +59,6 @@ class LoginActivity : AppCompatActivity() {
                             if (task.isSuccessful) {
                                 Log.d(TAG, "signInWithCredential:success")
                                 val user = auth.currentUser
-
-                                // Initialize user data after successful login
                                 initializeUserAfterLogin(user)
                             } else {
                                 Log.w(TAG, "signInWithCredential:failure", task.exception)
@@ -118,8 +115,6 @@ class LoginActivity : AppCompatActivity() {
                             "Gagal menginisialisasi data pengguna",
                             Toast.LENGTH_SHORT
                         ).show()
-
-                        // Sign out if initialization failed
                         auth.signOut()
                         updateUI(null)
                     }
@@ -132,7 +127,6 @@ class LoginActivity : AppCompatActivity() {
         oneTapClient.beginSignIn(signInRequest)
             .addOnSuccessListener(this) { result ->
                 try {
-                    // Convert IntentSender to IntentSenderRequest and launch it
                     val intentSenderRequest = IntentSenderRequest.Builder(result.pendingIntent.intentSender).build()
                     signInLauncher.launch(intentSenderRequest)
                 } catch (e: Exception) {
@@ -147,18 +141,13 @@ class LoginActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         val currentUser = auth.currentUser
-
-        // Check if user is already logged in and has been initialized
         if (currentUser != null && UserManager.isUserLoggedIn()) {
-            // User is already logged in, check if data exists
             lifecycleScope.launch {
                 UserManager.getCurrentUserData { userData ->
                     runOnUiThread {
                         if (userData != null) {
-                            // User data exists, go to main activity
                             updateUI(currentUser)
                         } else {
-                            // User logged in but no data, initialize
                             initializeUserAfterLogin(currentUser)
                         }
                     }

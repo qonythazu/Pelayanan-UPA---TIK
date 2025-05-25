@@ -17,6 +17,7 @@ import androidx.navigation.ui.setupWithNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.databinding.ActivityMainBinding
 import com.dicoding.pelayananupa_tik.utils.UserManager
+import com.dicoding.pelayananupa_tik.utils.UserData
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -32,11 +33,19 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Check if user is properly logged in and initialized
-        if (!UserManager.isUserLoggedIn()) {
-            Log.w(TAG, "User not logged in, redirecting to login")
+        if (UserManager.isUserLoggedIn()) {
+            lifecycleScope.launch {
+                UserManager.initializeUserData { success: Boolean, userData: UserData? ->
+                    if (success) {
+                        Log.d(TAG, "User data ready for: ${userData?.email}")
+                    } else {
+                        Log.e(TAG, "Failed to initialize user data")
+                        handleUserDataError()
+                    }
+                }
+            }
+        } else {
             redirectToLogin()
-            return
         }
 
         setupNavigation()
@@ -73,9 +82,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadUserInfo() {
-        // Load current user info for logging purposes
         lifecycleScope.launch {
-            UserManager.getCurrentUserData { userData ->
+            UserManager.getCurrentUserData { userData: UserData? ->
                 runOnUiThread {
                     if (userData != null) {
                         Log.d(TAG, "MainActivity loaded for user: ${userData.email}")
@@ -87,10 +95,20 @@ class MainActivity : AppCompatActivity() {
                         }
                     } else {
                         Log.w(TAG, "Failed to load user data")
-                        // Could redirect to login if user data is critical
+                        handleUserDataError()
                     }
                 }
             }
+        }
+    }
+
+    private fun handleUserDataError() {
+        runOnUiThread {
+            Toast.makeText(
+                this,
+                "Gagal memuat data pengguna. Silakan login ulang.",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -110,16 +128,11 @@ class MainActivity : AppCompatActivity() {
     private fun logout() {
         lifecycleScope.launch {
             try {
-                // Get current user info for logging
                 val currentEmail = UserManager.getCurrentUserEmail()
                 Log.d(TAG, "Logging out user: $currentEmail")
-
-                // Sign out using UserManager (which handles Firebase Auth)
                 UserManager.signOut()
 
                 Toast.makeText(this@MainActivity, "Logout berhasil", Toast.LENGTH_SHORT).show()
-
-                // Redirect to login
                 redirectToLogin()
 
             } catch (e: Exception) {
@@ -140,14 +153,12 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
 
-        // Check if user is still logged in when activity resumes
         if (!UserManager.isUserLoggedIn()) {
             Log.w(TAG, "User session expired, redirecting to login")
             redirectToLogin()
         }
     }
 
-    // Methods for fragment management
     fun hideBottomNavigation() {
         findViewById<BottomNavigationView>(R.id.bottom_nav).visibility = View.GONE
     }
