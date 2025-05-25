@@ -29,6 +29,8 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import java.text.SimpleDateFormat
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -158,7 +160,6 @@ class ScanFragment : BottomSheetDialogFragment() {
 
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     private fun bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
-        // Pastikan fragment masih terhubung dengan activity
         if (!isAdded) {
             Log.d(TAG, "Fragment not attached to activity, skipping camera setup")
             return
@@ -167,27 +168,47 @@ class ScanFragment : BottomSheetDialogFragment() {
         Log.d(TAG, "Binding camera use cases")
         cameraProvider.unbindAll()
 
-        val preview = Preview.Builder().build()
+        // Perbaikan: Konfigurasi preview dengan resolusi yang tepat
+        val preview = Preview.Builder()
+            .setTargetRotation(viewfinder.display.rotation)
+            .build()
         preview.setSurfaceProvider(viewfinder.surfaceProvider)
 
+        // Perbaikan: Konfigurasi image analysis dengan resolusi optimal
         val imageAnalysis = ImageAnalysis.Builder()
+            .setTargetRotation(viewfinder.display.rotation)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
 
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
         try {
-            // Bind lifecycles menggunakan viewLifecycleOwner
-            cameraProvider.bindToLifecycle(
+            // Bind dengan lifecycle owner yang tepat
+            val camera = cameraProvider.bindToLifecycle(
                 viewLifecycleOwner,
                 cameraSelector,
-                imageAnalysis,
-                preview
+                preview,
+                imageAnalysis
             )
 
-            // Definisikan analyzer untuk pemindaian barcode
+            // Perbaikan: Atur exposure untuk kamera yang lebih terang
+            try {
+                val cameraControl = camera.cameraControl
+                val cameraInfo = camera.cameraInfo
+
+                // Atur exposure compensation untuk kamera lebih terang
+                val exposureState = cameraInfo.exposureState
+                if (exposureState.isExposureCompensationSupported) {
+                    val exposureCompensation = (exposureState.exposureCompensationRange.upper * 0.3).toInt()
+                    cameraControl.setExposureCompensationIndex(exposureCompensation)
+                    Log.d(TAG, "Exposure compensation set to: $exposureCompensation")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not set camera controls", e)
+            }
+
+            // Set analyzer untuk barcode scanning
             imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                // Periksa apakah fragment masih terpasang ke activity
                 if (!isAdded) {
                     imageProxy.close()
                     return@setAnalyzer
@@ -202,22 +223,21 @@ class ScanFragment : BottomSheetDialogFragment() {
 
                     isScanning = true
                     Log.d(TAG, "Processing image for barcode, rotation: ${imageProxy.imageInfo.rotationDegrees}")
+
                     barcodeScanner.process(image)
                         .addOnSuccessListener { barcodes ->
                             Log.d(TAG, "Barcodes found: ${barcodes.size}")
                             for (barcode in barcodes) {
                                 val rawValue = barcode.rawValue
                                 Log.d(TAG, "Raw barcode value: $rawValue")
-                                if (rawValue != null) {
+                                if (!rawValue.isNullOrEmpty()) {
                                     Log.d(TAG, "Barcode detected: $rawValue")
-                                    val valueType = barcode.valueType
-                                    Log.d(TAG, "Barcode type: $valueType")
-                                    // Gunakan activity yang dikontrol terlebih dahulu
+
                                     val activity = activity
                                     if (activity != null && !activity.isFinishing && isAdded) {
                                         activity.runOnUiThread {
                                             showLoading()
-                                            fetchDataFromFirestore(rawValue)
+                                            fetchDataFromFirestore(rawValue.trim())
                                         }
                                     }
                                     break
@@ -239,118 +259,190 @@ class ScanFragment : BottomSheetDialogFragment() {
 
         } catch (exc: Exception) {
             Log.e(TAG, "Use case binding failed", exc)
+            Toast.makeText(requireContext(), "Gagal mengikat kamera: ${exc.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun fetchDataFromFirestore(serialNumber: String) {
         Log.d(TAG, "Fetching data for serial: $serialNumber")
 
-        // Periksa lagi apakah fragment masih terpasang
         if (!isAdded) {
             Log.d(TAG, "Fragment not attached, skipping Firestore fetch")
             hideLoading()
             return
         }
 
+        // Perbaikan: Query dengan multiple approaches
         firestore.collection("daftar_barang")
-            .document(serialNumber)
+            .whereEqualTo("serial_number", serialNumber)
             .get()
-            .addOnSuccessListener { document ->
-                // Pastikan loading berhenti terlepas dari hasil
+            .addOnSuccessListener { querySnapshot ->
                 hideLoading()
 
-                // Periksa lagi apakah fragment masih terpasang
                 if (!isAdded) {
                     Log.d(TAG, "Fragment no longer attached after Firestore fetch")
                     return@addOnSuccessListener
                 }
 
-                if (document.exists()) {
-                    Log.d(TAG, "Document found: ${document.data}")
-
-                    // Extract data with fallbacks
-                    val nama = document.getString("nama_barang") ?: document.getString("nama") ?: "-"
-                    val tanggalMasuk = document.getTimestamp("tanggal_masuk")?.toDate()?.toString() ?: "-"
-                    val jenis = document.getString("jenis") ?: "-"
-                    val pemilik = document.getString("pemilik") ?: "-"
-                    val letakBarang = document.getString("letak_barang") ?: "-"
-                    val serialNum = document.getString("serial_number") ?: serialNumber
-
-                    Log.d(TAG, "Data extracted: $nama, $jenis, $serialNum")
-
-                    // Perbaikan: Navigasi dengan NavController
-                    try {
-                        // Tutup scanner dialog terlebih dahulu
-                        dismiss()
-
-                        // Buat bundle data
-                        val bundle = Bundle().apply {
-                            putString("nama_barang", nama)
-                            putString("tanggal_masuk", tanggalMasuk)
-                            putString("jenis_barang", jenis)
-                            putString("pemilik_barang", pemilik)
-                            putString("letak_barang", letakBarang)
-                            putString("serial_number", serialNum)
-                        }
-
-                        // Gunakan navController dari activity
-                        val navController = requireActivity().findNavController(R.id.nav_home_fragment) // Sesuaikan dengan ID NavHostFragment Anda
-                        navController.navigate(R.id.detailBarangFragment, bundle)
-
-                        // Log untuk debugging
-                        Log.d(TAG, "Navigation attempted to DetailBarangFragment with data")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error navigating to DetailBarangFragment", e)
-                        Toast.makeText(
-                            requireContext(),
-                            "Gagal membuka detail: ${e.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                if (!querySnapshot.isEmpty) {
+                    val document = querySnapshot.documents[0]
+                    Log.d(TAG, "Document found via query: ${document.data}")
+                    processDocumentData(document.data, serialNumber)
                 } else {
-                    Log.d(TAG, "No document found with serial: $serialNumber")
-                    Toast.makeText(
-                        requireContext(),
-                        "Data barang dengan kode $serialNumber tidak ditemukan",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    // Fallback: coba dengan document ID
+                    firestore.collection("daftar_barang")
+                        .document(serialNumber)
+                        .get()
+                        .addOnSuccessListener fallbackListener@{ document ->
+                            hideLoading()
+                            if (!isAdded) return@fallbackListener
+
+                            if (document.exists()) {
+                                Log.d(TAG, "Document found via ID: ${document.data}")
+                                processDocumentData(document.data, serialNumber)
+                            } else {
+                                Log.d(TAG, "No document found with serial: $serialNumber")
+                                showNotFoundMessage(serialNumber)
+                            }
+                        }
+                        .addOnFailureListener fallbackFailure@{ e ->
+                            hideLoading()
+                            if (!isAdded) return@fallbackFailure
+                            Log.e(TAG, "Firestore document query failed", e)
+                            showErrorMessage(e.message)
+                        }
                 }
             }
             .addOnFailureListener { e ->
-                // Pastikan loading berhenti
                 hideLoading()
+                if (!isAdded) return@addOnFailureListener
 
-                // Periksa apakah fragment masih terpasang
-                if (!isAdded) {
-                    return@addOnFailureListener
-                }
-
-                Log.e(TAG, "Firestore query failed", e)
-                Toast.makeText(
-                    requireContext(),
-                    "Gagal mengambil data: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Log.e(TAG, "Firestore collection query failed", e)
+                showErrorMessage(e.message)
             }
+    }
+
+    private fun processDocumentData(data: Map<String, Any>?, serialNumber: String) {
+        if (data == null) {
+            showNotFoundMessage(serialNumber)
+            return
+        }
+
+        // Perbaikan: Extract data dengan handling yang lebih baik dan multiple field names
+        val nama = data["nama_barang"] as? String
+            ?: data["nama"] as? String
+            ?: data["namaBarang"] as? String
+            ?: data["name"] as? String
+            ?: "Nama tidak tersedia"
+
+        val tanggalMasuk = try {
+            val timestamp = data["tanggal_masuk"] as? com.google.firebase.Timestamp
+            if (timestamp != null) {
+                val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                sdf.format(timestamp.toDate())
+            } else {
+                data["tanggal_masuk"] as? String
+                    ?: data["tanggalMasuk"] as? String
+                    ?: "Tanggal tidak tersedia"
+            }
+        } catch (e: Exception) {
+            "Tanggal tidak tersedia"
+        }
+
+        val jenis = data["jenis"] as? String
+            ?: data["jenis_barang"] as? String
+            ?: data["jenisBarang"] as? String
+            ?: data["type"] as? String
+            ?: "Jenis tidak tersedia"
+
+        val pemilik = data["pemilik"] as? String
+            ?: data["pemilik_barang"] as? String
+            ?: data["pemilikBarang"] as? String
+            ?: data["owner"] as? String
+            ?: "Pemilik tidak tersedia"
+
+        val letakBarang = data["letak_barang"] as? String
+            ?: data["letakBarang"] as? String
+            ?: data["lokasi"] as? String
+            ?: data["location"] as? String
+            ?: "Lokasi tidak tersedia"
+
+        val serialNum = data["serial_number"] as? String
+            ?: data["serialNumber"] as? String
+            ?: serialNumber
+
+        Log.d(TAG, "Raw data from Firestore: $data")
+        Log.d(TAG, "Data extracted - Nama: $nama, Jenis: $jenis, Serial: $serialNum")
+
+        try {
+            // Tutup scanner dialog
+            dismiss()
+
+            // Perbaikan: Navigasi dengan bundle yang benar
+            val bundle = Bundle().apply {
+                putString("arg_nama_barang", nama)
+                putString("arg_tanggal_masuk", tanggalMasuk)
+                putString("arg_jenis_barang", jenis)
+                putString("arg_pemilik_barang", pemilik)
+                putString("arg_letak_barang", letakBarang)
+                putString("arg_serial_number", serialNum)
+            }
+
+            // Gunakan NavController yang tepat
+            val navController = requireActivity().findNavController(R.id.nav_home_fragment)
+            navController.navigate(R.id.detailBarangFragment, bundle)
+
+            Log.d(TAG, "Navigation successful to DetailBarangFragment")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error navigating to DetailBarangFragment", e)
+            Toast.makeText(
+                requireContext(),
+                "Gagal membuka detail: ${e.message}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun showNotFoundMessage(serialNumber: String) {
+        Toast.makeText(
+            requireContext(),
+            "Data barang dengan kode $serialNumber tidak ditemukan",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun showErrorMessage(message: String?) {
+        Toast.makeText(
+            requireContext(),
+            "Gagal mengambil data: ${message ?: "Unknown error"}",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun showLoading() {
         if (!isAdded) return
 
-        progressDialog = ProgressDialogFragment()
-        val fm = parentFragmentManager
-        if (!fm.isDestroyed && !fm.isStateSaved) {
-            progressDialog?.show(fm, "loading")
-            Log.d(TAG, "Loading dialog shown")
+        try {
+            progressDialog = ProgressDialogFragment()
+            val fm = parentFragmentManager
+            if (!fm.isDestroyed && !fm.isStateSaved) {
+                progressDialog?.show(fm, "loading")
+                Log.d(TAG, "Loading dialog shown")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing loading dialog", e)
         }
     }
 
     private fun hideLoading() {
         try {
-            if (progressDialog != null && progressDialog?.isAdded == true) {
-                progressDialog?.dismissAllowingStateLoss()
-                progressDialog = null
+            progressDialog?.let { dialog ->
+                if (dialog.isAdded) {
+                    dialog.dismissAllowingStateLoss()
+                }
             }
+            progressDialog = null
             Log.d(TAG, "Loading dialog hidden")
         } catch (e: Exception) {
             Log.e(TAG, "Error hiding loading dialog", e)
@@ -367,7 +459,7 @@ class ScanFragment : BottomSheetDialogFragment() {
                 val cameraProvider = cameraProviderFuture.get()
                 bindCameraUseCases(cameraProvider)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to rebind camera uses cases on resume", e)
+                Log.e(TAG, "Failed to rebind camera use cases on resume", e)
             }
         }
     }
@@ -375,11 +467,12 @@ class ScanFragment : BottomSheetDialogFragment() {
     override fun onPause() {
         super.onPause()
         Log.d(TAG, "Fragment paused")
+        isScanning = false
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // Pastikan untuk melepaskan resources kamera
+        // Release camera resources
         if (::cameraProviderFuture.isInitialized) {
             try {
                 val cameraProvider = cameraProviderFuture.get()
@@ -402,9 +495,9 @@ class ScanFragment : BottomSheetDialogFragment() {
     companion object {
         private const val TAG = "ScanFragment"
 
-        fun show(fragmentManager: FragmentManager, listener: ScanResultListener): ScanFragment {
+        fun show(fragmentManager: FragmentManager, listener: ScanResultListener? = null): ScanFragment {
             val scanFragment = ScanFragment()
-            scanFragment.setScanResultListener(listener)
+            listener?.let { scanFragment.setScanResultListener(it) }
             scanFragment.show(fragmentManager, "ScanFragment")
             return scanFragment
         }
