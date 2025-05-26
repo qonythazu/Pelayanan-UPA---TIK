@@ -67,10 +67,19 @@ class DetailBarangFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        setupViews()
         setupUI()
         setupLaporKerusakanButton()
 
         Log.d(TAG, "UI setup completed with data")
+    }
+
+    private fun setupViews() {
+        val toolbar = view?.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        toolbar?.setNavigationOnClickListener {
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
     }
 
     private fun setupUI() {

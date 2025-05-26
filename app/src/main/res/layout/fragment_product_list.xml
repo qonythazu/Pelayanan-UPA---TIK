@@ -42,7 +42,4 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/search_view"
         tools:listitem="@layout/item_row_product" />
-
-
-
 </androidx.constraintlayout.widget.ConstraintLayout>

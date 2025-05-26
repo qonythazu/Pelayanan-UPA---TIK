@@ -25,6 +25,7 @@
             android:contentDescription="@string/gambar_barang"
             android:src="@mipmap/ic_launcher"
             android:layout_marginStart="8dp"
+            android:layout_marginVertical="8dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toEndOf="@id/check_item"
             app:layout_constraintTop_toTopOf="parent" />
@@ -34,7 +35,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="8dp"
-            android:layout_marginVertical="4dp"
+            android:layout_marginVertical="8dp"
             android:text="@string/router_mikrotik_hap_lite"
             android:textSize="18sp"
             android:textStyle="bold"

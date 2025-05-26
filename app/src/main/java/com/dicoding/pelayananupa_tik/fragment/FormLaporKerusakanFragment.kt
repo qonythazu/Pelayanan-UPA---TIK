@@ -72,10 +72,18 @@ class FormLaporKerusakanFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupViews()
         setupUI()
         setupClickListeners()
 
         Log.d(TAG, "Form setup completed")
+    }
+
+    private fun setupViews() {
+        val toolbar = view?.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        toolbar?.setNavigationOnClickListener {
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
     }
 
     private fun setupUI() {
@@ -190,8 +198,7 @@ class FormLaporKerusakanFragment : Fragment() {
             "serial_number" to serialNumber,
             "kontak_penanggung_jawab" to kontak,
             "keterangan_kerusakan" to keterangan,
-            "tanggal_laporan" to formattedDate,
-            "timestamp" to com.google.firebase.Timestamp.now(),
+            "timestamp" to formattedDate,
             "status" to "Terkirim",
             "local_image_path" to localImagePath
         )

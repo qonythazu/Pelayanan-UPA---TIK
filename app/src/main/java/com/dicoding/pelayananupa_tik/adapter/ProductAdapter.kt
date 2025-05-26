@@ -12,7 +12,8 @@ import com.dicoding.pelayananupa_tik.backend.model.Barang
 
 class ProductAdapter(
     private var barangList: List<Barang>,
-    private val onAddClick: (Barang) -> Unit
+    private val onAddClick: ((Barang) -> Unit)? = null,
+    private val showAddButton: Boolean = true
 ) : RecyclerView.Adapter<ProductAdapter.ProductViewHolder>() {
 
     inner class ProductViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -35,8 +36,13 @@ class ProductAdapter(
         holder.tvCategory.text = barang.jenis
         holder.imgProduct.setImageResource(R.mipmap.ic_launcher)
 
-        holder.btnAdd.setOnClickListener {
-            onAddClick(barang)
+        if (showAddButton) {
+            holder.btnAdd.visibility = View.VISIBLE
+            holder.btnAdd.setOnClickListener {
+                onAddClick?.invoke(barang)
+            }
+        } else {
+            holder.btnAdd.visibility = View.GONE
         }
     }
 
@@ -44,5 +50,4 @@ class ProductAdapter(
         barangList = newList
         notifyDataSetChanged()
     }
-
 }

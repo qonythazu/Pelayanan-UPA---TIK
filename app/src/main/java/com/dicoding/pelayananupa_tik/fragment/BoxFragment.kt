@@ -36,11 +36,19 @@ class BoxFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupViews()
         boxViewModel = ViewModelProvider(requireActivity())[BoxViewModel::class.java]
 
         setupRecyclerView()
         setupClickListeners()
         observeData()
+    }
+
+    private fun setupViews() {
+        val toolbar = view?.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        toolbar?.setNavigationOnClickListener {
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
     }
 
     private fun setupRecyclerView() {

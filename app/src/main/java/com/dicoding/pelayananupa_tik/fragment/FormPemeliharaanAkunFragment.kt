@@ -18,6 +18,9 @@ import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 class FormPemeliharaanAkunFragment : Fragment() {
@@ -138,6 +141,9 @@ class FormPemeliharaanAkunFragment : Fragment() {
 
     private fun saveDataToFirestore(layanan: String, jenis: String, akun: String, alasan: String, localImagePath: String?) {
         val userEmail = UserManager.getCurrentUserEmail()
+        val currentTime = System.currentTimeMillis()
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val formattedDate = dateFormat.format(Date(currentTime))
         val pemeliharaan = hashMapOf(
             "userEmail" to userEmail,
             "judul" to "Form Pemeliharaan Akun",
@@ -147,7 +153,7 @@ class FormPemeliharaanAkunFragment : Fragment() {
             "alasan" to alasan,
             "localImagePath" to localImagePath,
             "status" to "Terkirim",
-            "timestamp" to System.currentTimeMillis()
+            "timestamp" to formattedDate
         )
 
         firestore.collection("form_pemeliharaan_akun")

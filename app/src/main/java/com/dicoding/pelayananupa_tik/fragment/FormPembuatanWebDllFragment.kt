@@ -12,6 +12,9 @@ import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPembuatanWebDllBinding
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class FormPembuatanWebDllFragment : Fragment() {
 
@@ -77,6 +80,9 @@ class FormPembuatanWebDllFragment : Fragment() {
 
     private fun saveDataToFirestore(layanan: String, namaLayanan: String, kontak: String, tujuan: String) {
         val userEmail = UserManager.getCurrentUserEmail()
+        val currentTime = System.currentTimeMillis()
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val formattedDate = dateFormat.format(Date(currentTime))
         val pembuatanWebDll = hashMapOf(
             "userEmail" to userEmail,
             "judul" to "Form Pembuatan Web/DLL",
@@ -85,7 +91,7 @@ class FormPembuatanWebDllFragment : Fragment() {
             "kontak" to kontak,
             "tujuan" to tujuan,
             "status" to "Terkirim",
-            "timestamp" to System.currentTimeMillis()
+            "timestamp" to formattedDate
         )
 
         firestore.collection("form_pembuatan_web_dll")

@@ -58,7 +58,6 @@ class ProductListFragment : Fragment() {
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("refresh_needed")?.observe(viewLifecycleOwner) { refreshNeeded ->
             if (refreshNeeded == true) {
                 refreshBarangData()
-                // Clear the flag
                 findNavController().currentBackStackEntry?.savedStateHandle?.set("refresh_needed", false)
             }
         }
@@ -120,10 +119,11 @@ class ProductListFragment : Fragment() {
         Log.d("ProductListFragment", "Badge updated: $boxCount items")
     }
 
+
     private fun setupRecyclerView() {
-        adapter = ProductAdapter(availableList) { barang ->
+        adapter = ProductAdapter(availableList, { barang ->
             addToBox(barang)
-        }
+        }, true)
 
         binding.recyclerView.apply {
             layoutManager = GridLayoutManager(requireContext(), 2)

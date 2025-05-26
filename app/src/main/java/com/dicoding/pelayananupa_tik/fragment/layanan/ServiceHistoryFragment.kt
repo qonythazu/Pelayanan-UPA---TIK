@@ -62,10 +62,10 @@ class ServiceHistoryFragment : Fragment() {
                 .addOnSuccessListener { documents ->
                     for (doc in documents) {
                         val judul = doc.getString("judul") ?: "Tidak ada judul"
+                        val tanggal = doc.getString("timestamp") ?: "Tidak ada tanggal"
                         val status = doc.getString("status") ?: "Tidak ada status"
 
-                        // Tambahkan sebagai satu item LayananItem
-                        layananList.add(LayananItem(judul, status))
+                        layananList.add(LayananItem(judul, tanggal, status))
                     }
                     counter++
                     if (counter == collections.size) {

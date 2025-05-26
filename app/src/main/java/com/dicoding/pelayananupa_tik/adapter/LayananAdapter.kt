@@ -14,6 +14,7 @@ class LayananAdapter(private val layananList: List<LayananItem>) :
 
     class LayananViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val layananText: TextView = itemView.findViewById(R.id.textLayanan)
+        val tanggalText: TextView = itemView.findViewById(R.id.textTanggal)
         val statusText: TextView = itemView.findViewById(R.id.textStatus)
     }
 
@@ -26,6 +27,7 @@ class LayananAdapter(private val layananList: List<LayananItem>) :
     override fun onBindViewHolder(holder: LayananViewHolder, position: Int) {
         val layananItem = layananList[position]
         holder.layananText.text = layananItem.judul
+        holder.tanggalText.text = layananItem.tanggal
         holder.statusText.text = layananItem.status
 
         when (layananItem.status.lowercase()) {

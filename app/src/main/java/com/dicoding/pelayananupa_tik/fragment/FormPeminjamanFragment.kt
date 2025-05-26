@@ -132,7 +132,6 @@ class FormPeminjamanFragment : Fragment() {
                 return false
             }
             else -> {
-                // Clear errors
                 binding.namaPerangkatLayout.error = null
                 binding.tujuanPeminjamanLayout.error = null
                 binding.harapanAndaLayout.error = null
@@ -219,7 +218,7 @@ class FormPeminjamanFragment : Fragment() {
             "statusPeminjaman" to "Diajukan",
             "tanggalPengajuan" to formattedDate,
             "timestamp" to currentTime,
-            "barangDipinjam" to getSelectedItemsList() // List detail barang
+            "barangDipinjam" to getSelectedItemsList()
         )
 
         firestore.collection("form_peminjaman")
@@ -258,7 +257,7 @@ class FormPeminjamanFragment : Fragment() {
             mapOf(
                 "namaBarang" to barang.namaBarang,
                 "jenis" to barang.jenis,
-                "tanggalPeminjaman" to SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+                "tanggalPinjam" to SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
             )
         }
     }
@@ -274,6 +273,7 @@ class FormPeminjamanFragment : Fragment() {
             return
         }
 
+        val userEmail = UserManager.getCurrentUserEmail()
         selectedBarang.forEach { barang ->
             firestore.collection("daftar_barang")
                 .whereEqualTo("namaBarang", barang.namaBarang)
@@ -285,7 +285,8 @@ class FormPeminjamanFragment : Fragment() {
                                 mapOf(
                                     "status" to "dipinjam",
                                     "peminjamanId" to peminjamanId,
-                                    "tanggalDipinjam" to System.currentTimeMillis()
+                                    "tanggalDipinjam" to com.google.firebase.Timestamp.now(),
+                                    "peminjam" to userEmail
                                 )
                             )
                             .addOnCompleteListener {

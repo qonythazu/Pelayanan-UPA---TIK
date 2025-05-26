@@ -17,6 +17,9 @@ import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 class FormBantuanOperatorFragment : Fragment() {
@@ -109,15 +112,18 @@ class FormBantuanOperatorFragment : Fragment() {
 
     private fun saveDataToFirestore(jumlah: String, kontak: String, tujuan: String, localImagePath: String?) {
         val userEmail = UserManager.getCurrentUserEmail()
+        val currentTime = System.currentTimeMillis()
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val formattedDate = dateFormat.format(Date(currentTime))
         val bantuanOperator = hashMapOf(
             "userEmail" to userEmail,
-            "judul" to "Bantuan Operator",
+            "judul" to "Bantuan Operator TIK",
             "jumlah" to jumlah,
             "kontak" to kontak,
             "tujuan" to tujuan,
             "localImagePath" to localImagePath,
             "status" to "Terkirim",
-            "timestamp" to System.currentTimeMillis()
+            "timestamp" to formattedDate
         )
 
         firestore.collection("form_bantuan_operator")

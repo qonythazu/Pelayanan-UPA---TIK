@@ -14,6 +14,9 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.firestore.FirebaseFirestore
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class FormPemasanganPerangkatFragment : Fragment() {
 
@@ -65,6 +68,9 @@ class FormPemasanganPerangkatFragment : Fragment() {
             return
         }
 
+        val currentTime = System.currentTimeMillis()
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val formattedDate = dateFormat.format(Date(currentTime))
         val userEmail = UserManager.getCurrentUserEmail()
         val formData = hashMapOf(
             "userEmail" to userEmail,
@@ -73,7 +79,7 @@ class FormPemasanganPerangkatFragment : Fragment() {
             "kontak_penanggung_jawab" to kontak,
             "tujuan_pemasangan" to tujuanPemasangan,
             "status" to "Terkirim",
-            "timestamp" to System.currentTimeMillis()
+            "timestamp" to formattedDate
         )
 
         firestore.collection("form_pemasangan")
