@@ -21,10 +21,10 @@ class ServiceHistoryFragment : Fragment() {
     private val layananList = mutableListOf<LayananItem>()
     private val firestore = FirebaseFirestore.getInstance()
     private val collections = listOf(
-        "form_bantuan_operator",
+        "form_bantuan",
         "form_pemasangan",
-        "form_pembuatan_web_dll",
-        "form_pemeliharaan_akun",
+        "form_pembuatan",
+        "form_pemeliharaan",
         "form_pengaduan",
         "form_lapor_kerusakan"
     )

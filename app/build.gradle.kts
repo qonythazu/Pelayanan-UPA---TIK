@@ -58,7 +58,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     //materialui
-    implementation ("com.google.android.material:material:1.8.0")
+    implementation ("com.google.android.material:material:1.11.0")
     implementation("com.github.bumptech.glide:glide:4.11.0") {
         exclude(group  = "com.android.support")
     }

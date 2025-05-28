@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPengaduanLayananBinding
@@ -65,23 +66,46 @@ class FormPengaduanLayananFragment : Fragment() {
         }
     }
 
+    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
+        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
+        return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
+    }
+
     private fun submitForm() {
         val layanan = binding.layananLayout.editText?.text.toString()
         val kontak = binding.kontakLayout.editText?.text.toString()
         val keluhan = binding.keluhanAndaLayout.editText?.text.toString()
-
-        if (layanan.isEmpty() || kontak.isEmpty() || keluhan.isEmpty()) {
-            Toast.makeText(requireContext(), "Harap isi semua field", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         val localImagePath = if (imageUri != null) {
             saveImageLocally()
         } else {
             null
         }
 
-        saveDataToFirestore(layanan, kontak, keluhan, localImagePath)
+        when {
+            layanan.isEmpty() -> {
+                binding.layananLayout.error = "Layanan tidak boleh kosong"
+                return
+            }
+            kontak.isEmpty() -> {
+                binding.kontakLayout.error = "Kontak penanggung jawab tidak boleh kosong"
+                return
+            }
+            !isValidPhoneNumber(kontak) -> {
+                binding.kontakLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
+                return
+            }
+            keluhan.isEmpty() -> {
+                binding.keluhanAndaLayout.error = "Keluhan tidak boleh kosong"
+                return
+            }
+            else -> {
+                binding.layananLayout.error = null
+                binding.kontakLayout.error = null
+                binding.keluhanAndaLayout.error = null
+
+                saveDataToFirestore(layanan, kontak, keluhan, localImagePath)
+            }
+        }
     }
 
     private fun saveImageLocally(): String? {
@@ -121,7 +145,7 @@ class FormPengaduanLayananFragment : Fragment() {
             "kontak" to kontak,
             "keluhan" to keluhan,
             "localImagePath" to localImagePath,
-            "status" to "Terkirim",
+            "status" to "Draft",
             "timestamp" to formattedDate
         )
 
@@ -130,6 +154,7 @@ class FormPengaduanLayananFragment : Fragment() {
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
                 clearForm()
+                findNavController().navigate(R.id.action_formPengaduanLayananFragment_to_historyLayananFragment)
             }
             .addOnFailureListener {
                 Toast.makeText(requireContext(), "Gagal mengirim pengaduan", Toast.LENGTH_SHORT).show()

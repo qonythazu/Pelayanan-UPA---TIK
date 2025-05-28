@@ -1,16 +1,15 @@
 package com.dicoding.pelayananupa_tik.fragment
 
-import android.app.Activity
-import android.content.Intent
+import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
@@ -21,7 +20,6 @@ import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -30,22 +28,23 @@ class FormLaporKerusakanFragment : Fragment() {
     private var _binding: FragmentFormLaporKerusakanBinding? = null
     private val binding get() = _binding!!
 
-    private var selectedImageUri: Uri? = null
+    private var imageUri: Uri? = null
     private var namaPerangkat: String = ""
     private var serialNumber: String = ""
     private var progressDialog: ProgressDialogFragment? = null
 
     private val firestore = FirebaseFirestore.getInstance()
 
-    private val imagePickerLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            selectedImageUri = result.data?.data
-            selectedImageUri?.let { uri ->
-                val fileName = getFileName(uri)
-                binding.tvFileName.text = fileName ?: "File terpilih"
-                Log.d(TAG, "Image selected: $fileName")
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        imageUri = uri
+        if (uri != null) {
+            binding.tvFileName.text = uri.lastPathSegment ?: "File selected"
+
+            binding.btnChooseFile.apply {
+                backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                text = getString(R.string.change_image)
+                strokeWidth = 0
             }
         }
     }
@@ -93,96 +92,77 @@ class FormLaporKerusakanFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.btnChooseFile.setOnClickListener {
-            openImagePicker()
+            pickImageLauncher.launch("image/*")
         }
         binding.btnSubmit.setOnClickListener {
-            submitLaporanKerusakan()
+            submitForm()
         }
     }
 
-    private fun openImagePicker() {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
-            type = "image/*"
-        }
-        imagePickerLauncher.launch(intent)
+    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
+        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
+        return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
     }
 
-    private fun submitLaporanKerusakan() {
-        val namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim()
-        val kontak = binding.kontakLayout.editText?.text.toString().trim()
-        val keterangan = binding.keteranganLayout.editText?.text.toString().trim()
-
-        if (namaPerangkat.isEmpty()) {
-            binding.namaPerangkatLayout.error = "Nama perangkat harus diisi"
-            return
-        }
-
-        if (kontak.isEmpty()) {
-            binding.kontakLayout.error = "Kontak penanggung jawab harus diisi"
-            return
-        }
-
-        if (keterangan.isEmpty()) {
-            binding.keteranganLayout.error = "Keterangan kerusakan harus diisi"
-            return
-        }
-
-        binding.namaPerangkatLayout.error = null
-        binding.kontakLayout.error = null
-        binding.keteranganLayout.error = null
-
-        showLoading()
-
-        if (selectedImageUri != null) {
-            saveImageLocallyAndSaveData(namaPerangkat, kontak, keterangan)
+    private fun submitForm() {
+        val namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString()
+        val kontak = binding.kontakLayout.editText?.text.toString()
+        val keterangan = binding.keteranganLayout.editText?.text.toString()
+        val localImagePath = if (imageUri != null) {
+            saveImageLocally()
         } else {
-            saveDataToFirestore(namaPerangkat, kontak, keterangan, null)
-        }
-    }
-
-    private fun saveImageLocallyAndSaveData(namaPerangkat: String, kontak: String, keterangan: String) {
-        selectedImageUri?.let { uri ->
-            try {
-                val fileName = "laporan_kerusakan_${System.currentTimeMillis()}.jpg"
-                val localImagePath = saveImageToInternalStorage(uri, fileName)
-
-                if (localImagePath != null) {
-                    saveDataToFirestore(namaPerangkat, kontak, keterangan, localImagePath)
-                } else {
-                    hideLoading()
-                    Toast.makeText(requireContext(), "Gagal menyimpan gambar", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                hideLoading()
-                Log.e(TAG, "Error saving image locally", e)
-                Toast.makeText(requireContext(), "Gagal menyimpan gambar: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun saveImageToInternalStorage(uri: Uri, fileName: String): String? {
-        return try {
-            val inputStream: InputStream? = requireContext().contentResolver.openInputStream(uri)
-            val file = File(requireContext().filesDir, "laporan_images")
-
-            if (!file.exists()) {
-                file.mkdirs()
-            }
-
-            val imageFile = File(file, fileName)
-            val outputStream = FileOutputStream(imageFile)
-
-            inputStream?.use { input ->
-                outputStream.use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            Log.d(TAG, "Image saved locally: ${imageFile.absolutePath}")
-            imageFile.absolutePath
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving image to internal storage", e)
             null
+        }
+
+        when {
+            namaPerangkat.isEmpty() -> {
+                binding.namaPerangkatLayout.error = "JUmlah tidak boleh kosong"
+                return
+            }
+            kontak.isEmpty() -> {
+                binding.kontakLayout.error = "Kontak penanggung jawab tidak boleh kosong"
+                return
+            }
+            !isValidPhoneNumber(kontak) -> {
+                binding.kontakLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
+                return
+            }
+            keterangan.isEmpty() -> {
+                binding.keteranganLayout.error = "Tujuan peminjaman tidak boleh kosong"
+                return
+            }
+            else -> {
+                binding.namaPerangkatLayout.error = null
+                binding.kontakLayout.error = null
+                binding.keteranganLayout.error = null
+                showLoading()
+                saveDataToFirestore(namaPerangkat, kontak, keterangan, localImagePath)
+            }
+        }
+    }
+
+    private fun saveImageLocally(): String? {
+        if (imageUri == null) return null
+
+        try {
+            val filename = "IMG_${UUID.randomUUID()}.jpg"
+            val imagesDir = File(requireContext().filesDir, "images")
+            if (!imagesDir.exists()) {
+                imagesDir.mkdir()
+            }
+
+            val destinationFile = File(imagesDir, filename)
+
+            requireContext().contentResolver.openInputStream(imageUri!!)?.use { inputStream ->
+                FileOutputStream(destinationFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+
+            return destinationFile.absolutePath
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Gagal menyimpan gambar: ${e.message}", Toast.LENGTH_SHORT).show()
+            return null
         }
     }
 
@@ -194,13 +174,13 @@ class FormLaporKerusakanFragment : Fragment() {
         val laporanData = hashMapOf(
             "userEmail" to userEmail,
             "judul" to "Laporan Kerusakan",
-            "nama_perangkat" to namaPerangkat,
-            "serial_number" to serialNumber,
-            "kontak_penanggung_jawab" to kontak,
-            "keterangan_kerusakan" to keterangan,
+            "namaPerangkat" to namaPerangkat,
+            "serialNumber" to serialNumber,
+            "kontak" to kontak,
+            "keterangan" to keterangan,
             "timestamp" to formattedDate,
-            "status" to "Terkirim",
-            "local_image_path" to localImagePath
+            "status" to "Draft",
+            "localImagePath" to localImagePath
         )
 
         firestore.collection("form_lapor_kerusakan")
@@ -214,9 +194,7 @@ class FormLaporKerusakanFragment : Fragment() {
                     "Laporan kerusakan berhasil dikirim",
                     Toast.LENGTH_LONG
                 ).show()
-
-                // Navigate back
-                findNavController().popBackStack()
+                findNavController().navigate(R.id.action_formLaporKerusakanFragment_to_historyLayananFragment)
             }
             .addOnFailureListener { e ->
                 hideLoading()
@@ -227,16 +205,6 @@ class FormLaporKerusakanFragment : Fragment() {
                     Toast.LENGTH_SHORT
                 ).show()
             }
-    }
-
-    private fun getFileName(uri: Uri): String? {
-        val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
-        return cursor?.use {
-            val nameIndex = it.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME)
-            if (it.moveToFirst() && nameIndex >= 0) {
-                it.getString(nameIndex)
-            } else null
-        }
     }
 
     private fun showLoading() {

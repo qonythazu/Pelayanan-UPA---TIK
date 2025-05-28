@@ -19,6 +19,7 @@ import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.viewmodel.BoxViewModel
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPeminjamanBinding
 import com.dicoding.pelayananupa_tik.utils.UserManager
+import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -39,6 +40,9 @@ class FormPeminjamanFragment : Fragment() {
 
     private var selectedPdfUri: Uri? = null
     private var savedPdfPath: String? = null
+    private var startDate: Date? = null
+    private var endDate: Date? = null
+    private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
     private val pdfPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -89,6 +93,44 @@ class FormPeminjamanFragment : Fragment() {
         toolbar?.setNavigationOnClickListener {
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
+        setupDateRangePicker()
+    }
+
+    private fun setupDateRangePicker() {
+        val rentangTanggalEditText = binding.rentangTanggalLayout.editText
+        rentangTanggalEditText?.isFocusable = false
+        rentangTanggalEditText?.isClickable = true
+        rentangTanggalEditText?.setOnClickListener {
+            showDateRangePicker()
+        }
+    }
+
+    private fun showDateRangePicker() {
+        val today = MaterialDatePicker.todayInUtcMilliseconds()
+
+        val dateRangePicker = MaterialDatePicker.Builder.dateRangePicker()
+            .setTitleText("Pilih Rentang Tanggal Peminjaman")
+            .setSelection(
+                androidx.core.util.Pair(
+                    startDate?.time ?: today,
+                    endDate?.time ?: (today + (7 * 24 * 60 * 60 * 1000))
+                )
+            )
+            .build()
+
+        dateRangePicker.addOnPositiveButtonClickListener { selection ->
+            startDate = Date(selection.first)
+            endDate = Date(selection.second)
+
+            val startDateStr = dateFormat.format(startDate!!)
+            val endDateStr = dateFormat.format(endDate!!)
+            val dateRangeStr = "$startDateStr - $endDateStr"
+
+            binding.rentangTanggalLayout.editText?.setText(dateRangeStr)
+            binding.rentangTanggalLayout.error = null
+        }
+
+        dateRangePicker.show(parentFragmentManager, "DATE_RANGE_PICKER")
     }
 
     private fun setupClickListeners() {
@@ -106,6 +148,7 @@ class FormPeminjamanFragment : Fragment() {
     private fun validateForm(): Boolean {
         val namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim()
         val tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim()
+        val rentangTanggal = binding.rentangTanggalLayout.editText?.text.toString().trim()
         val harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim()
         val namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim()
         val kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
@@ -117,6 +160,14 @@ class FormPeminjamanFragment : Fragment() {
             }
             tujuanPeminjaman.isEmpty() -> {
                 binding.tujuanPeminjamanLayout.error = "Tujuan peminjaman tidak boleh kosong"
+                return false
+            }
+            rentangTanggal.isEmpty() || startDate == null || endDate == null -> {
+                binding.rentangTanggalLayout.error = "Rentang tanggal tidak boleh kosong"
+                return false
+            }
+            startDate!!.before(Date()) -> {
+                binding.rentangTanggalLayout.error = "Tanggal mulai tidak boleh di masa lalu"
                 return false
             }
             harapanAnda.isEmpty() -> {
@@ -131,15 +182,25 @@ class FormPeminjamanFragment : Fragment() {
                 binding.kontakPenanggungJawabLayout.error = "Kontak penanggung jawab tidak boleh kosong"
                 return false
             }
+            !isValidPhoneNumber(kontakPJ) -> {
+                binding.kontakPenanggungJawabLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
+                return false
+            }
             else -> {
                 binding.namaPerangkatLayout.error = null
                 binding.tujuanPeminjamanLayout.error = null
+                binding.rentangTanggalLayout.error = null
                 binding.harapanAndaLayout.error = null
                 binding.namaPenanggungJawabLayout.error = null
                 binding.kontakPenanggungJawabLayout.error = null
                 return true
             }
         }
+    }
+
+    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
+        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
+        return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
     }
 
     private fun openPdfPicker() {
@@ -197,13 +258,14 @@ class FormPeminjamanFragment : Fragment() {
 
         val namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim()
         val tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim()
+        val rentangTanggal = binding.rentangTanggalLayout.editText?.text.toString().trim()
         val harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim()
         val namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim()
         val kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
 
         val currentTime = System.currentTimeMillis()
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        val formattedDate = dateFormat.format(Date(currentTime))
+        val dateTimeFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val formattedDate = dateTimeFormat.format(Date(currentTime))
 
         val userEmail = UserManager.getCurrentUserEmail()
         val peminjamanData = hashMapOf(
@@ -211,13 +273,16 @@ class FormPeminjamanFragment : Fragment() {
             "judul" to "Form Peminjaman",
             "namaPerangkat" to namaPerangkat,
             "tujuanPeminjaman" to tujuanPeminjaman,
+            "rentangTanggal" to rentangTanggal,
+            "tanggalMulai" to com.google.firebase.Timestamp(startDate!!),
+            "tanggalSelesai" to com.google.firebase.Timestamp(endDate!!),
             "harapanAnda" to harapanAnda,
             "namaPenanggungJawab" to namaPJ,
             "kontakPenanggungJawab" to kontakPJ,
             "filePath" to (savedPdfPath ?: ""),
             "statusPeminjaman" to "Diajukan",
             "tanggalPengajuan" to formattedDate,
-            "timestamp" to currentTime,
+            "timestamp" to com.google.firebase.Timestamp.now(), // Store as Timestamp
             "barangDipinjam" to getSelectedItemsList()
         )
 
@@ -232,14 +297,11 @@ class FormPeminjamanFragment : Fragment() {
 
                         lifecycleScope.launch {
                             Toast.makeText(requireContext(), "Peminjaman berhasil diajukan!", Toast.LENGTH_LONG).show()
-
-                            findNavController().previousBackStackEntry?.savedStateHandle?.set("refresh_needed", true)
-                            findNavController().popBackStack()
-                            findNavController().navigate(R.id.productListFragment)
+                            findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
                         }
                     } else {
                         binding.btnSubmit.isEnabled = true
-                        binding.btnSubmit.text = getString(R.string.submit_button) // Gunakan string resource
+                        binding.btnSubmit.text = getString(R.string.submit_button)
                         Toast.makeText(requireContext(), "Gagal mengupdate status barang", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -257,7 +319,7 @@ class FormPeminjamanFragment : Fragment() {
             mapOf(
                 "namaBarang" to barang.namaBarang,
                 "jenis" to barang.jenis,
-                "tanggalPinjam" to SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+                "tanggalPinjam" to com.google.firebase.Timestamp(startDate!!)
             )
         }
     }
@@ -285,7 +347,8 @@ class FormPeminjamanFragment : Fragment() {
                                 mapOf(
                                     "status" to "dipinjam",
                                     "peminjamanId" to peminjamanId,
-                                    "tanggalDipinjam" to com.google.firebase.Timestamp.now(),
+                                    "tanggalPinjam" to com.google.firebase.Timestamp(startDate!!),
+                                    "tanggalKembali" to com.google.firebase.Timestamp(endDate!!),
                                     "peminjam" to userEmail
                                 )
                             )

@@ -5,6 +5,7 @@ data class Barang(
     val jenis: String = "",
     val status: String = "tersedia",
     val peminjam: String = "",
-    val tanggalPinjam: String = "",
-    val tanggalKembali: String = ""
+    val peminjamanId: String = "",
+    val tanggalPinjam: com.google.firebase.Timestamp? = null,
+    val tanggalKembali: com.google.firebase.Timestamp? = null
 )

@@ -11,6 +11,7 @@ import android.widget.RadioButton
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPemeliharaanAkunBinding
@@ -78,51 +79,59 @@ class FormPemeliharaanAkunFragment : Fragment() {
     private fun submitForm() {
         val selectedRadioButtonLayanan = binding.radioGroupLayanan.checkedRadioButtonId
         val selectedRadioButtonJenis = binding.radioGroupJenis.checkedRadioButtonId
-
-        if (selectedRadioButtonLayanan == -1) {
-            Toast.makeText(requireContext(), "Harap pilih layanan yang diajukan", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        if (selectedRadioButtonJenis == -1) {
-            Toast.makeText(requireContext(), "Harap pilih jenis pemeliharaan yang diajukan", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         val layanan = view?.findViewById<RadioButton>(selectedRadioButtonLayanan)?.text?.toString() ?: ""
         val jenis = if (selectedRadioButtonJenis == R.id.radioOther) {
             binding.editTextOther.text.toString()
         } else {
-            val radioButton = view?.findViewById<RadioButton>(selectedRadioButtonJenis)
-            radioButton?.text?.toString() ?: ""
+            view?.findViewById<RadioButton>(selectedRadioButtonJenis)?.text?.toString() ?: ""
         }
-
         val akun = binding.namaAkunLayout.editText?.text.toString()
         val alasan = binding.alasanLayout.editText?.text.toString()
+        val localImagePath = imageUri?.let { saveImageLocally() }
 
-        if (layanan.isEmpty() || jenis.isEmpty() || akun.isEmpty() || alasan.isEmpty()) {
-            Toast.makeText(requireContext(), "Harap isi semua field", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val localImagePath = if (imageUri != null) {
-            saveImageLocally()
-        } else {
-            null
-        }
+        if (!validateForm(selectedRadioButtonLayanan, selectedRadioButtonJenis, akun, alasan)) return
 
         saveDataToFirestore(layanan, jenis, akun, alasan, localImagePath)
     }
 
-    private fun saveImageLocally(): String? {
-        if (imageUri == null) return null
+    private fun validateForm(
+        selectedLayanan: Int,
+        selectedJenis: Int,
+        akun: String,
+        alasan: String
+    ): Boolean {
+        if (selectedLayanan == -1) {
+            Toast.makeText(requireContext(), "Harap pilih layanan yang diajukan", Toast.LENGTH_SHORT).show()
+            return false
+        }
 
-        try {
+        if (selectedJenis == -1) {
+            Toast.makeText(requireContext(), "Harap pilih jenis pemeliharaan yang diajukan", Toast.LENGTH_SHORT).show()
+            return false
+        }
+
+        if (akun.isBlank()) {
+            binding.namaAkunLayout.error = "Nama Akun Layanan tidak boleh kosong"
+            return false
+        } else {
+            binding.namaAkunLayout.error = null
+        }
+
+        if (alasan.isBlank()) {
+            binding.alasanLayout.error = "Alasan Pemeliharaan tidak boleh kosong"
+            return false
+        } else {
+            binding.alasanLayout.error = null
+        }
+
+        return true
+    }
+
+    private fun saveImageLocally(): String? {
+        return try {
             val filename = "IMG_${UUID.randomUUID()}.jpg"
             val imagesDir = File(requireContext().filesDir, "images")
-            if (!imagesDir.exists()) {
-                imagesDir.mkdir()
-            }
+            if (!imagesDir.exists()) imagesDir.mkdir()
 
             val destinationFile = File(imagesDir, filename)
 
@@ -132,18 +141,24 @@ class FormPemeliharaanAkunFragment : Fragment() {
                 }
             }
 
-            return destinationFile.absolutePath
+            destinationFile.absolutePath
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Gagal menyimpan gambar: ${e.message}", Toast.LENGTH_SHORT).show()
-            return null
+            null
         }
     }
 
-    private fun saveDataToFirestore(layanan: String, jenis: String, akun: String, alasan: String, localImagePath: String?) {
+    private fun saveDataToFirestore(
+        layanan: String,
+        jenis: String,
+        akun: String,
+        alasan: String,
+        localImagePath: String?
+    ) {
         val userEmail = UserManager.getCurrentUserEmail()
         val currentTime = System.currentTimeMillis()
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        val formattedDate = dateFormat.format(Date(currentTime))
+        val formattedDate = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(currentTime))
+
         val pemeliharaan = hashMapOf(
             "userEmail" to userEmail,
             "judul" to "Form Pemeliharaan Akun",
@@ -152,15 +167,16 @@ class FormPemeliharaanAkunFragment : Fragment() {
             "akun" to akun,
             "alasan" to alasan,
             "localImagePath" to localImagePath,
-            "status" to "Terkirim",
+            "status" to "Draft",
             "timestamp" to formattedDate
         )
 
-        firestore.collection("form_pemeliharaan_akun")
+        firestore.collection("form_pemeliharaan")
             .add(pemeliharaan)
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
                 clearForm()
+                findNavController().navigate(R.id.action_formPemeliharaanAkunFragment_to_historyLayananFragment)
             }
             .addOnFailureListener {
                 Toast.makeText(requireContext(), "Gagal mengirim pengaduan", Toast.LENGTH_SHORT).show()
@@ -175,6 +191,7 @@ class FormPemeliharaanAkunFragment : Fragment() {
         binding.namaAkunLayout.editText?.text?.clear()
         binding.alasanLayout.editText?.text?.clear()
         binding.tvFileName.text = getString(R.string.no_file_selected)
+
         binding.btnChooseFile.apply {
             backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.white))
             setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
@@ -182,8 +199,10 @@ class FormPemeliharaanAkunFragment : Fragment() {
             strokeWidth = 2
             strokeColor = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
         }
+
         imageUri = null
     }
+
 
     override fun onResume() {
         super.onResume()

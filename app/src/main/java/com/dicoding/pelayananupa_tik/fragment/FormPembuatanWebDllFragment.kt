@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.RadioButton
 import android.widget.Toast
+import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPembuatanWebDllBinding
@@ -51,6 +52,11 @@ class FormPembuatanWebDllFragment : Fragment() {
         }
     }
 
+    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
+        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
+        return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
+    }
+
     private fun submitForm() {
         val selectedRadioButtonId = binding.radioGroupServices.checkedRadioButtonId
 
@@ -70,12 +76,31 @@ class FormPembuatanWebDllFragment : Fragment() {
         val kontak = binding.kontakLayout.editText?.text.toString()
         val tujuan = binding.tujuanPembuatanLayout.editText?.text.toString()
 
-        if (layanan.isEmpty() || kontak.isEmpty() || tujuan.isEmpty()) {
-            Toast.makeText(requireContext(), "Harap isi semua field", Toast.LENGTH_SHORT).show()
-            return
-        }
+        when {
+            namaLayanan.isEmpty() -> {
+                binding.namaLayananLayout.error = "Nama Layanan tidak boleh kosong"
+                return
+            }
+            kontak.isEmpty() -> {
+                binding.kontakLayout.error = "Kontak penanggung jawab tidak boleh kosong"
+                return
+            }
+            !isValidPhoneNumber(kontak) -> {
+                binding.kontakLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
+                return
+            }
+            tujuan.isEmpty() -> {
+                binding.tujuanPembuatanLayout.error = "Tujuan Pembuatan tidak boleh kosong"
+                return
+            }
+            else -> {
+                binding.namaLayananLayout.error = null
+                binding.kontakLayout.error = null
+                binding.tujuanPembuatanLayout.error = null
 
-        saveDataToFirestore(layanan, namaLayanan, kontak, tujuan)
+                saveDataToFirestore(layanan, namaLayanan, kontak, tujuan)
+            }
+        }
     }
 
     private fun saveDataToFirestore(layanan: String, namaLayanan: String, kontak: String, tujuan: String) {
@@ -90,15 +115,16 @@ class FormPembuatanWebDllFragment : Fragment() {
             "namaLayanan" to namaLayanan,
             "kontak" to kontak,
             "tujuan" to tujuan,
-            "status" to "Terkirim",
+            "status" to "Draft",
             "timestamp" to formattedDate
         )
 
-        firestore.collection("form_pembuatan_web_dll")
+        firestore.collection("form_pembuatan")
             .add(pembuatanWebDll)
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
                 clearForm()
+                findNavController().navigate(R.id.action_formPembuatanWebDllFragment_to_historyLayananFragment)
             }
             .addOnFailureListener {
                 Toast.makeText(requireContext(), "Gagal mengirim pengaduan", Toast.LENGTH_SHORT).show()

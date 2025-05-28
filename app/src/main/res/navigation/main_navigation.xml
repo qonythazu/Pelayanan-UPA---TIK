@@ -46,6 +46,9 @@
         android:name="com.dicoding.pelayananupa_tik.fragment.ScanFragment"
         android:label="fragment_scan"
         tools:layout="@layout/fragment_scan" >
+        <action
+            android:id="@+id/action_scanFragment_to_homeFragment"
+            app:destination="@id/homeFragment" />
     </dialog>
     <fragment
         android:id="@+id/profileFragment"
@@ -79,37 +82,64 @@
             android:name="selectedItems"
             app:argType="string"
             app:nullable="true" />
+        <action
+            android:id="@+id/action_formPeminjamanFragment_to_historyPeminjamanBarangFragment"
+            app:destination="@id/historyPeminjamanBarangFragment" />
     </fragment>
     <fragment
         android:id="@+id/formBantuanOperatorFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.FormBantuanOperatorFragment"
         android:label="fragment_form_bantuan_operator"
-        tools:layout="@layout/fragment_form_bantuan_operator" />
+        tools:layout="@layout/fragment_form_bantuan_operator" >
+        <action
+            android:id="@+id/action_formBantuanOperatorFragment_to_historyLayananFragment"
+            app:destination="@id/historyLayananFragment" />
+    </fragment>
     <fragment
         android:id="@+id/formLaporKerusakanFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.FormLaporKerusakanFragment"
         android:label="fragment_form_lapor_kerusakan"
-        tools:layout="@layout/fragment_form_lapor_kerusakan" />
+        tools:layout="@layout/fragment_form_lapor_kerusakan" >
+        <action
+            android:id="@+id/action_formLaporKerusakanFragment_to_historyLayananFragment"
+            app:destination="@id/historyLayananFragment" />
+    </fragment>
     <fragment
         android:id="@+id/formPemasanganPerangkatFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.FormPemasanganPerangkatFragment"
         android:label="fragment_form_pemasangan_perangkat"
-        tools:layout="@layout/fragment_form_pemasangan_perangkat" />
+        tools:layout="@layout/fragment_form_pemasangan_perangkat" >
+        <action
+            android:id="@+id/action_formPemasanganPerangkatFragment_to_historyLayananFragment"
+            app:destination="@id/historyLayananFragment" />
+    </fragment>
     <fragment
         android:id="@+id/formPembuatanWebDllFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.FormPembuatanWebDllFragment"
         android:label="fragment_form_pembuatan_web_dll"
-        tools:layout="@layout/fragment_form_pembuatan_web_dll" />
+        tools:layout="@layout/fragment_form_pembuatan_web_dll" >
+        <action
+            android:id="@+id/action_formPembuatanWebDllFragment_to_historyLayananFragment"
+            app:destination="@id/historyLayananFragment" />
+    </fragment>
     <fragment
         android:id="@+id/formPemeliharaanAkunFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.FormPemeliharaanAkunFragment"
         android:label="fragment_form_pemeliharaan_akun"
-        tools:layout="@layout/fragment_form_pemeliharaan_akun" />
+        tools:layout="@layout/fragment_form_pemeliharaan_akun" >
+        <action
+            android:id="@+id/action_formPemeliharaanAkunFragment_to_historyLayananFragment"
+            app:destination="@id/historyLayananFragment" />
+    </fragment>
     <fragment
         android:id="@+id/formPengaduanLayananFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.FormPengaduanLayananFragment"
         android:label="fragment_form_pengaduan_layanan"
-        tools:layout="@layout/fragment_form_pengaduan_layanan" />
+        tools:layout="@layout/fragment_form_pengaduan_layanan" >
+        <action
+            android:id="@+id/action_formPengaduanLayananFragment_to_historyLayananFragment"
+            app:destination="@id/historyLayananFragment" />
+    </fragment>
     <fragment
         android:id="@+id/historyPeminjamanBarangFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.HistoryPeminjamanBarangFragment"

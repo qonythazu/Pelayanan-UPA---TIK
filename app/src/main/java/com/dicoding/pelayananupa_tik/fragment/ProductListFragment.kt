@@ -31,8 +31,6 @@ class ProductListFragment : Fragment() {
     private val db = FirebaseFirestore.getInstance()
     private var fullList = mutableListOf<Barang>()
     private var availableList = mutableListOf<Barang>()
-
-    // Badge views
     private var badgeTextView: TextView? = null
 
     override fun onCreateView(
@@ -54,13 +52,17 @@ class ProductListFragment : Fragment() {
         getBarangDariFirestore()
         setupSearch()
         observeBoxCount()
+        observeRefreshNeeded()
+    }
 
-        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("refresh_needed")?.observe(viewLifecycleOwner) { refreshNeeded ->
-            if (refreshNeeded == true) {
-                refreshBarangData()
-                findNavController().currentBackStackEntry?.savedStateHandle?.set("refresh_needed", false)
+    private fun observeRefreshNeeded() {
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("refresh_needed")
+            ?.observe(viewLifecycleOwner) { refreshNeeded ->
+                if (refreshNeeded == true) {
+                    refreshBarangData()
+                    findNavController().currentBackStackEntry?.savedStateHandle?.set("refresh_needed", false)
+                }
             }
-        }
     }
 
     private fun setupToolbar() {
@@ -91,17 +93,22 @@ class ProductListFragment : Fragment() {
         // Cari menu item box
         val menuItem = toolbar.menu.findItem(R.id.menu_box)
 
-        // Inflate custom badge layout
-        val badgeLayout = LayoutInflater.from(requireContext())
-            .inflate(R.layout.badge_menu_item, toolbar, false)
+        if (menuItem != null) {
+            // Inflate custom badge layout
+            val badgeLayout = LayoutInflater.from(requireContext())
+                .inflate(R.layout.badge_menu_item, toolbar, false)
 
-        badgeTextView = badgeLayout.findViewById(R.id.badge_text)
-        menuItem.actionView = badgeLayout
-        badgeLayout.setOnClickListener {
-            findNavController().navigate(R.id.action_productListFragment_to_boxFragment)
+            badgeTextView = badgeLayout.findViewById(R.id.badge_text)
+            menuItem.actionView = badgeLayout
+
+            badgeLayout.setOnClickListener {
+                findNavController().navigate(R.id.action_productListFragment_to_boxFragment)
+            }
+
+            updateBadge()
+        } else {
+            Log.w("ProductListFragment", "Menu item R.id.menu_box not found")
         }
-
-        updateBadge()
     }
 
     private fun updateBadge() {
@@ -118,7 +125,6 @@ class ProductListFragment : Fragment() {
 
         Log.d("ProductListFragment", "Badge updated: $boxCount items")
     }
-
 
     private fun setupRecyclerView() {
         adapter = ProductAdapter(availableList, { barang ->
@@ -137,42 +143,60 @@ class ProductListFragment : Fragment() {
         db.collection("daftar_barang")
             .get()
             .addOnSuccessListener { result ->
-                fullList.clear()
-                availableList.clear()
+                try {
+                    fullList.clear()
+                    availableList.clear()
 
-                for (document in result) {
-                    val barang = document.toObject(Barang::class.java)
-                    Log.d("FirestoreFetch", "Data ditemukan: ${barang.namaBarang}, Status: ${barang.status}")
+                    for (document in result) {
+                        try {
+                            val barang = document.toObject(Barang::class.java)
+                            Log.d("FirestoreFetch", "Data ditemukan: ${barang.namaBarang}, Status: ${barang.status}")
 
-                    fullList.add(barang)
+                            fullList.add(barang)
 
-                    // Hanya tambahkan barang yang tersedia ke availableList
-                    if (barang.status == "tersedia" || barang.status.isEmpty()) {
-                        availableList.add(barang)
+                            // Hanya tambahkan barang yang tersedia ke availableList
+                            if (barang.status == "tersedia" || barang.status.isEmpty()) {
+                                availableList.add(barang)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("FirestoreFetch", "Error parsing document ${document.id}: ${e.message}")
+                        }
                     }
-                }
 
-                Log.d("FirestoreFetch", "Total data: ${fullList.size}, Tersedia: ${availableList.size}")
-                adapter.updateList(availableList)
+                    Log.d("FirestoreFetch", "Total data: ${fullList.size}, Tersedia: ${availableList.size}")
+                    adapter.updateList(availableList)
 
-                if (!binding.searchView.query.isNullOrEmpty()) {
-                    binding.searchView.setQuery("", false)
-                    binding.searchView.clearFocus()
+                    // Clear search if there's an active query
+                    if (!binding.searchView.query.isNullOrEmpty()) {
+                        binding.searchView.setQuery("", false)
+                        binding.searchView.clearFocus()
+                    }
+                } catch (e: Exception) {
+                    Log.e("FirestoreFetch", "Error processing Firestore data: ${e.message}")
+                    showErrorToast("Error memproses data")
                 }
             }
             .addOnFailureListener { e ->
                 Log.e("FirestoreFetch", "Gagal ambil data: ${e.message}", e)
-                Toast.makeText(requireContext(), "Gagal mengambil data", Toast.LENGTH_SHORT).show()
+                showErrorToast("Gagal mengambil data")
             }
     }
 
     private fun setupSearch() {
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean = false
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                binding.searchView.clearFocus()
+                return true
+            }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                val filtered = availableList.filter {
-                    it.namaBarang.contains(newText ?: "", ignoreCase = true)
+                val query = newText?.trim() ?: ""
+                val filtered = if (query.isEmpty()) {
+                    availableList
+                } else {
+                    availableList.filter {
+                        it.namaBarang.contains(query, ignoreCase = true)
+                    }
                 }
                 adapter.updateList(filtered)
                 return true
@@ -181,11 +205,16 @@ class ProductListFragment : Fragment() {
     }
 
     private fun addToBox(barang: Barang) {
-        if (boxViewModel.isItemInBox(barang)) {
-            Toast.makeText(requireContext(), "${barang.namaBarang} sudah ada di box", Toast.LENGTH_SHORT).show()
-        } else {
-            boxViewModel.addToBox(barang)
-            Toast.makeText(requireContext(), "${barang.namaBarang} ditambahkan ke box", Toast.LENGTH_SHORT).show()
+        try {
+            if (boxViewModel.isItemInBox(barang)) {
+                showInfoToast("${barang.namaBarang} sudah ada di box")
+            } else {
+                boxViewModel.addToBox(barang)
+                showSuccessToast("${barang.namaBarang} ditambahkan ke box")
+            }
+        } catch (e: Exception) {
+            Log.e("ProductListFragment", "Error adding item to box: ${e.message}")
+            showErrorToast("Gagal menambahkan item ke box")
         }
     }
 
@@ -198,15 +227,10 @@ class ProductListFragment : Fragment() {
     }
 
     private fun updateToolbarTitle() {
-        boxViewModel.getBoxCount()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        (activity as? MainActivity)?.hideBottomNavigation()
-        (activity as? MainActivity)?.hideToolbar()
-        refreshBarangData()
-        updateBadge()
+        val boxCount = boxViewModel.getBoxCount()
+        // Update title dengan informasi box count jika diperlukan
+        binding.fragmentToolbar.title = "Daftar Produk"
+        Log.d("ProductListFragment", "Toolbar title updated, box count: $boxCount")
     }
 
     private fun refreshBarangData() {
@@ -214,14 +238,47 @@ class ProductListFragment : Fragment() {
         getBarangDariFirestore()
     }
 
+    private fun showSuccessToast(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showInfoToast(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showErrorToast(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        try {
+            (activity as? MainActivity)?.let { mainActivity ->
+                mainActivity.hideBottomNavigation()
+                mainActivity.hideToolbar()
+            }
+            refreshBarangData()
+            updateBadge()
+        } catch (e: Exception) {
+            Log.e("ProductListFragment", "Error in onResume: ${e.message}")
+        }
+    }
+
     override fun onPause() {
         super.onPause()
-        (activity as? MainActivity)?.showBottomNavigation()
-        (activity as? MainActivity)?.showToolbar()
+        try {
+            (activity as? MainActivity)?.let { mainActivity ->
+                mainActivity.showBottomNavigation()
+                mainActivity.showToolbar()
+            }
+        } catch (e: Exception) {
+            Log.e("ProductListFragment", "Error in onPause: ${e.message}")
+        }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+        badgeTextView = null
     }
 }

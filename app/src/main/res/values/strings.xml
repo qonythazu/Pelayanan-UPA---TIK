@@ -134,4 +134,7 @@
     <string name="select_all_with_count">Pilih Semua (%1$d/%2$d)</string>
     <string name="_0">0</string>
     <string name="more">more</string>
+    <string name="update">Update</string>
+    <string name="delete">Delete</string>
+    <string name="rentang_tanggal">Rentang Tanggal</string>
 </resources>

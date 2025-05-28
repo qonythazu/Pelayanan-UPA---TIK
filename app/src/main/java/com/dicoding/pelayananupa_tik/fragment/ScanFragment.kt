@@ -3,6 +3,8 @@ package com.dicoding.pelayananupa_tik.fragment
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -18,10 +20,12 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentManager
 import androidx.navigation.findNavController
+import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.utils.ProgressDialogFragment
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.google.android.material.snackbar.Snackbar
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.mlkit.vision.barcode.BarcodeScanner
@@ -167,14 +171,11 @@ class ScanFragment : BottomSheetDialogFragment() {
 
         Log.d(TAG, "Binding camera use cases")
         cameraProvider.unbindAll()
-
-        // Perbaikan: Konfigurasi preview dengan resolusi yang tepat
         val preview = Preview.Builder()
             .setTargetRotation(viewfinder.display.rotation)
             .build()
         preview.setSurfaceProvider(viewfinder.surfaceProvider)
 
-        // Perbaikan: Konfigurasi image analysis dengan resolusi optimal
         val imageAnalysis = ImageAnalysis.Builder()
             .setTargetRotation(viewfinder.display.rotation)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -183,20 +184,15 @@ class ScanFragment : BottomSheetDialogFragment() {
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
         try {
-            // Bind dengan lifecycle owner yang tepat
             val camera = cameraProvider.bindToLifecycle(
                 viewLifecycleOwner,
                 cameraSelector,
                 preview,
                 imageAnalysis
             )
-
-            // Perbaikan: Atur exposure untuk kamera yang lebih terang
             try {
                 val cameraControl = camera.cameraControl
                 val cameraInfo = camera.cameraInfo
-
-                // Atur exposure compensation untuk kamera lebih terang
                 val exposureState = cameraInfo.exposureState
                 if (exposureState.isExposureCompensationSupported) {
                     val exposureCompensation = (exposureState.exposureCompensationRange.upper * 0.3).toInt()
@@ -207,7 +203,6 @@ class ScanFragment : BottomSheetDialogFragment() {
                 Log.w(TAG, "Could not set camera controls", e)
             }
 
-            // Set analyzer untuk barcode scanning
             imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
                 if (!isAdded) {
                     imageProxy.close()
@@ -272,7 +267,6 @@ class ScanFragment : BottomSheetDialogFragment() {
             return
         }
 
-        // Perbaikan: Query dengan multiple approaches
         firestore.collection("daftar_barang")
             .whereEqualTo("serial_number", serialNumber)
             .get()
@@ -327,8 +321,6 @@ class ScanFragment : BottomSheetDialogFragment() {
             showNotFoundMessage(serialNumber)
             return
         }
-
-        // Perbaikan: Extract data dengan handling yang lebih baik dan multiple field names
         val nama = data["nama_barang"] as? String
             ?: data["nama"] as? String
             ?: data["namaBarang"] as? String
@@ -405,11 +397,34 @@ class ScanFragment : BottomSheetDialogFragment() {
     }
 
     private fun showNotFoundMessage(serialNumber: String) {
-        Toast.makeText(
-            requireContext(),
-            "Data barang dengan kode $serialNumber tidak ditemukan",
-            Toast.LENGTH_LONG
-        ).show()
+        if (!isAdded) return
+
+        activity?.runOnUiThread {
+            val snackbar = Snackbar.make(
+                requireView(),
+                "⚠️ Barang Tidak Ditemukan\\nKode: $serialNumber tidak terdaftar",
+                Snackbar.LENGTH_LONG
+            )
+            snackbar.setBackgroundTint(ContextCompat.getColor(requireContext(), R.color.red))
+            snackbar.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+
+            snackbar.show()
+
+            Handler(Looper.getMainLooper()).postDelayed({
+                navigateToHome()
+            }, 2000)
+        }
+    }
+
+    private fun navigateToHome() {
+        if (!isAdded) return
+
+        try {
+            findNavController().navigate(R.id.action_scanFragment_to_homeFragment)
+        } catch (e: Exception) {
+            Log.e(TAG, "Navigation failed", e)
+            activity?.onBackPressedDispatcher?.onBackPressed()
+        }
     }
 
     private fun showErrorMessage(message: String?) {
