@@ -9,5 +9,8 @@
     <color name="red">#FF3B30</color>
     <color name="yellow">#FFEB3B</color>
     <color name="gray_text">#666666</color>
+    <!-- Tambahkan ini ke res/values/colors.xml -->
+    <color name="gray_300">#E0E0E0</color>
+    <color name="gray_100">#F5F5F5</color>
 
 </resources>

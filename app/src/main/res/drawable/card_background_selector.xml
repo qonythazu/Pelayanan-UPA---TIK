@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- File: res/drawable/card_background_selector.xml -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- State when pressed -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#E0E0E0" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+
+    <!-- State when focused -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#F0F0F0" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+
+    <!-- Default state -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+</selector>

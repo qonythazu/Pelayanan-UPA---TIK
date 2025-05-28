@@ -22,7 +22,7 @@
         android:id="@+id/gridLayout"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:padding="8dp"
+        android:padding="20dp"
         app:alignmentMode="alignMargins"
         app:columnCount="2"
         app:layout_constraintEnd_toEndOf="parent"
@@ -31,20 +31,26 @@
         app:rowCount="3">
 
         <!-- CardView 1 -->
-        <com.dicoding.pelayananupa_tik.customview.ClickableCardView
+        <androidx.cardview.widget.CardView
             android:id="@+id/menu_peminjaman_barang"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
             android:orientation="vertical"
             app:cardElevation="4dp"
+            app:cardCornerRadius="12dp"
             app:layout_rowWeight="1"
             app:layout_columnWeight="1"
             android:foreground="?attr/selectableItemBackground"
-            android:background="@drawable/rounded_border_blue">
+            android:background="@color/white"
+            android:clickable="true"
+            android:focusable="true"
+            android:stateListAnimator="@animator/card_state_animator">
+
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:background="@android:color/white"
                 android:padding="16dp">
 
                 <ImageView
@@ -70,23 +76,29 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
-        </com.dicoding.pelayananupa_tik.customview.ClickableCardView>
+        </androidx.cardview.widget.CardView>
 
-        <!-- CardView 2 -->
-        <com.dicoding.pelayananupa_tik.customview.ClickableCardView
+    <!-- CardView 2 -->
+        <androidx.cardview.widget.CardView
             android:id="@+id/menu_pembuatan_web_dll"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
             android:orientation="vertical"
             app:cardElevation="4dp"
+            app:cardCornerRadius="12dp"
             app:layout_rowWeight="1"
             app:layout_columnWeight="1"
             android:foreground="?attr/selectableItemBackground"
-            android:background="@drawable/rounded_border_blue">
+            android:background="@color/white"
+            android:clickable="true"
+            android:focusable="true"
+            android:stateListAnimator="@animator/card_state_animator">
+
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:background="@drawable/card_background_selector"
                 android:padding="16dp">
 
                 <ImageView
@@ -112,23 +124,29 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
-        </com.dicoding.pelayananupa_tik.customview.ClickableCardView>
+        </androidx.cardview.widget.CardView>
 
-        <!-- CardView 3 -->
-        <com.dicoding.pelayananupa_tik.customview.ClickableCardView
+    <!-- CardView 3 -->
+        <androidx.cardview.widget.CardView
             android:id="@+id/menu_pemeliharaan_akun"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
             android:orientation="vertical"
             app:cardElevation="4dp"
+            app:cardCornerRadius="12dp"
             app:layout_rowWeight="1"
             app:layout_columnWeight="1"
             android:foreground="?attr/selectableItemBackground"
-            android:background="@drawable/rounded_border_blue">
+            android:background="@color/white"
+            android:clickable="true"
+            android:focusable="true"
+            android:stateListAnimator="@animator/card_state_animator">
+
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:background="@drawable/card_background_selector"
                 android:padding="16dp">
 
                 <ImageView
@@ -154,23 +172,29 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
-        </com.dicoding.pelayananupa_tik.customview.ClickableCardView>
+        </androidx.cardview.widget.CardView>
 
         <!-- CardView 4 -->
-        <com.dicoding.pelayananupa_tik.customview.ClickableCardView
+        <androidx.cardview.widget.CardView
             android:id="@+id/menu_pengaduan_layanan"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
             android:orientation="vertical"
             app:cardElevation="4dp"
+            app:cardCornerRadius="12dp"
             app:layout_rowWeight="1"
             app:layout_columnWeight="1"
             android:foreground="?attr/selectableItemBackground"
-            android:background="@drawable/rounded_border_blue">
+            android:background="@color/white"
+            android:clickable="true"
+            android:focusable="true"
+            android:stateListAnimator="@animator/card_state_animator">
+
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:background="@drawable/card_background_selector"
                 android:padding="16dp">
 
                 <ImageView
@@ -196,23 +220,29 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
-        </com.dicoding.pelayananupa_tik.customview.ClickableCardView>
+        </androidx.cardview.widget.CardView>
 
         <!-- CardView 5 -->
-        <com.dicoding.pelayananupa_tik.customview.ClickableCardView
+        <androidx.cardview.widget.CardView
             android:id="@+id/menu_pemasangan_perangkat"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
             android:orientation="vertical"
             app:cardElevation="4dp"
+            app:cardCornerRadius="12dp"
             app:layout_rowWeight="1"
             app:layout_columnWeight="1"
             android:foreground="?attr/selectableItemBackground"
-            android:background="@drawable/rounded_border_blue">
+            android:background="@color/white"
+            android:clickable="true"
+            android:focusable="true"
+            android:stateListAnimator="@animator/card_state_animator">
+
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:background="@drawable/card_background_selector"
                 android:padding="16dp">
 
                 <ImageView
@@ -238,23 +268,29 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
-        </com.dicoding.pelayananupa_tik.customview.ClickableCardView>
+        </androidx.cardview.widget.CardView>
 
         <!-- CardView 6 -->
-        <com.dicoding.pelayananupa_tik.customview.ClickableCardView
+        <androidx.cardview.widget.CardView
             android:id="@+id/menu_bantuan_operator_tik"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
             android:orientation="vertical"
             app:cardElevation="4dp"
+            app:cardCornerRadius="12dp"
             app:layout_rowWeight="1"
             app:layout_columnWeight="1"
             android:foreground="?attr/selectableItemBackground"
-            android:background="@drawable/rounded_border_blue">
+            android:background="@color/white"
+            android:clickable="true"
+            android:focusable="true"
+            android:stateListAnimator="@animator/card_state_animator">
+
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:background="@drawable/card_background_selector"
                 android:padding="16dp">
 
                 <ImageView
@@ -280,8 +316,6 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
-        </com.dicoding.pelayananupa_tik.customview.ClickableCardView>
-
+        </androidx.cardview.widget.CardView>
     </androidx.gridlayout.widget.GridLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
-

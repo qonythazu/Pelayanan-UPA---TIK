@@ -72,6 +72,20 @@ class ProductListFragment : Fragment() {
                 requireActivity().onBackPressedDispatcher.onBackPressed()
             }
             inflateMenu(R.menu.toolbar_menu)
+
+            // Sesuaikan padding menu items
+            post {
+                for (i in 0 until childCount) {
+                    val child = getChildAt(i)
+                    if (child is androidx.appcompat.widget.ActionMenuView) {
+                        for (j in 0 until child.childCount) {
+                            val menuItem = child.getChildAt(j)
+                            menuItem.setPadding(0, 0, 40, 0)
+                        }
+                    }
+                }
+            }
+
             setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
                     R.id.menu_box -> {
@@ -82,15 +96,11 @@ class ProductListFragment : Fragment() {
                 }
             }
         }
-
-        updateToolbarTitle()
         setupBadge()
     }
 
     private fun setupBadge() {
         val toolbar = binding.fragmentToolbar
-
-        // Cari menu item box
         val menuItem = toolbar.menu.findItem(R.id.menu_box)
 
         if (menuItem != null) {
@@ -220,17 +230,9 @@ class ProductListFragment : Fragment() {
 
     private fun observeBoxCount() {
         boxViewModel.boxCount.observe(viewLifecycleOwner) { count ->
-            updateToolbarTitle()
             updateBadge()
             Log.d("ProductListFragment", "Box count changed: $count")
         }
-    }
-
-    private fun updateToolbarTitle() {
-        val boxCount = boxViewModel.getBoxCount()
-        // Update title dengan informasi box count jika diperlukan
-        binding.fragmentToolbar.title = "Daftar Produk"
-        Log.d("ProductListFragment", "Toolbar title updated, box count: $boxCount")
     }
 
     private fun refreshBarangData() {

@@ -63,6 +63,8 @@ dependencies {
         exclude(group  = "com.android.support")
     }
 
+    implementation("androidx.cardview:cardview:1.0.0")
+
     //camera
     implementation("androidx.camera:camera-core:1.3.0")
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
