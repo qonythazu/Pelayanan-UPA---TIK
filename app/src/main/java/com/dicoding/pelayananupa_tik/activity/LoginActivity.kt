@@ -59,7 +59,20 @@ class LoginActivity : AppCompatActivity() {
                             if (task.isSuccessful) {
                                 Log.d(TAG, "signInWithCredential:success")
                                 val user = auth.currentUser
-                                initializeUserAfterLogin(user)
+
+                                // Validasi email ITK
+                                if (user?.email != null && isITKEmail(user.email!!)) {
+                                    initializeUserAfterLogin(user)
+                                } else {
+                                    Log.w(TAG, "Email bukan dari ITK: ${user?.email}")
+                                    Toast.makeText(
+                                        this@LoginActivity,
+                                        "Maaf, anda bukan civitas ITK",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    auth.signOut()
+                                    updateUI(null)
+                                }
                             } else {
                                 Log.w(TAG, "signInWithCredential:failure", task.exception)
                                 updateUI(null)
@@ -79,8 +92,25 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+    private fun isITKEmail(email: String): Boolean {
+        return email.contains("itk.ac.id")
+    }
+
     private fun initializeUserAfterLogin(user: FirebaseUser?) {
         if (user == null) {
+            updateUI(null)
+            return
+        }
+
+        // Validasi ulang email ITK sebelum inisialisasi
+        if (!isITKEmail(user.email ?: "")) {
+            Log.w(TAG, "Email validation failed during initialization: ${user.email}")
+            Toast.makeText(
+                this@LoginActivity,
+                "Maaf, anda bukan civitas ITK",
+                Toast.LENGTH_LONG
+            ).show()
+            auth.signOut()
             updateUI(null)
             return
         }
@@ -142,16 +172,23 @@ class LoginActivity : AppCompatActivity() {
         super.onStart()
         val currentUser = auth.currentUser
         if (currentUser != null && UserManager.isUserLoggedIn()) {
-            lifecycleScope.launch {
-                UserManager.getCurrentUserData { userData ->
-                    runOnUiThread {
-                        if (userData != null) {
-                            updateUI(currentUser)
-                        } else {
-                            initializeUserAfterLogin(currentUser)
+            // Validasi email ITK saat app dimulai
+            if (isITKEmail(currentUser.email ?: "")) {
+                lifecycleScope.launch {
+                    UserManager.getCurrentUserData { userData ->
+                        runOnUiThread {
+                            if (userData != null) {
+                                updateUI(currentUser)
+                            } else {
+                                initializeUserAfterLogin(currentUser)
+                            }
                         }
                     }
                 }
+            } else {
+                Log.w(TAG, "Current user email is not ITK email: ${currentUser.email}")
+                auth.signOut()
+                updateUI(null)
             }
         } else {
             updateUI(null)
