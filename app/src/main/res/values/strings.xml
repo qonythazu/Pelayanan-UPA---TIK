@@ -137,4 +137,11 @@
     <string name="update">Update</string>
     <string name="delete">Delete</string>
     <string name="rentang_tanggal">Rentang Tanggal</string>
+    <string name="belum_ada_layanan_yang_terkirim">Belum ada layanan yang Terkirim</string>
+    <string name="belum_ada_layanan_yang_diterima">Belum Ada Layanan yang Diterima</string>
+    <string name="belum_ada_pengajuan_layanan_di_draft">Belum ada pengajuan layanan di Draft</string>
+    <string name="belum_ada_layanan_yang_selesai">Belum Ada Layanan yang Selesai</string>
+    <string name="belum_ada_layanan_yang_sedang_in_review">Belum ada layanan yang sedang In Review</string>
+    <string name="belum_ada_layanan_yang_dalam_proses_pengerjaan">Belum ada layanan yang dalam proses pengerjaan</string>
+    <string name="belum_ada_layanan_yang_ditolak">Belum ada layanan yang ditolak</string>
 </resources>

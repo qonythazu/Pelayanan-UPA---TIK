@@ -54,7 +54,7 @@ class HistoryPeminjamanBarangFragment : Fragment() {
         // Remove TabLayout indicator
         binding.tabLayout.setSelectedTabIndicatorColor(Color.TRANSPARENT)
 
-        val tabTitles = listOf("All", "Diajukan", "Ambil", "Diambil", "Selesai")
+        val tabTitles = listOf("Terkirim", "In_Review", "Ambil", "Diambil", "Selesai")
         for (title in tabTitles) {
             val tab = binding.tabLayout.newTab()
             val tabView = layoutInflater.inflate(R.layout.item_tab, binding.tabLayout, false) as TextView

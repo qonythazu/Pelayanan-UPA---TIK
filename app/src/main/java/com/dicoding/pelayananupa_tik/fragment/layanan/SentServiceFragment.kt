@@ -1,60 +1,99 @@
 package com.dicoding.pelayananupa_tik.fragment.layanan
 
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
+import com.dicoding.pelayananupa_tik.adapter.LayananAdapter
+import com.dicoding.pelayananupa_tik.backend.model.LayananItem
+import com.dicoding.pelayananupa_tik.utils.UserManager
+import com.google.firebase.firestore.FirebaseFirestore
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [SentServiceFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class SentServiceFragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
-        }
-    }
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: LayananAdapter
+    private lateinit var emptyStateTextView: TextView
+    private val layananList = mutableListOf<LayananItem>()
+    private val firestore = FirebaseFirestore.getInstance()
+    private val collections = listOf(
+        "form_bantuan",
+        "form_pemasangan",
+        "form_pembuatan",
+        "form_pemeliharaan",
+        "form_pengaduan",
+        "form_lapor_kerusakan"
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_sent_service, container, false)
+        val view = inflater.inflate(R.layout.fragment_sent_service, container, false)
+        recyclerView = view.findViewById(R.id.recyclerView)
+        emptyStateTextView = view.findViewById(R.id.emptyStateTextView)
+
+        adapter = LayananAdapter(layananList)
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView.adapter = adapter
+
+        fetchAllLayanan()
+        return view
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment SentServiceFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            SentServiceFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
+    private fun fetchAllLayanan() {
+        layananList.clear()
+
+        val userEmail = UserManager.getCurrentUserEmail()
+
+        if (userEmail.isNullOrEmpty()) {
+            Log.w("ServiceHistory", "User email is null or empty")
+            return
+        }
+
+        var counter = 0
+        for (collection in collections) {
+            firestore.collection(collection)
+                .whereEqualTo("userEmail", userEmail)
+                .whereEqualTo("status", "Terkirim")
+                .get()
+                .addOnSuccessListener { documents ->
+                    for (doc in documents) {
+                        val judul = doc.getString("judul") ?: "Tidak ada judul"
+                        val tanggal = doc.getString("timestamp") ?: "Tidak ada tanggal"
+                        val status = doc.getString("status") ?: "Tidak ada status"
+
+                        layananList.add(LayananItem(judul, tanggal, status))
+                    }
+                    counter++
+                    if (counter == collections.size) {
+                        updateUI()
+                    }
                 }
-            }
+                .addOnFailureListener { e ->
+                    Log.w("FirestoreError", "Error getting documents from $collection", e)
+                    counter++
+                    if (counter == collections.size) {
+                        updateUI()
+                    }
+                }
+        }
+    }
+
+    private fun updateUI() {
+        adapter.notifyDataSetChanged()
+        if (layananList.isEmpty()) {
+            recyclerView.visibility = View.GONE
+            emptyStateTextView.visibility = View.VISIBLE
+            emptyStateTextView.text = getString(R.string.belum_ada_layanan_yang_terkirim)
+        } else {
+            recyclerView.visibility = View.VISIBLE
+            emptyStateTextView.visibility = View.GONE
+        }
     }
 }

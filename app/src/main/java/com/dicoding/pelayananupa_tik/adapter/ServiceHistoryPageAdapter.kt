@@ -4,14 +4,13 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.Lifecycle
 import androidx.viewpager2.adapter.FragmentStateAdapter
-import com.dicoding.pelayananupa_tik.fragment.HistoryLayananFragment
 import com.dicoding.pelayananupa_tik.fragment.layanan.AcceptedServiceFragment
 import com.dicoding.pelayananupa_tik.fragment.layanan.FinishedServiceFragment
 import com.dicoding.pelayananupa_tik.fragment.layanan.InReviewServiceFragment
 import com.dicoding.pelayananupa_tik.fragment.layanan.ProcessedServiceFragment
 import com.dicoding.pelayananupa_tik.fragment.layanan.RejectedServiceFragment
 import com.dicoding.pelayananupa_tik.fragment.layanan.SentServiceFragment
-import com.dicoding.pelayananupa_tik.fragment.layanan.ServiceHistoryFragment
+import com.dicoding.pelayananupa_tik.fragment.layanan.DraftServiceFragment
 
 class ServiceHistoryPageAdapter(
     fragmentManager: FragmentManager,
@@ -21,7 +20,7 @@ class ServiceHistoryPageAdapter(
 
     override fun createFragment(position: Int): Fragment {
         return when (position) {
-            0 -> ServiceHistoryFragment()
+            0 -> DraftServiceFragment()
             1 -> SentServiceFragment()
             2 -> InReviewServiceFragment()
             3 -> AcceptedServiceFragment()

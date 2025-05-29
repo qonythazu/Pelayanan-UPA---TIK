@@ -8,7 +8,6 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.adapter.ProductAdapter
@@ -16,7 +15,7 @@ import com.dicoding.pelayananupa_tik.backend.model.Barang
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 
-class ItemHistoryFragment : Fragment() {
+class SentItemFragment : Fragment() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var historyAdapter: ProductAdapter

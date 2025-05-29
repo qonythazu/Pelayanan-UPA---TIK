@@ -6,6 +6,7 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
@@ -14,10 +15,11 @@ import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 
-class ServiceHistoryFragment : Fragment() {
+class DraftServiceFragment : Fragment() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: LayananAdapter
+    private lateinit var emptyStateTextView: TextView
     private val layananList = mutableListOf<LayananItem>()
     private val firestore = FirebaseFirestore.getInstance()
     private val collections = listOf(
@@ -35,6 +37,7 @@ class ServiceHistoryFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_service_history, container, false)
         recyclerView = view.findViewById(R.id.recyclerView)
+        emptyStateTextView = view.findViewById(R .id.emptyStateTextView)
 
         adapter = LayananAdapter(layananList)
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
@@ -58,6 +61,7 @@ class ServiceHistoryFragment : Fragment() {
         for (collection in collections) {
             firestore.collection(collection)
                 .whereEqualTo("userEmail", userEmail)
+                .whereEqualTo("status", "Draft")
                 .get()
                 .addOnSuccessListener { documents ->
                     for (doc in documents) {
@@ -69,16 +73,28 @@ class ServiceHistoryFragment : Fragment() {
                     }
                     counter++
                     if (counter == collections.size) {
-                        adapter.notifyDataSetChanged()
+                        updateUI()
                     }
                 }
                 .addOnFailureListener { e ->
                     Log.w("FirestoreError", "Error getting documents from $collection", e)
                     counter++
                     if (counter == collections.size) {
-                        adapter.notifyDataSetChanged()
+                        updateUI()
                     }
                 }
+        }
+    }
+
+    private fun updateUI() {
+        adapter.notifyDataSetChanged()
+        if (layananList.isEmpty()) {
+            recyclerView.visibility = View.GONE
+            emptyStateTextView.visibility = View.VISIBLE
+            emptyStateTextView.text = getString(R.string.belum_ada_pengajuan_layanan_di_draft)
+        } else {
+            recyclerView.visibility = View.VISIBLE
+            emptyStateTextView.visibility = View.GONE
         }
     }
 }
