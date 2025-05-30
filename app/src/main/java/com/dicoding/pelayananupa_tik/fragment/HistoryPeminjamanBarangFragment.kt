@@ -51,10 +51,9 @@ class HistoryPeminjamanBarangFragment : Fragment() {
     }
 
     private fun setupTabLayout() {
-        // Remove TabLayout indicator
         binding.tabLayout.setSelectedTabIndicatorColor(Color.TRANSPARENT)
 
-        val tabTitles = listOf("Terkirim", "In_Review", "Ambil", "Diambil", "Selesai")
+        val tabTitles = listOf("Diajukan", "Disetujui", "Diambil", "Ditolak", "Selesai")
         for (title in tabTitles) {
             val tab = binding.tabLayout.newTab()
             val tabView = layoutInflater.inflate(R.layout.item_tab, binding.tabLayout, false) as TextView
@@ -122,10 +121,10 @@ class HistoryPeminjamanBarangFragment : Fragment() {
             // Create drawable with stroke and shadow
             val drawable = GradientDrawable().apply {
                 setColor(Color.WHITE)
-                setStroke(2, if (textView.text == "Selesai") {
-                    ContextCompat.getColor(requireContext(), R.color.green)
-                } else {
-                    ContextCompat.getColor(requireContext(), R.color.primary_blue)
+                setStroke(2, when (textView.text) {
+                    "Selesai" -> ContextCompat.getColor(requireContext(), R.color.green)
+                    "Ditolak" -> ContextCompat.getColor(requireContext(), R.color.red)
+                    else -> ContextCompat.getColor(requireContext(), R.color.primary_blue)
                 })
                 cornerRadius = 24f // Rounded corners
             }
@@ -134,10 +133,10 @@ class HistoryPeminjamanBarangFragment : Fragment() {
             textView.elevation = 4f // Shadow effect
 
             // Set text color
-            if (textView.text == "Selesai") {
-                textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.green))
-            } else {
-                textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+            when (textView.text) {
+                "Selesai" -> textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.green))
+                "Ditolak" -> textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.red))
+                else -> textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
             }
         }
     }

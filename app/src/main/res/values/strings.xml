@@ -146,4 +146,5 @@
     <string name="belum_ada_layanan_yang_ditolak">Belum ada layanan yang ditolak</string>
     <string name="batalkan">BATALKAN</string>
     <string name="belum_ada_peminjaman_yang_diajukan">Belum Ada Peminjaman yang Diajukan</string>
+    <string name="belum_ada_peminjaman_yang_disetujui">Belum Ada Peminjaman yang Disetujui</string>
 </resources>

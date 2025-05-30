@@ -15,7 +15,7 @@ import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.QuerySnapshot
 
-class FinishedItemFragment : Fragment() {
+class RejectedItemFragment : Fragment() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var historyAdapter: PeminjamanAdapter
     private lateinit var tvEmptyMessage: TextView
@@ -26,7 +26,7 @@ class FinishedItemFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        return inflater.inflate(R.layout.fragment_finished_item, container, false)
+        return inflater.inflate(R.layout.fragment_rejected_item, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -57,7 +57,7 @@ class FinishedItemFragment : Fragment() {
 
         db.collection("form_peminjaman")
             .whereEqualTo("userEmail", currentUserEmail)
-            .whereEqualTo("statusPeminjaman", "Selesai")
+            .whereEqualTo("statusPeminjaman", "Ditolak")
             .get()
             .addOnSuccessListener { result ->
                 processResults(result)
@@ -77,7 +77,7 @@ class FinishedItemFragment : Fragment() {
         }
 
         if (historyList.isEmpty()) {
-            showEmptyState("Belum ada peminjaman yang selesai")
+            showEmptyState("Belum ada peminjaman yang ditolak")
         } else {
             showData(historyList)
         }

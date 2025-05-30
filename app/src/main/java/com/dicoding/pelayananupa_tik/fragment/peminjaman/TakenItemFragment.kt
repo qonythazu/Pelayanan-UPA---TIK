@@ -5,56 +5,98 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
+import com.dicoding.pelayananupa_tik.adapter.PeminjamanAdapter
+import com.dicoding.pelayananupa_tik.backend.model.FormPeminjaman
+import com.dicoding.pelayananupa_tik.utils.UserManager
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.QuerySnapshot
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [TakenItemFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class TakenItemFragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
-        }
-    }
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var historyAdapter: PeminjamanAdapter
+    private lateinit var tvEmptyMessage: TextView
+    private val db = FirebaseFirestore.getInstance()
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_taken_item, container, false)
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment TakenItemFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            TakenItemFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
-                }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        recyclerView = view.findViewById(R.id.recyclerView)
+        tvEmptyMessage = view.findViewById(R.id.tv_empty_message)
+
+        setupRecyclerView()
+        loadHistoryData()
+    }
+
+    private fun setupRecyclerView() {
+        historyAdapter = PeminjamanAdapter(emptyList())
+        recyclerView.apply {
+            layoutManager = GridLayoutManager(context, 2)
+            adapter = historyAdapter
+        }
+    }
+
+    private fun loadHistoryData() {
+        val currentUserEmail = UserManager.getCurrentUserEmail()
+
+        if (currentUserEmail.isNullOrEmpty()) {
+            showEmptyState("User tidak terautentikasi")
+            return
+        }
+
+        db.collection("form_peminjaman")
+            .whereEqualTo("userEmail", currentUserEmail)
+            .whereEqualTo("statusPeminjaman", "Diambil")
+            .get()
+            .addOnSuccessListener { result ->
+                processResults(result)
             }
+            .addOnFailureListener { e ->
+                showEmptyState("Gagal mengambil data: ${e.message}")
+            }
+    }
+
+    private fun processResults(result: QuerySnapshot) {
+        val historyList = result.mapNotNull { document ->
+            try {
+                document.toObject(FormPeminjaman::class.java)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        if (historyList.isEmpty()) {
+            showEmptyState("Belum ada peminjaman yang diambil")
+        } else {
+            showData(historyList)
+        }
+    }
+
+    private fun showEmptyState(message: String) {
+        recyclerView.visibility = View.GONE
+        tvEmptyMessage.visibility = View.VISIBLE
+        tvEmptyMessage.text = message
+    }
+
+    private fun showData(historyList: List<FormPeminjaman>) {
+        recyclerView.visibility = View.VISIBLE
+        tvEmptyMessage.visibility = View.GONE
+        historyAdapter.updateList(historyList)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadHistoryData()
     }
 }
