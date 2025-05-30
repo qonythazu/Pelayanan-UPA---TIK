@@ -35,11 +35,10 @@ class ProductAdapter(
         holder.tvName.text = barang.namaBarang
         holder.tvCategory.text = barang.jenis
         holder.imgProduct.setImageResource(R.mipmap.ic_launcher)
-
-        if (showAddButton) {
+        if (showAddButton && onAddClick != null) {
             holder.btnAdd.visibility = View.VISIBLE
             holder.btnAdd.setOnClickListener {
-                onAddClick?.invoke(barang)
+                onAddClick.invoke(barang)
             }
         } else {
             holder.btnAdd.visibility = View.GONE

@@ -47,6 +47,21 @@
             android:layout_margin="8dp"
             app:layout_constraintTop_toBottomOf="@id/textTanggal"
             app:layout_constraintStart_toStartOf="parent"/>
+
+        <TextView
+            android:id="@+id/btnBatalkan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/batalkan"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textColor="@color/red"
+            app:layout_constraintTop_toBottomOf="@id/textStatus"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 

@@ -280,9 +280,9 @@ class FormPeminjamanFragment : Fragment() {
             "namaPenanggungJawab" to namaPJ,
             "kontakPenanggungJawab" to kontakPJ,
             "filePath" to (savedPdfPath ?: ""),
-            "statusPeminjaman" to "Diajukan",
+            "statusPeminjaman" to "Diajukan", // Status tetap "Diajukan"
             "tanggalPengajuan" to formattedDate,
-            "timestamp" to com.google.firebase.Timestamp.now(), // Store as Timestamp
+            "timestamp" to com.google.firebase.Timestamp.now(),
             "barangDipinjam" to getSelectedItemsList()
         )
 
@@ -291,18 +291,21 @@ class FormPeminjamanFragment : Fragment() {
             .addOnSuccessListener { documentReference ->
                 val peminjamanId = documentReference.id
 
-                updateBarangStatus(peminjamanId) { success ->
-                    if (success) {
-                        boxViewModel.clearBox()
+                // Buat notifikasi untuk admin
+                if (userEmail != null) {
+                    createAdminNotification(peminjamanId, namaPerangkat, userEmail) { success ->
+                        if (success) {
+                            boxViewModel.clearBox()
 
-                        lifecycleScope.launch {
-                            Toast.makeText(requireContext(), "Peminjaman berhasil diajukan!", Toast.LENGTH_LONG).show()
-                            findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
+                            lifecycleScope.launch {
+                                Toast.makeText(requireContext(), "Peminjaman berhasil diajukan! Menunggu persetujuan admin.", Toast.LENGTH_LONG).show()
+                                findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
+                            }
+                        } else {
+                            binding.btnSubmit.isEnabled = true
+                            binding.btnSubmit.text = getString(R.string.submit_button)
+                            Toast.makeText(requireContext(), "Peminjaman diajukan tetapi gagal membuat notifikasi admin", Toast.LENGTH_SHORT).show()
                         }
-                    } else {
-                        binding.btnSubmit.isEnabled = true
-                        binding.btnSubmit.text = getString(R.string.submit_button)
-                        Toast.makeText(requireContext(), "Gagal mengupdate status barang", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -324,52 +327,32 @@ class FormPeminjamanFragment : Fragment() {
         }
     }
 
-    private fun updateBarangStatus(peminjamanId: String, callback: (Boolean) -> Unit) {
-        val selectedBarang = boxViewModel.getSelectedItems()
-        var completedUpdates = 0
-        val totalUpdates = selectedBarang.size
-        var hasError = false
+    private fun createAdminNotification(peminjamanId: String, namaPerangkat: String, userEmail: String, callback: (Boolean) -> Unit) {
+        val currentTime = System.currentTimeMillis()
+        val dateTimeFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val formattedDate = dateTimeFormat.format(Date(currentTime))
 
-        if (totalUpdates == 0) {
-            callback(true)
-            return
-        }
+        val notificationData = hashMapOf(
+            "type" to "peminjaman_baru",
+            "title" to "Pengajuan Peminjaman Baru",
+            "message" to "Pengajuan peminjaman barang '$namaPerangkat' dari $userEmail",
+            "peminjamanId" to peminjamanId,
+            "userEmail" to userEmail,
+            "namaPerangkat" to namaPerangkat,
+            "isRead" to false,
+            "timestamp" to com.google.firebase.Timestamp.now(),
+            "tanggalNotifikasi" to formattedDate
+        )
 
-        val userEmail = UserManager.getCurrentUserEmail()
-        selectedBarang.forEach { barang ->
-            firestore.collection("daftar_barang")
-                .whereEqualTo("namaBarang", barang.namaBarang)
-                .get()
-                .addOnSuccessListener { documents ->
-                    for (document in documents) {
-                        firestore.collection("daftar_barang").document(document.id)
-                            .update(
-                                mapOf(
-                                    "status" to "dipinjam",
-                                    "peminjamanId" to peminjamanId,
-                                    "tanggalPinjam" to com.google.firebase.Timestamp(startDate!!),
-                                    "tanggalKembali" to com.google.firebase.Timestamp(endDate!!),
-                                    "peminjam" to userEmail
-                                )
-                            )
-                            .addOnCompleteListener {
-                                completedUpdates++
-                                if (!it.isSuccessful) hasError = true
-
-                                if (completedUpdates == totalUpdates) {
-                                    callback(!hasError)
-                                }
-                            }
-                    }
-                }
-                .addOnFailureListener {
-                    hasError = true
-                    completedUpdates++
-                    if (completedUpdates == totalUpdates) {
-                        callback(false)
-                    }
-                }
-        }
+        firestore.collection("admin_notifications")
+            .add(notificationData)
+            .addOnSuccessListener {
+                callback(true)
+            }
+            .addOnFailureListener { e ->
+                e.printStackTrace()
+                callback(false)
+            }
     }
 
     override fun onResume() {

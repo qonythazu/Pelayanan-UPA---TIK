@@ -144,4 +144,6 @@
     <string name="belum_ada_layanan_yang_sedang_in_review">Belum ada layanan yang sedang In Review</string>
     <string name="belum_ada_layanan_yang_dalam_proses_pengerjaan">Belum ada layanan yang dalam proses pengerjaan</string>
     <string name="belum_ada_layanan_yang_ditolak">Belum ada layanan yang ditolak</string>
+    <string name="batalkan">BATALKAN</string>
+    <string name="belum_ada_peminjaman_yang_diajukan">Belum Ada Peminjaman yang Diajukan</string>
 </resources>

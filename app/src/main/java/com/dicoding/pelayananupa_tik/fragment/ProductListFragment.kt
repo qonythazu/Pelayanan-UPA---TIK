@@ -142,7 +142,7 @@ class ProductListFragment : Fragment() {
         }, true)
 
         binding.recyclerView.apply {
-            layoutManager = GridLayoutManager(requireContext(), 2)
+            layoutManager = GridLayoutManager(requireContext(), 1)
             adapter = this@ProductListFragment.adapter
         }
     }
