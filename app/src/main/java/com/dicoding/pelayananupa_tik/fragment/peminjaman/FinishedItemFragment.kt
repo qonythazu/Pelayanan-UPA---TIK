@@ -70,7 +70,8 @@ class FinishedItemFragment : Fragment() {
     private fun processResults(result: QuerySnapshot) {
         val historyList = result.mapNotNull { document ->
             try {
-                document.toObject(FormPeminjaman::class.java)
+                val formPeminjaman = document.toObject(FormPeminjaman::class.java)
+                Pair(document.id, formPeminjaman) // Pair<DocumentId, FormPeminjaman>
             } catch (e: Exception) {
                 null
             }
@@ -89,7 +90,7 @@ class FinishedItemFragment : Fragment() {
         tvEmptyMessage.text = message
     }
 
-    private fun showData(historyList: List<FormPeminjaman>) {
+    private fun showData(historyList: List<Pair<String, FormPeminjaman>>) {
         recyclerView.visibility = View.VISIBLE
         tvEmptyMessage.visibility = View.GONE
         historyAdapter.updateList(historyList)

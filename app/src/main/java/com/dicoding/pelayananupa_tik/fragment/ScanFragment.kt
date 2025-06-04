@@ -296,7 +296,7 @@ class ScanFragment : BottomSheetDialogFragment() {
                                 processDocumentData(document.data, serialNumber)
                             } else {
                                 Log.d(TAG, "No document found with serial: $serialNumber")
-                                showNotFoundMessage(serialNumber)
+                                showNotFoundMessage()
                             }
                         }
                         .addOnFailureListener fallbackFailure@{ e ->
@@ -318,7 +318,7 @@ class ScanFragment : BottomSheetDialogFragment() {
 
     private fun processDocumentData(data: Map<String, Any>?, serialNumber: String) {
         if (data == null) {
-            showNotFoundMessage(serialNumber)
+            showNotFoundMessage()
             return
         }
         val nama = data["nama_barang"] as? String
@@ -363,14 +363,11 @@ class ScanFragment : BottomSheetDialogFragment() {
             ?: data["serialNumber"] as? String
             ?: serialNumber
 
-        Log.d(TAG, "Raw data from Firestore: $data")
-        Log.d(TAG, "Data extracted - Nama: $nama, Jenis: $jenis, Serial: $serialNum")
-
         try {
-            // Tutup scanner dialog
+            scanResultListener?.onScanResult(
+                nama, tanggalMasuk, jenis, pemilik, letakBarang, serialNum
+            )
             dismiss()
-
-            // Perbaikan: Navigasi dengan bundle yang benar
             val bundle = Bundle().apply {
                 putString("arg_nama_barang", nama)
                 putString("arg_tanggal_masuk", tanggalMasuk)
@@ -379,13 +376,8 @@ class ScanFragment : BottomSheetDialogFragment() {
                 putString("arg_letak_barang", letakBarang)
                 putString("arg_serial_number", serialNum)
             }
-
-            // Gunakan NavController yang tepat
             val navController = requireActivity().findNavController(R.id.nav_home_fragment)
             navController.navigate(R.id.detailBarangFragment, bundle)
-
-            Log.d(TAG, "Navigation successful to DetailBarangFragment")
-
         } catch (e: Exception) {
             Log.e(TAG, "Error navigating to DetailBarangFragment", e)
             Toast.makeText(
@@ -396,13 +388,13 @@ class ScanFragment : BottomSheetDialogFragment() {
         }
     }
 
-    private fun showNotFoundMessage(serialNumber: String) {
+    private fun showNotFoundMessage() {
         if (!isAdded) return
 
         activity?.runOnUiThread {
             val snackbar = Snackbar.make(
                 requireView(),
-                "⚠️ Barang Tidak Ditemukan\\nKode: $serialNumber tidak terdaftar",
+                "⚠️ Barang Tidak Ditemukan",
                 Snackbar.LENGTH_LONG
             )
             snackbar.setBackgroundTint(ContextCompat.getColor(requireContext(), R.color.red))

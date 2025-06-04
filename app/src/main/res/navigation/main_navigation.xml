@@ -144,12 +144,20 @@
         android:id="@+id/historyPeminjamanBarangFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.HistoryPeminjamanBarangFragment"
         android:label="fragment_history_peminjaman_barang"
-        tools:layout="@layout/fragment_history_peminjaman_barang" />
+        tools:layout="@layout/fragment_history_peminjaman_barang" >
+        <action
+            android:id="@+id/action_historyPeminjamanBarangFragment_to_historyFragment"
+            app:destination="@id/historyFragment" />
+    </fragment>
     <fragment
         android:id="@+id/historyLayananFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.HistoryLayananFragment"
         android:label="fragment_history_layanan"
-        tools:layout="@layout/fragment_history_layanan" />
+        tools:layout="@layout/fragment_history_layanan" >
+        <action
+            android:id="@+id/action_historyLayananFragment_to_historyFragment"
+            app:destination="@id/historyFragment" />
+    </fragment>
     <fragment
         android:id="@+id/detailBarangFragment"
         android:name="com.dicoding.pelayananupa_tik.fragment.DetailBarangFragment"

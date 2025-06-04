@@ -3,66 +3,92 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:background="@drawable/rounded_border_gray"
-    android:layout_marginHorizontal="20dp"
-    android:layout_marginVertical="4dp"
-    app:cardCornerRadius="4dp">
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginVertical="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="3dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:padding="20dp">
 
+        <!-- Title dengan style yang lebih menarik -->
         <TextView
             android:id="@+id/textLayanan"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:textSize="16sp"
-            android:layout_margin="8dp"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#1A1A1A"
+            android:maxLines="2"
+            android:ellipsize="end"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btn_more"
             app:layout_constraintTop_toTopOf="parent" />
 
         <ImageView
             android:id="@+id/btn_more"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:contentDescription="@string/more"
             android:src="@drawable/ic_more"
-            android:layout_margin="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="6dp"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"/>
+            app:layout_constraintTop_toTopOf="parent" />
 
+        <!-- Tanggal dengan style yang lebih soft -->
         <TextView
             android:id="@+id/textTanggal"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="8dp"
+            android:layout_marginTop="8dp"
+            android:textSize="14sp"
+            android:textColor="#666666"
             app:layout_constraintTop_toBottomOf="@id/textLayanan"
             app:layout_constraintStart_toStartOf="parent"/>
 
+        <!-- Status dengan background warna dan corner radius -->
         <TextView
             android:id="@+id/textStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="12sp"
-            android:layout_margin="8dp"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp"
             app:layout_constraintTop_toBottomOf="@id/textTanggal"
             app:layout_constraintStart_toStartOf="parent"/>
 
+        <!-- Garis pemisah sederhana -->
+        <View
+            android:id="@+id/divider"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:background="#E5E5E5"
+            android:layout_marginTop="20dp"
+            app:layout_constraintTop_toBottomOf="@id/textStatus"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Button dengan style modern -->
         <TextView
             android:id="@+id/btnBatalkan"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
             android:text="@string/batalkan"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginTop="16dp"
             android:gravity="center"
             android:textStyle="bold"
-            android:textColor="@color/red"
-            app:layout_constraintTop_toBottomOf="@id/textStatus"
+            android:textSize="14sp"
+            android:textColor="#E53E3E"
+            android:background="#FFF5F5"
+            android:foreground="?attr/selectableItemBackground"
+            app:layout_constraintTop_toBottomOf="@id/divider"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
-    </androidx.constraintlayout.widget.ConstraintLayout>
 
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.cardview.widget.CardView>

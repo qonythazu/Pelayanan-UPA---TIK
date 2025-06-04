@@ -60,17 +60,7 @@ class SentItemFragment : Fragment() {
             .whereEqualTo("statusPeminjaman", "Diajukan")
             .get()
             .addOnSuccessListener { result ->
-                if (result.isEmpty) {
-                    // Fallback: try without status filter
-                    db.collection("form_peminjaman")
-                        .whereEqualTo("userEmail", currentUserEmail)
-                        .get()
-                        .addOnSuccessListener { resultWithoutStatus ->
-                            processResults(resultWithoutStatus)
-                        }
-                } else {
-                    processResults(result)
-                }
+                processResults(result)
             }
             .addOnFailureListener { e ->
                 showEmptyState("Gagal mengambil data: ${e.message}")
@@ -80,14 +70,15 @@ class SentItemFragment : Fragment() {
     private fun processResults(result: QuerySnapshot) {
         val historyList = result.mapNotNull { document ->
             try {
-                document.toObject(FormPeminjaman::class.java)
+                val formPeminjaman = document.toObject(FormPeminjaman::class.java)
+                Pair(document.id, formPeminjaman) // Pair<DocumentId, FormPeminjaman>
             } catch (e: Exception) {
                 null
             }
         }
 
         if (historyList.isEmpty()) {
-            showEmptyState("Belum ada peminjaman yang diajukan")
+            showEmptyState("Belum ada peminjaman yang disetujui")
         } else {
             showData(historyList)
         }
@@ -99,7 +90,7 @@ class SentItemFragment : Fragment() {
         tvEmptyMessage.text = message
     }
 
-    private fun showData(historyList: List<FormPeminjaman>) {
+    private fun showData(historyList: List<Pair<String, FormPeminjaman>>) {
         recyclerView.visibility = View.VISIBLE
         tvEmptyMessage.visibility = View.GONE
         historyAdapter.updateList(historyList)

@@ -1,15 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Lapisan gelap -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#99000000" />
+            <solid android:color="#00000000" />
         </shape>
     </item>
 
-    <!-- Lubang transparan di tengah -->
-    <item android:top="200dp" android:bottom="200dp" android:left="50dp" android:right="50dp">
+    <!-- Lubang transparan di tengah + bingkai biru -->
+    <item android:top="0dp" android:bottom="0dp" android:left="0dp" android:right="0dp">
         <shape android:shape="rectangle">
             <solid android:color="@android:color/transparent" />
+            <stroke
+                android:width="12dp"
+                android:color="@color/primary_blue" /> <!-- Ganti dengan warna biru kamu -->
         </shape>
     </item>
 </layer-list>

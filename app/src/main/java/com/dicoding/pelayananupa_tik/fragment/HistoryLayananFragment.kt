@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.navigation.fragment.findNavController
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
@@ -43,7 +44,7 @@ class HistoryLayananFragment : Fragment() {
         binding.toolbar.apply {
             navigationIcon?.setTint(ContextCompat.getColor(requireContext(), R.color.white))
             setNavigationOnClickListener {
-                requireActivity().onBackPressedDispatcher.onBackPressed()
+                findNavController().navigate(R.id.action_historyLayananFragment_to_historyFragment)
             }
         }
     }

@@ -26,7 +26,6 @@
             android:id="@+id/tv_history_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Nama Barang"
             android:textSize="14sp"
             android:textStyle="bold"
             android:gravity="center"
@@ -37,7 +36,6 @@
             android:id="@+id/tv_history_category"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Kategori"
             android:textSize="12sp"
             android:textColor="@android:color/darker_gray"
             android:gravity="center"
@@ -47,7 +45,6 @@
             android:id="@+id/tv_history_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Diajukan"
             android:textSize="12sp"
             android:textColor="@color/primary_blue"
             android:gravity="center"
@@ -58,12 +55,36 @@
             android:id="@+id/tv_history_date"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="31/05/2025"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:textColor="@android:color/darker_gray"
             android:gravity="center"
             android:layout_marginTop="4dp" />
 
+        <TextView
+            android:id="@+id/btnTaken"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:text="@string/barang_sudah_saya_ambil"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:textColor="@color/primary_blue"
+            android:background="#F5F5FF"
+            android:foreground="?attr/selectableItemBackground" />
+
+        <TextView
+            android:id="@+id/btnReturned"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:text="@string/barang_sudah_saya_kembalikan"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:textColor="@color/primary_blue"
+            android:background="#F5F5FF"
+            android:foreground="?attr/selectableItemBackground" />
     </LinearLayout>
 
 </androidx.cardview.widget.CardView>
