@@ -22,10 +22,8 @@ import com.dicoding.pelayananupa_tik.databinding.FragmentProductListBinding
 import com.google.firebase.firestore.FirebaseFirestore
 
 class ProductListFragment : Fragment() {
-
     private var _binding: FragmentProductListBinding? = null
     private val binding get() = _binding!!
-
     private lateinit var adapter: ProductAdapter
     private lateinit var boxViewModel: BoxViewModel
     private val db = FirebaseFirestore.getInstance()

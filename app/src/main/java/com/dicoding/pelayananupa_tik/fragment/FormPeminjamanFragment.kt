@@ -53,7 +53,6 @@ class FormPeminjamanFragment : Fragment() {
                 val fileName = getFileName(uri)
                 binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
                 binding.btnChooseFile.text = getString(R.string.change_file)
-
                 savePdfLocally(uri)
             }
         }
@@ -67,7 +66,8 @@ class FormPeminjamanFragment : Fragment() {
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentFormPeminjamanBinding.inflate(inflater, container, false)
@@ -98,10 +98,10 @@ class FormPeminjamanFragment : Fragment() {
 
     private fun setupDateRangePicker() {
         val rentangTanggalEditText = binding.rentangTanggalLayout.editText
-        rentangTanggalEditText?.isFocusable = false
-        rentangTanggalEditText?.isClickable = true
-        rentangTanggalEditText?.setOnClickListener {
-            showDateRangePicker()
+        rentangTanggalEditText?.apply {
+            isFocusable = false
+            isClickable = true
+            setOnClickListener { showDateRangePicker() }
         }
     }
 
@@ -153,49 +153,53 @@ class FormPeminjamanFragment : Fragment() {
         val namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim()
         val kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
 
-        when {
+        // Clear all errors first
+        clearAllErrors()
+
+        return when {
             namaPerangkat.isEmpty() -> {
                 binding.namaPerangkatLayout.error = "Nama perangkat tidak boleh kosong"
-                return false
+                false
             }
             tujuanPeminjaman.isEmpty() -> {
                 binding.tujuanPeminjamanLayout.error = "Tujuan peminjaman tidak boleh kosong"
-                return false
+                false
             }
             rentangTanggal.isEmpty() || startDate == null || endDate == null -> {
                 binding.rentangTanggalLayout.error = "Rentang tanggal tidak boleh kosong"
-                return false
+                false
             }
             startDate!!.before(Date()) -> {
                 binding.rentangTanggalLayout.error = "Tanggal mulai tidak boleh di masa lalu"
-                return false
+                false
             }
             harapanAnda.isEmpty() -> {
                 binding.harapanAndaLayout.error = "Harapan tidak boleh kosong"
-                return false
+                false
             }
             namaPJ.isEmpty() -> {
                 binding.namaPenanggungJawabLayout.error = "Nama penanggung jawab tidak boleh kosong"
-                return false
+                false
             }
             kontakPJ.isEmpty() -> {
                 binding.kontakPenanggungJawabLayout.error = "Kontak penanggung jawab tidak boleh kosong"
-                return false
+                false
             }
             !isValidPhoneNumber(kontakPJ) -> {
                 binding.kontakPenanggungJawabLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
-                return false
+                false
             }
-            else -> {
-                binding.namaPerangkatLayout.error = null
-                binding.tujuanPeminjamanLayout.error = null
-                binding.rentangTanggalLayout.error = null
-                binding.harapanAndaLayout.error = null
-                binding.namaPenanggungJawabLayout.error = null
-                binding.kontakPenanggungJawabLayout.error = null
-                return true
-            }
+            else -> true
         }
+    }
+
+    private fun clearAllErrors() {
+        binding.namaPerangkatLayout.error = null
+        binding.tujuanPeminjamanLayout.error = null
+        binding.rentangTanggalLayout.error = null
+        binding.harapanAndaLayout.error = null
+        binding.namaPenanggungJawabLayout.error = null
+        binding.kontakPenanggungJawabLayout.error = null
     }
 
     private fun isValidPhoneNumber(phoneNumber: String): Boolean {
@@ -213,6 +217,7 @@ class FormPeminjamanFragment : Fragment() {
 
     private fun getFileName(uri: Uri): String {
         var result: String? = null
+
         if (uri.scheme == "content") {
             val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
             cursor?.use {
@@ -224,6 +229,7 @@ class FormPeminjamanFragment : Fragment() {
                 }
             }
         }
+
         if (result == null) {
             result = uri.path
             val cut = result?.lastIndexOf('/')
@@ -231,6 +237,7 @@ class FormPeminjamanFragment : Fragment() {
                 result = result?.substring(cut!! + 1)
             }
         }
+
         return result ?: "unknown_file.pdf"
     }
 
@@ -280,7 +287,7 @@ class FormPeminjamanFragment : Fragment() {
             "namaPenanggungJawab" to namaPJ,
             "kontakPenanggungJawab" to kontakPJ,
             "filePath" to (savedPdfPath ?: ""),
-            "statusPeminjaman" to "Diajukan", // Status tetap "Diajukan"
+            "statusPeminjaman" to "Diajukan",
             "tanggalPengajuan" to formattedDate,
             "timestamp" to com.google.firebase.Timestamp.now(),
             "barangDipinjam" to getSelectedItemsList()
@@ -288,31 +295,26 @@ class FormPeminjamanFragment : Fragment() {
 
         firestore.collection("form_peminjaman")
             .add(peminjamanData)
-            .addOnSuccessListener { documentReference ->
-                val peminjamanId = documentReference.id
+            .addOnSuccessListener {
+                boxViewModel.clearBox()
 
-                // Buat notifikasi untuk admin
-                if (userEmail != null) {
-                    createAdminNotification(peminjamanId, namaPerangkat, userEmail) { success ->
-                        if (success) {
-                            boxViewModel.clearBox()
-
-                            lifecycleScope.launch {
-                                Toast.makeText(requireContext(), "Peminjaman berhasil diajukan! Menunggu persetujuan admin.", Toast.LENGTH_LONG).show()
-                                findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
-                            }
-                        } else {
-                            binding.btnSubmit.isEnabled = true
-                            binding.btnSubmit.text = getString(R.string.submit_button)
-                            Toast.makeText(requireContext(), "Peminjaman diajukan tetapi gagal membuat notifikasi admin", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                lifecycleScope.launch {
+                    Toast.makeText(
+                        requireContext(),
+                        "Peminjaman berhasil diajukan! Menunggu persetujuan admin.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
                 }
             }
             .addOnFailureListener { e ->
                 binding.btnSubmit.isEnabled = true
                 binding.btnSubmit.text = getString(R.string.submit_button)
-                Toast.makeText(requireContext(), "Gagal mengirim peminjaman: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    requireContext(),
+                    "Gagal mengirim peminjaman: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
     }
 
@@ -325,34 +327,6 @@ class FormPeminjamanFragment : Fragment() {
                 "tanggalPinjam" to com.google.firebase.Timestamp(startDate!!)
             )
         }
-    }
-
-    private fun createAdminNotification(peminjamanId: String, namaPerangkat: String, userEmail: String, callback: (Boolean) -> Unit) {
-        val currentTime = System.currentTimeMillis()
-        val dateTimeFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        val formattedDate = dateTimeFormat.format(Date(currentTime))
-
-        val notificationData = hashMapOf(
-            "type" to "peminjaman_baru",
-            "title" to "Pengajuan Peminjaman Baru",
-            "message" to "Pengajuan peminjaman barang '$namaPerangkat' dari $userEmail",
-            "peminjamanId" to peminjamanId,
-            "userEmail" to userEmail,
-            "namaPerangkat" to namaPerangkat,
-            "isRead" to false,
-            "timestamp" to com.google.firebase.Timestamp.now(),
-            "tanggalNotifikasi" to formattedDate
-        )
-
-        firestore.collection("admin_notifications")
-            .add(notificationData)
-            .addOnSuccessListener {
-                callback(true)
-            }
-            .addOnFailureListener { e ->
-                e.printStackTrace()
-                callback(false)
-            }
     }
 
     override fun onResume() {

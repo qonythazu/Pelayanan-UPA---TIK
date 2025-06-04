@@ -59,12 +59,9 @@ class LoginActivity : AppCompatActivity() {
                             if (task.isSuccessful) {
                                 Log.d(TAG, "signInWithCredential:success")
                                 val user = auth.currentUser
-
-                                // Validasi email ITK
                                 if (user?.email != null && isITKEmail(user.email!!)) {
                                     initializeUserAfterLogin(user)
                                 } else {
-                                    Log.w(TAG, "Email bukan dari ITK: ${user?.email}")
                                     Toast.makeText(
                                         this@LoginActivity,
                                         "Maaf, anda bukan civitas ITK",
@@ -101,21 +98,17 @@ class LoginActivity : AppCompatActivity() {
             updateUI(null)
             return
         }
-
-        // Validasi ulang email ITK sebelum inisialisasi
         if (!isITKEmail(user.email ?: "")) {
             Log.w(TAG, "Email validation failed during initialization: ${user.email}")
             Toast.makeText(
                 this@LoginActivity,
-                "Maaf, anda bukan civitas ITK",
+                "Tolong gunakan akun civitas ITK",
                 Toast.LENGTH_LONG
             ).show()
             auth.signOut()
             updateUI(null)
             return
         }
-
-        Log.d(TAG, "Initializing user data for: ${user.email}")
 
         lifecycleScope.launch {
             UserManager.initializeUserData { success, userData ->

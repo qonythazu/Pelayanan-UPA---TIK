@@ -1,5 +1,6 @@
 package com.dicoding.pelayananupa_tik.adapter
 
+import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
 import android.text.Spannable
@@ -9,13 +10,18 @@ import android.view.*
 import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 
-class LayananAdapter(private val layananList: List<LayananItem>) :
-    RecyclerView.Adapter<LayananAdapter.LayananViewHolder>() {
+class LayananAdapter(
+    private val layananList: MutableList<LayananItem>,
+    private val onEditItem: (LayananItem, Int) -> Unit = { _, _ -> },
+    private val onStatusChanged: (LayananItem, Int) -> Unit = { _, _ -> },
+    private val onDeleteItem: (LayananItem, Int) -> Unit = { _, _ -> }
+) : RecyclerView.Adapter<LayananAdapter.LayananViewHolder>() {
 
     class LayananViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val layananText: TextView = itemView.findViewById(R.id.textLayanan)
@@ -90,11 +96,13 @@ class LayananAdapter(private val layananList: List<LayananItem>) :
             popup.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
                     R.id.action_update -> {
-                        // TODO: Implementasi update
+                        // Edit form - callback ke parent untuk handle edit
+                        onEditItem(layananItem, position)
                         true
                     }
                     R.id.action_delete -> {
-                        // TODO: Implementasi delete
+                        // Show confirmation dialog before delete
+                        showDeleteConfirmationDialog(context, layananItem, position)
                         true
                     }
                     else -> false
@@ -136,16 +144,65 @@ class LayananAdapter(private val layananList: List<LayananItem>) :
 
     private fun setupSubmitButton(holder: LayananViewHolder, context: Context, layananItem: LayananItem, position: Int) {
         holder.btnBatalkan.setOnClickListener {
-            // TODO: Implementasi submit/kirim data
-            // Misalnya ubah status dari draft ke terkirim
+            // Ubah status dari draft ke terkirim
+            // Buat objek baru dengan status yang diubah
+            val updatedItem = layananItem.copy(status = "Terkirim")
+            layananList[position] = updatedItem
+            notifyItemChanged(position)
+
+            // Callback untuk memberitahu parent bahwa status berubah
+            onStatusChanged(updatedItem, position)
+
+            // Optional: Show toast confirmation
+            Toast.makeText(context, "Data berhasil dikirim", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun setupBatalkanButton(holder: LayananViewHolder, context: Context, layananItem: LayananItem, position: Int) {
         holder.btnBatalkan.setOnClickListener {
-            // TODO: Implementasi pembatalan
-            // Misalnya tampilkan dialog konfirmasi
+            // Tampilkan dialog konfirmasi pembatalan
+            showCancelConfirmationDialog(context, layananItem, position)
         }
+    }
+
+    private fun showDeleteConfirmationDialog(context: Context, layananItem: LayananItem, position: Int) {
+        AlertDialog.Builder(context)
+            .setTitle("Konfirmasi Hapus")
+            .setMessage("Apakah Anda yakin ingin menghapus layanan \"${layananItem.judul}\"?")
+            .setPositiveButton("Ya") { dialog, _ ->
+                // Hapus item dari list
+                layananList.removeAt(position)
+                notifyItemRemoved(position)
+                notifyItemRangeChanged(position, layananList.size)
+
+                Toast.makeText(context, "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Tidak") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(true)
+            .show()
+    }
+
+    private fun showCancelConfirmationDialog(context: Context, layananItem: LayananItem, position: Int) {
+        AlertDialog.Builder(context)
+            .setTitle("Konfirmasi Pembatalan")
+            .setMessage("Apakah Anda yakin ingin membatalkan layanan \"${layananItem.judul}\"?")
+            .setPositiveButton("Ya") { dialog, _ ->
+                // Hapus item dari list (karena dibatalkan)
+                layananList.removeAt(position)
+                notifyItemRemoved(position)
+                notifyItemRangeChanged(position, layananList.size)
+
+                Toast.makeText(context, "Layanan berhasil dibatalkan", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Tidak") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(true)
+            .show()
     }
 
     override fun getItemCount(): Int = layananList.size
@@ -159,5 +216,21 @@ class LayananAdapter(private val layananList: List<LayananItem>) :
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         return spannable
+    }
+
+    // Method untuk remove item dari UI (dipanggil dari parent setelah Firestore berhasil)
+    fun removeItem(position: Int) {
+        if (position in 0 until layananList.size) {
+            layananList.removeAt(position)
+            notifyItemRemoved(position)
+            notifyItemRangeChanged(position, layananList.size)
+        }
+    }
+
+    // Method untuk reset button state jika Firestore gagal
+    fun resetSubmitButton(position: Int) {
+        if (position in 0 until layananList.size) {
+            notifyItemChanged(position) // Refresh item untuk reset button
+        }
     }
 }

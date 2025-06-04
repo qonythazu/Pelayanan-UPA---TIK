@@ -1,8 +1,11 @@
 package com.dicoding.pelayananupa_tik.fragment
 
+import android.app.Activity
+import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -21,7 +24,6 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 class FormPengaduanLayananFragment : Fragment() {
 
@@ -29,18 +31,20 @@ class FormPengaduanLayananFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var firestore: FirebaseFirestore
-    private var imageUri: Uri? = null
+    private var selectedPdfUri: Uri? = null
+    private var savedPdfPath: String? = null
 
-    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        imageUri = uri
-        if (uri != null) {
-            binding.tvFileName.text = uri.lastPathSegment ?: "File selected"
+    private val pdfPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            selectedPdfUri = result.data?.data
+            selectedPdfUri?.let { uri ->
+                val fileName = getFileName(uri)
+                binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
+                binding.btnChooseFile.text = getString(R.string.change_file)
 
-            binding.btnChooseFile.apply {
-                backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
-                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                text = getString(R.string.change_image)
-                strokeWidth = 0
+                savePdfLocally(uri)
             }
         }
     }
@@ -57,12 +61,61 @@ class FormPengaduanLayananFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
 
-        binding.btnChooseFile.setOnClickListener { pickImageLauncher.launch("image/*") }
+        binding.btnChooseFile.setOnClickListener { openPdfPicker() }
         binding.btnSubmit.setOnClickListener { submitForm() }
 
         val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         toolbar.setNavigationOnClickListener {
             requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
+    }
+
+    private fun openPdfPicker() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "application/pdf"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        pdfPickerLauncher.launch(Intent.createChooser(intent, "Pilih File PDF"))
+    }
+
+    private fun getFileName(uri: Uri): String {
+        var result: String? = null
+        if (uri.scheme == "content") {
+            val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (index >= 0) {
+                        result = it.getString(index)
+                    }
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.path
+            val cut = result?.lastIndexOf('/')
+            if (cut != -1) {
+                result = result?.substring(cut!! + 1)
+            }
+        }
+        return result ?: "unknown_file.pdf"
+    }
+
+    private fun savePdfLocally(uri: Uri) {
+        try {
+            val inputStream = requireContext().contentResolver.openInputStream(uri)
+            val fileName = "peminjaman_${System.currentTimeMillis()}.pdf"
+            val file = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
+
+            val outputStream = FileOutputStream(file)
+            inputStream?.copyTo(outputStream)
+            inputStream?.close()
+            outputStream.close()
+
+            savedPdfPath = file.absolutePath
+            Toast.makeText(requireContext(), "File berhasil disimpan", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Gagal menyimpan file: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -75,11 +128,6 @@ class FormPengaduanLayananFragment : Fragment() {
         val layanan = binding.layananLayout.editText?.text.toString()
         val kontak = binding.kontakLayout.editText?.text.toString()
         val keluhan = binding.keluhanAndaLayout.editText?.text.toString()
-        val localImagePath = if (imageUri != null) {
-            saveImageLocally()
-        } else {
-            null
-        }
 
         when {
             layanan.isEmpty() -> {
@@ -103,37 +151,12 @@ class FormPengaduanLayananFragment : Fragment() {
                 binding.kontakLayout.error = null
                 binding.keluhanAndaLayout.error = null
 
-                saveDataToFirestore(layanan, kontak, keluhan, localImagePath)
+                saveDataToFirestore(layanan, kontak, keluhan)
             }
         }
     }
 
-    private fun saveImageLocally(): String? {
-        if (imageUri == null) return null
-
-        try {
-            val filename = "IMG_${UUID.randomUUID()}.jpg"
-            val imagesDir = File(requireContext().filesDir, "images")
-            if (!imagesDir.exists()) {
-                imagesDir.mkdir()
-            }
-
-            val destinationFile = File(imagesDir, filename)
-
-            requireContext().contentResolver.openInputStream(imageUri!!)?.use { inputStream ->
-                FileOutputStream(destinationFile).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
-
-            return destinationFile.absolutePath
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Gagal menyimpan gambar: ${e.message}", Toast.LENGTH_SHORT).show()
-            return null
-        }
-    }
-
-    private fun saveDataToFirestore(layanan: String, kontak: String, keluhan: String, localImagePath: String?) {
+    private fun saveDataToFirestore(layanan: String, kontak: String, keluhan: String) {
         val currentTime = System.currentTimeMillis()
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         val formattedDate = dateFormat.format(Date(currentTime))
@@ -144,7 +167,7 @@ class FormPengaduanLayananFragment : Fragment() {
             "layanan" to layanan,
             "kontak" to kontak,
             "keluhan" to keluhan,
-            "localImagePath" to localImagePath,
+            "filePath" to (savedPdfPath ?: ""),
             "status" to "Draft",
             "timestamp" to formattedDate
         )
@@ -173,7 +196,7 @@ class FormPengaduanLayananFragment : Fragment() {
             strokeWidth = 2
             strokeColor = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
         }
-        imageUri = null
+        selectedPdfUri = null
     }
 
     override fun onResume() {

@@ -17,10 +17,8 @@ import com.dicoding.pelayananupa_tik.databinding.FragmentHistoryPeminjamanBarang
 import com.google.android.material.tabs.TabLayout
 
 class HistoryPeminjamanBarangFragment : Fragment() {
-
     private var _binding: FragmentHistoryPeminjamanBarangBinding? = null
     private val binding get() = _binding!!
-
     private lateinit var adapter: ItemHistoryPageAdapter
 
     override fun onCreateView(
@@ -42,7 +40,6 @@ class HistoryPeminjamanBarangFragment : Fragment() {
 
     private fun setupToolbar() {
         binding.toolbar.apply {
-            // Set navigation icon color to white
             navigationIcon?.setTint(ContextCompat.getColor(requireContext(), R.color.white))
             setNavigationOnClickListener {
                 requireActivity().onBackPressedDispatcher.onBackPressed()
@@ -58,13 +55,10 @@ class HistoryPeminjamanBarangFragment : Fragment() {
             val tab = binding.tabLayout.newTab()
             val tabView = layoutInflater.inflate(R.layout.item_tab, binding.tabLayout, false) as TextView
             tabView.text = title
-            // Remove any default background
             tabView.setBackgroundColor(Color.TRANSPARENT)
             tab.customView = tabView
             binding.tabLayout.addTab(tab)
         }
-
-        // Set initial tab styling after all tabs are added
         setupInitialTabStyling()
     }
 
@@ -101,16 +95,13 @@ class HistoryPeminjamanBarangFragment : Fragment() {
     }
 
     private fun setupInitialTabStyling() {
-        // Set initial styling for all tabs
         for (i in 0 until binding.tabLayout.tabCount) {
             val tab = binding.tabLayout.getTabAt(i)
             val tabTextView = tab?.customView as? TextView
 
             if (i == 0) {
-                // First tab (All) is selected by default
                 setSelectedTabStyle(tabTextView)
             } else {
-                // Other tabs are unselected - add stroke and shadow
                 setUnselectedTabStyle(tabTextView)
             }
         }
@@ -118,7 +109,6 @@ class HistoryPeminjamanBarangFragment : Fragment() {
 
     private fun setUnselectedTabStyle(tabTextView: TextView?) {
         tabTextView?.let { textView ->
-            // Create drawable with stroke and shadow
             val drawable = GradientDrawable().apply {
                 setColor(Color.WHITE)
                 setStroke(2, when (textView.text) {

@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
@@ -37,9 +38,54 @@ class DraftServiceFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_service_history, container, false)
         recyclerView = view.findViewById(R.id.recyclerView)
-        emptyStateTextView = view.findViewById(R .id.emptyStateTextView)
+        emptyStateTextView = view.findViewById(R.id.emptyStateTextView)
 
-        adapter = LayananAdapter(layananList)
+        // Updated adapter initialization dengan callback functions
+        adapter = LayananAdapter(
+            layananList = layananList,
+            onEditItem = { layananItem, position ->
+                // Handle edit - untuk draft biasanya bisa diedit
+                handleEditItem(layananItem, position)
+            },
+            onStatusChanged = { updatedItem, position ->
+                // 1. Update ke Firestore DULU (dari Draft ke Terkirim)
+                updateStatusToFirestore(updatedItem) { success ->
+                    if (success) {
+                        // 2. BARU hapus dari Draft list dan refresh tabs
+                        layananList.removeAt(position)
+                        adapter.notifyItemRemoved(position)
+                        Toast.makeText(requireContext(), "Data berhasil dikirim", Toast.LENGTH_SHORT).show()
+
+                        // 3. Update UI untuk empty state
+                        updateUI()
+
+                        // 4. Refresh tab Terkirim
+                        refreshTerkirimTab()
+                    } else {
+                        // 5. Reset button jika gagal
+                        adapter.resetSubmitButton(position)
+                        Toast.makeText(requireContext(), "Gagal mengirim data", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+            onDeleteItem = { layananItem, position ->
+                // 1. Delete dari Firestore DULU
+                deleteFromFirestore(layananItem) { success ->
+                    if (success) {
+                        // 2. BARU hapus dari UI
+                        layananList.removeAt(position)
+                        adapter.notifyItemRemoved(position)
+                        Toast.makeText(requireContext(), "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
+
+                        // 3. Update UI untuk empty state
+                        updateUI()
+                    } else {
+                        Toast.makeText(requireContext(), "Gagal menghapus data", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        )
+
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
 
@@ -68,8 +114,21 @@ class DraftServiceFragment : Fragment() {
                         val judul = doc.getString("judul") ?: "Tidak ada judul"
                         val tanggal = doc.getString("timestamp") ?: "Tidak ada tanggal"
                         val status = doc.getString("status") ?: "Tidak ada status"
+                        val documentId = doc.id
 
-                        layananList.add(LayananItem(judul, tanggal, status))
+                        // Tambahkan info untuk operasi Firestore
+                        val layananItem = LayananItem(
+                            judul = judul,
+                            tanggal = tanggal,
+                            status = status
+                        ).apply {
+                            // Simpan info untuk operasi CRUD
+                            // Asumsikan LayananItem punya property ini
+                            // this.documentId = documentId
+                            // this.collectionName = collection
+                        }
+
+                        layananList.add(layananItem)
                     }
                     counter++
                     if (counter == collections.size) {
@@ -96,5 +155,139 @@ class DraftServiceFragment : Fragment() {
             recyclerView.visibility = View.VISIBLE
             emptyStateTextView.visibility = View.GONE
         }
+    }
+
+    // Fungsi untuk handle edit item (khusus untuk draft)
+    private fun handleEditItem(layananItem: LayananItem, position: Int) {
+        // Draft bisa diedit, buka form edit
+        Log.d("DraftService", "Edit draft item: ${layananItem.judul}")
+
+        // Contoh: Buka activity edit atau dialog
+        // val intent = Intent(requireContext(), EditLayananActivity::class.java)
+        // intent.putExtra("layanan_item", layananItem)
+        // intent.putExtra("is_draft", true)
+        // startActivityForResult(intent, EDIT_REQUEST_CODE)
+    }
+
+    // Fungsi untuk update status dari Draft ke Terkirim
+    private fun updateStatusToFirestore(updatedItem: LayananItem, callback: (Boolean) -> Unit) {
+        val userEmail = UserManager.getCurrentUserEmail()
+        if (userEmail.isNullOrEmpty()) {
+            callback(false)
+            return
+        }
+
+        // Cari dan update document yang sesuai
+        // Karena kita perlu mencari berdasarkan judul dan timestamp
+        var updateSuccess = false
+        var completedCollections = 0
+
+        for (collection in collections) {
+            firestore.collection(collection)
+                .whereEqualTo("userEmail", userEmail)
+                .whereEqualTo("judul", updatedItem.judul)
+                .whereEqualTo("timestamp", updatedItem.tanggal)
+                .whereEqualTo("status", "Draft")
+                .get()
+                .addOnSuccessListener { documents ->
+                    if (documents.size() > 0 && !updateSuccess) {
+                        // Update status menjadi "Terkirim"
+                        val doc = documents.documents[0]
+                        firestore.collection(collection)
+                            .document(doc.id)
+                            .update("status", "Terkirim")
+                            .addOnSuccessListener {
+                                Log.d("DraftService", "Status updated successfully")
+                                updateSuccess = true
+                                callback(true)
+                            }
+                            .addOnFailureListener { e ->
+                                Log.w("DraftService", "Error updating status", e)
+                                if (!updateSuccess) callback(false)
+                            }
+                    } else {
+                        completedCollections++
+                        if (completedCollections == collections.size && !updateSuccess) {
+                            callback(false)
+                        }
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.w("DraftService", "Error finding document", e)
+                    completedCollections++
+                    if (completedCollections == collections.size && !updateSuccess) {
+                        callback(false)
+                    }
+                }
+        }
+    }
+
+    // Fungsi untuk delete dari Firestore
+    private fun deleteFromFirestore(layananItem: LayananItem, callback: (Boolean) -> Unit) {
+        val userEmail = UserManager.getCurrentUserEmail()
+        if (userEmail.isNullOrEmpty()) {
+            callback(false)
+            return
+        }
+
+        // Cari dan hapus document yang sesuai
+        var deleteSuccess = false
+        var completedCollections = 0
+
+        for (collection in collections) {
+            firestore.collection(collection)
+                .whereEqualTo("userEmail", userEmail)
+                .whereEqualTo("judul", layananItem.judul)
+                .whereEqualTo("timestamp", layananItem.tanggal)
+                .whereEqualTo("status", "Draft")
+                .get()
+                .addOnSuccessListener { documents ->
+                    if (documents.size() > 0 && !deleteSuccess) {
+                        val doc = documents.documents[0]
+                        firestore.collection(collection)
+                            .document(doc.id)
+                            .delete()
+                            .addOnSuccessListener {
+                                Log.d("DraftService", "Document deleted successfully")
+                                deleteSuccess = true
+                                callback(true)
+                            }
+                            .addOnFailureListener { e ->
+                                Log.w("DraftService", "Error deleting document", e)
+                                if (!deleteSuccess) callback(false)
+                            }
+                    } else {
+                        completedCollections++
+                        if (completedCollections == collections.size && !deleteSuccess) {
+                            callback(false)
+                        }
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.w("DraftService", "Error finding document", e)
+                    completedCollections++
+                    if (completedCollections == collections.size && !deleteSuccess) {
+                        callback(false)
+                    }
+                }
+        }
+    }
+
+    // Fungsi untuk refresh tab Terkirim
+    private fun refreshTerkirimTab() {
+        Log.d("DraftService", "Refreshing Terkirim tab")
+
+        // Implementasi refresh tab terkirim
+        // Contoh jika menggunakan interface callback:
+        // (parentFragment as? LayananTabsInterface)?.refreshTerkirimTab()
+
+        // Atau jika menggunakan ViewPager dengan fragments:
+        // val parentActivity = activity as? MainActivity
+        // parentActivity?.refreshTerkirimTab()
+    }
+
+    // Fungsi public untuk refresh dari fragment lain
+    fun refreshData() {
+        fetchAllLayanan()
     }
 }
