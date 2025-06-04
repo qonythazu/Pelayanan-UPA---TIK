@@ -1,5 +1,9 @@
 package com.dicoding.pelayananupa_tik.fragment
 
+import android.app.AlertDialog
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.FileProvider
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
@@ -35,17 +39,24 @@ class FormLaporKerusakanFragment : Fragment() {
 
     private val firestore = FirebaseFirestore.getInstance()
 
+    // Launcher untuk mengambil gambar dari galeri
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        imageUri = uri
-        if (uri != null) {
-            binding.tvFileName.text = uri.lastPathSegment ?: "File selected"
+        handleImageResult(uri)
+    }
 
-            binding.btnChooseFile.apply {
-                backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
-                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                text = getString(R.string.change_image)
-                strokeWidth = 0
-            }
+    // Launcher untuk mengambil foto dari kamera
+    private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success: Boolean ->
+        if (success && imageUri != null) {
+            handleImageResult(imageUri)
+        }
+    }
+
+    // Launcher untuk meminta permission kamera
+    private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) {
+            openCamera()
+        } else {
+            Toast.makeText(requireContext(), "Permission kamera diperlukan untuk mengambil foto", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -92,10 +103,82 @@ class FormLaporKerusakanFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.btnChooseFile.setOnClickListener {
-            pickImageLauncher.launch("image/*")
+            showImagePickerDialog()
         }
         binding.btnSubmit.setOnClickListener {
             submitForm()
+        }
+    }
+
+    private fun showImagePickerDialog() {
+        val options = arrayOf("Kamera", "Galeri")
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Pilih Sumber Gambar")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> checkCameraPermissionAndOpen()
+                    1 -> openGallery()
+                }
+            }
+            .show()
+    }
+
+    private fun checkCameraPermissionAndOpen() {
+        when {
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                openCamera()
+            }
+            else -> {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
+    }
+
+    private fun openCamera() {
+        try {
+            val imageFile = createImageFile()
+            imageUri = FileProvider.getUriForFile(
+                requireContext(),
+                "${requireContext().packageName}.fileprovider",
+                imageFile
+            )
+            takePictureLauncher.launch(imageUri)
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Error membuka kamera: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openGallery() {
+        pickImageLauncher.launch("image/*")
+    }
+
+    private fun createImageFile(): File {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val imageFileName = "JPEG_${timeStamp}_"
+        val storageDir = File(requireContext().filesDir, "images")
+
+        if (!storageDir.exists()) {
+            storageDir.mkdirs()
+        }
+
+        return File.createTempFile(imageFileName, ".jpg", storageDir)
+    }
+
+    private fun handleImageResult(uri: Uri?) {
+        imageUri = uri
+        if (uri != null) {
+            binding.tvFileName.text = uri.lastPathSegment ?: "File selected"
+
+            binding.btnChooseFile.apply {
+                backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                text = getString(R.string.change_image)
+                strokeWidth = 0
+            }
         }
     }
 
@@ -116,7 +199,7 @@ class FormLaporKerusakanFragment : Fragment() {
 
         when {
             namaPerangkat.isEmpty() -> {
-                binding.namaPerangkatLayout.error = "JUmlah tidak boleh kosong"
+                binding.namaPerangkatLayout.error = "Nama perangkat tidak boleh kosong"
                 return
             }
             kontak.isEmpty() -> {
@@ -128,7 +211,7 @@ class FormLaporKerusakanFragment : Fragment() {
                 return
             }
             keterangan.isEmpty() -> {
-                binding.keteranganLayout.error = "Tujuan peminjaman tidak boleh kosong"
+                binding.keteranganLayout.error = "Keterangan kerusakan tidak boleh kosong"
                 return
             }
             else -> {
