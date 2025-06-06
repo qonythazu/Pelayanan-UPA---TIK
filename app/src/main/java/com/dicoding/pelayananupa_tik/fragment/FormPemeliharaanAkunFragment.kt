@@ -187,8 +187,9 @@ class FormPemeliharaanAkunFragment : Fragment() {
     private fun savePdfLocally(uri: Uri) {
         try {
             val inputStream = requireContext().contentResolver.openInputStream(uri)
-            val fileName = "peminjaman_${System.currentTimeMillis()}.pdf"
+            val fileName = getFileName(uri)
             val file = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
+
             val outputStream = FileOutputStream(file)
             inputStream?.copyTo(outputStream)
             inputStream?.close()

@@ -16,5 +16,6 @@ data class LayananItem(
     val kontak: String = "",
     val tujuan: String = "",
     val keluhan: String = "",
-    val formType: String = "" // "pemeliharaan_akun", "form_lain", etc.
+    val namaLayanan: String = "",
+    val formType: String = ""
 )

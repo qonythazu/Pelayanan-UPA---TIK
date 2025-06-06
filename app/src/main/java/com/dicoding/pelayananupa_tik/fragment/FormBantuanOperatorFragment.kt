@@ -6,6 +6,7 @@ import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.provider.OpenableColumns
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -136,7 +137,7 @@ class FormBantuanOperatorFragment : Fragment() {
             val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
             cursor?.use {
                 if (it.moveToFirst()) {
-                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                     if (index >= 0) {
                         result = it.getString(index)
                     }
@@ -156,7 +157,7 @@ class FormBantuanOperatorFragment : Fragment() {
     private fun savePdfLocally(uri: Uri) {
         try {
             val inputStream = requireContext().contentResolver.openInputStream(uri)
-            val fileName = "peminjaman_${System.currentTimeMillis()}.pdf"
+            val fileName = getFileName(uri)
             val file = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
 
             val outputStream = FileOutputStream(file)

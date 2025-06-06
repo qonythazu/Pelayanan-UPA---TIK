@@ -3,10 +3,12 @@ package com.dicoding.pelayananupa_tik.adapter
 import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
+import android.util.Log
 import android.view.*
 import android.widget.ImageView
 import android.widget.PopupMenu
@@ -43,144 +45,252 @@ class LayananAdapter(
         val context = holder.itemView.context
         val layananItem = layananList[position]
 
+        bindBasicInfo(holder, layananItem)
+        setStatusColor(holder, layananItem)
+        setupButtonsBasedOnStatus(holder, context, layananItem, position)
+    }
+
+    private fun bindBasicInfo(holder: LayananViewHolder, layananItem: LayananItem) {
         holder.layananText.text = layananItem.judul
         holder.tanggalText.text = layananItem.tanggal
         holder.statusText.text = layananItem.status
+    }
 
-        when (layananItem.status.lowercase()) {
-            "selesai" -> holder.statusText.setTextColor(Color.parseColor("#34C759")) // Green
-            "ditolak" -> holder.statusText.setTextColor(Color.parseColor("#FF3B30")) // Red
-            else -> holder.statusText.setTextColor(Color.parseColor("#0067AC"))       // Blue
+    private fun setStatusColor(holder: LayananViewHolder, layananItem: LayananItem) {
+        val color = when (layananItem.status.lowercase()) {
+            "selesai" -> Color.parseColor("#34C759") // Green
+            "ditolak" -> Color.parseColor("#FF3B30") // Red
+            else -> Color.parseColor("#0067AC")       // Blue
         }
+        holder.statusText.setTextColor(color)
+    }
 
-        // Handle button visibility based on status
+    private fun setupButtonsBasedOnStatus(
+        holder: LayananViewHolder,
+        context: Context,
+        layananItem: LayananItem,
+        position: Int
+    ) {
         when (layananItem.status.lowercase()) {
-            "draft" -> {
-                holder.btnMore.visibility = View.VISIBLE
-                holder.btnBatalkan.visibility = View.VISIBLE
-                holder.btnBatalkan.text = context.getString(R.string.submit)
-                holder.btnBatalkan.setTextColor(ContextCompat.getColor(context, R.color.green))
-                setupMoreButton(holder, context, layananItem, position)
-                setupSubmitButton(holder, context, layananItem, position)
-            }
-            "terkirim" -> {
-                holder.btnMore.visibility = View.GONE
-                holder.btnBatalkan.visibility = View.VISIBLE
-                holder.btnBatalkan.text = context.getString(R.string.batalkan)
-                holder.btnBatalkan.setTextColor(ContextCompat.getColor(context, R.color.red))
-                setupBatalkanButton(holder, context, layananItem, position)
-            }
-            else -> {
-                holder.btnMore.visibility = View.GONE
-                holder.btnBatalkan.visibility = View.GONE
-            }
+            "draft" -> setupDraftButtons(holder, context, layananItem, position)
+            "terkirim" -> setupTerkirimButtons(holder, context, layananItem, position)
+            else -> hideAllButtons(holder)
         }
     }
 
-    private fun setupMoreButton(holder: LayananViewHolder, context: Context, layananItem: LayananItem, position: Int) {
+    private fun setupDraftButtons(
+        holder: LayananViewHolder,
+        context: Context,
+        layananItem: LayananItem,
+        position: Int
+    ) {
+        holder.btnMore.visibility = View.VISIBLE
+        holder.btnBatalkan.visibility = View.VISIBLE
+        holder.btnBatalkan.text = context.getString(R.string.submit)
+        holder.btnBatalkan.setTextColor(ContextCompat.getColor(context, R.color.green))
+
+        setupMoreButton(holder, context, layananItem, position)
+        setupSubmitButton(holder, context, layananItem, position)
+    }
+
+    private fun setupTerkirimButtons(
+        holder: LayananViewHolder,
+        context: Context,
+        layananItem: LayananItem,
+        position: Int
+    ) {
+        holder.btnMore.visibility = View.GONE
+        holder.btnBatalkan.visibility = View.VISIBLE
+        holder.btnBatalkan.text = context.getString(R.string.batalkan)
+        holder.btnBatalkan.setTextColor(ContextCompat.getColor(context, R.color.red))
+
+        setupBatalkanButton(holder, context, layananItem, position)
+    }
+
+    private fun hideAllButtons(holder: LayananViewHolder) {
+        holder.btnMore.visibility = View.GONE
+        holder.btnBatalkan.visibility = View.GONE
+    }
+
+    private fun setupMoreButton(
+        holder: LayananViewHolder,
+        context: Context,
+        layananItem: LayananItem,
+        position: Int
+    ) {
         holder.btnMore.setOnClickListener { view ->
-            val popup = PopupMenu(context, view, Gravity.END, 0, R.style.CustomPopupMenu)
-            popup.menuInflater.inflate(R.menu.item_menu, popup.menu)
+            showPopupMenu(view, context, layananItem, position)
+        }
+    }
 
-            val updateItem = popup.menu.findItem(R.id.action_update)
-            val deleteItem = popup.menu.findItem(R.id.action_delete)
+    private fun showPopupMenu(view: View, context: Context, layananItem: LayananItem, position: Int) {
+        val popup = PopupMenu(context, view, Gravity.END, 0, R.style.CustomPopupMenu)
+        popup.menuInflater.inflate(R.menu.item_menu, popup.menu)
 
-            val green = ContextCompat.getColor(context, R.color.green)
-            val red = ContextCompat.getColor(context, R.color.red)
+        stylePopupMenu(popup, context)
+        setPopupMenuListener(popup, view, layananItem, position, context)
+        popup.show()
+    }
 
-            updateItem.icon?.setTint(green)
-            deleteItem.icon?.setTint(red)
+    private fun stylePopupMenu(popup: PopupMenu, context: Context) {
+        val updateItem = popup.menu.findItem(R.id.action_update)
+        val deleteItem = popup.menu.findItem(R.id.action_delete)
 
-            updateItem.title = buildColoredText("Update", green)
-            deleteItem.title = buildColoredText("Delete", red)
+        val green = ContextCompat.getColor(context, R.color.green)
+        val red = ContextCompat.getColor(context, R.color.red)
 
-            popup.setOnMenuItemClickListener { menuItem ->
-                when (menuItem.itemId) {
-                    R.id.action_update -> {
-                        navigateToEditForm(view, layananItem)
-                        true
-                    }
-                    R.id.action_delete -> {
-                        showDeleteConfirmationDialog(context, layananItem, position)
-                        true
-                    }
-                    else -> false
+        updateItem.icon?.setTint(green)
+        deleteItem.icon?.setTint(red)
+
+        updateItem.title = buildColoredText("Update", green)
+        deleteItem.title = buildColoredText("Delete", red)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            popup.setForceShowIcon(true)
+        }
+    }
+
+    private fun setPopupMenuListener(
+        popup: PopupMenu,
+        view: View,
+        layananItem: LayananItem,
+        position: Int,
+        context: Context
+    ) {
+        popup.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_update -> {
+                    navigateToEditForm(view, layananItem)
+                    true
                 }
-            }
-            try {
-                val fields = popup.javaClass.declaredFields
-                for (field in fields) {
-                    if ("mPopup" == field.name) {
-                        field.isAccessible = true
-                        val menuPopupHelper = field.get(popup)
-                        val classPopupHelper = Class.forName(menuPopupHelper.javaClass.name)
-                        val setForceIcons = classPopupHelper.getMethod("setForceShowIcon", Boolean::class.java)
-                        setForceIcons.invoke(menuPopupHelper, true)
-                        break
-                    }
+                R.id.action_delete -> {
+                    showDeleteConfirmationDialog(context, layananItem, position)
+                    true
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
-            val scale = context.resources.displayMetrics.density
-            val offsetY = (8 * scale + 0.5f).toInt()
-            popup.show()
-            try {
-                val mPopupField = popup.javaClass.getDeclaredField("mPopup")
-                mPopupField.isAccessible = true
-                val mPopup = mPopupField.get(popup)
-                mPopup.javaClass
-                    .getMethod("show", Int::class.java, Int::class.java)
-                    .invoke(mPopup, 0, offsetY)
-            } catch (e: Exception) {
-                e.printStackTrace()
+                else -> false
             }
         }
     }
 
     private fun navigateToEditForm(view: View, layananItem: LayananItem) {
-        val bundle = Bundle().apply {
-            putString("documentId", layananItem.documentId)
-            putString("layanan", layananItem.layanan)
-            putString("jenis", layananItem.jenis)
-            putString("akun", layananItem.akun)
-            putString("alasan", layananItem.alasan)
-            putString("jumlah", layananItem.jumlah)
-            putString("kontak", layananItem.kontak)
-            putString("tujuan", layananItem.tujuan)
-            putString("keluhan", layananItem.keluhan)
-            putString("filePath", layananItem.filePath)
-            putBoolean("isEditMode", true)
-        }
-        val navigationId = when (layananItem.formType) {
-            "pemeliharaan_akun" -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment
-            "bantuan" -> R.id.action_historyLayananFragment_to_formBantuanOperatorFragment
-            "pemasangan" -> R.id.action_historyLayananFragment_to_formPemasanganPerangkatFragment
-            "pengaduan" -> R.id.action_historyLayananFragment_to_formPengaduanLayananFragment
-            else -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment // default
+        val bundle = createEditBundle(layananItem)
+        val navigationId = getNavigationId(layananItem.formType)
+
+        if (navigationId == null) {
+            handleUnknownFormType(view, layananItem)
+            return
         }
 
         try {
             view.findNavController().navigate(navigationId, bundle)
         } catch (e: Exception) {
-            println("Navigation failed: ${e.message}")
-            e.printStackTrace()
-            onEditItem(layananItem, layananList.indexOf(layananItem))
+            handleNavigationError(e, layananItem)
         }
     }
 
-    private fun setupSubmitButton(holder: LayananViewHolder, context: Context, layananItem: LayananItem, position: Int) {
+    private fun createEditBundle(layananItem: LayananItem): Bundle {
+        Log.d("LayananAdapter", "Creating bundle for formType: ${layananItem.formType}")
+        Log.d("LayananAdapter", "LayananItem data: $layananItem")
+
+        val bundle = Bundle().apply {
+            putString("documentId", layananItem.documentId)
+            putBoolean("isEditMode", true)
+        }
+
+        when (layananItem.formType) {
+            "pemeliharaan" -> bundle.apply {
+                putString("layanan", layananItem.layanan)
+                putString("jenis", layananItem.jenis)
+                putString("akun", layananItem.akun)
+                putString("alasan", layananItem.alasan)
+                putString("filePath", layananItem.filePath)
+                Log.d("LayananAdapter", "Pemeliharaan bundle: jenis=${layananItem.jenis}, akun=${layananItem.akun}")
+            }
+
+            "bantuan" -> bundle.apply {
+                putString("jumlah", layananItem.jumlah)
+                putString("kontak", layananItem.kontak)
+                putString("tujuan", layananItem.tujuan)
+                putString("filePath", layananItem.filePath)
+                Log.d("LayananAdapter", "Bantuan bundle: keluhan=${layananItem.keluhan}")
+            }
+
+            "pemasangan" -> bundle.apply {
+                putString("jenis", layananItem.jenis)
+                putString("kontak", layananItem.kontak)
+                putString("tujuan", layananItem.tujuan)
+                Log.d("LayananAdapter", "Pemasangan bundle: jenis=${layananItem.jenis}, jumlah=${layananItem.jumlah}")
+            }
+
+            "pengaduan" -> bundle.apply {
+                putString("layanan", layananItem.layanan)
+                putString("kontak", layananItem.kontak)
+                putString("keluhan", layananItem.keluhan)
+                putString("filePath", layananItem.filePath)
+                Log.d("LayananAdapter", "Pengaduan bundle: keluhan=${layananItem.keluhan}")
+            }
+
+            "pembuatan" -> bundle.apply {
+                putString("layanan", layananItem.layanan)
+                putString("namaLayanan", layananItem.namaLayanan)
+                putString("kontak", layananItem.kontak)
+                putString("tujuan", layananItem.tujuan)
+                Log.d("LayananAdapter", "Pembuatan bundle: layanan=${layananItem.layanan}")
+            }
+
+            else -> {
+                Log.e("LayananAdapter", "Unknown formType: ${layananItem.formType}")
+            }
+        }
+
+        return bundle
+    }
+
+    private fun getNavigationId(formType: String): Int? {
+        return when (formType) {
+            "pemeliharaan" -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment
+            "bantuan" -> R.id.action_historyLayananFragment_to_formBantuanOperatorFragment
+            "pemasangan" -> R.id.action_historyLayananFragment_to_formPemasanganPerangkatFragment
+            "pengaduan" -> R.id.action_historyLayananFragment_to_formPengaduanLayananFragment
+            "pembuatan" -> R.id.action_historyLayananFragment_to_formPembuatanWebDllFragment
+            else -> null
+        }
+    }
+
+    private fun handleUnknownFormType(view: View, layananItem: LayananItem) {
+        Log.e("LayananAdapter", "Unknown formType: ${layananItem.formType}")
+        Toast.makeText(
+            view.context,
+            "Error: Tipe form tidak dikenali (${layananItem.formType})",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun handleNavigationError(e: Exception, layananItem: LayananItem) {
+        Log.e("LayananAdapter", "Navigation failed: ${e.message}", e)
+        onEditItem(layananItem, layananList.indexOf(layananItem))
+    }
+
+    private fun setupSubmitButton(
+        holder: LayananViewHolder,
+        context: Context,
+        layananItem: LayananItem,
+        position: Int
+    ) {
         holder.btnBatalkan.setOnClickListener {
             val updatedItem = layananItem.copy(status = "Terkirim")
             layananList[position] = updatedItem
             notifyItemChanged(position)
             onStatusChanged(updatedItem, position)
-            Toast.makeText(context, "Data berhasil dikirim", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun setupBatalkanButton(holder: LayananViewHolder, context: Context, layananItem: LayananItem, position: Int) {
+    private fun setupBatalkanButton(
+        holder: LayananViewHolder,
+        context: Context,
+        layananItem: LayananItem,
+        position: Int
+    ) {
         holder.btnBatalkan.setOnClickListener {
             showCancelConfirmationDialog(context, layananItem, position)
         }
@@ -191,19 +301,23 @@ class LayananAdapter(
             .setTitle("Konfirmasi Hapus")
             .setMessage("Apakah Anda yakin ingin menghapus layanan \"${layananItem.judul}\"?")
             .setPositiveButton("Ya") { dialog, _ ->
-                layananList.removeAt(position)
-                notifyItemRemoved(position)
-                notifyItemRangeChanged(position, layananList.size)
-
-                Toast.makeText(context, "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
+                handleDeleteConfirmation(context, layananItem, position)
                 dialog.dismiss()
-                onDeleteItem(layananItem, position)
             }
             .setNegativeButton("Tidak") { dialog, _ ->
                 dialog.dismiss()
             }
             .setCancelable(true)
             .show()
+    }
+
+    private fun handleDeleteConfirmation(context: Context, layananItem: LayananItem, position: Int) {
+        layananList.removeAt(position)
+        notifyItemRemoved(position)
+        notifyItemRangeChanged(position, layananList.size)
+
+        Toast.makeText(context, "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
+        onDeleteItem(layananItem, position)
     }
 
     private fun showCancelConfirmationDialog(context: Context, layananItem: LayananItem, position: Int) {
@@ -211,11 +325,7 @@ class LayananAdapter(
             .setTitle("Konfirmasi Pembatalan")
             .setMessage("Apakah Anda yakin ingin membatalkan layanan \"${layananItem.judul}\"?")
             .setPositiveButton("Ya") { dialog, _ ->
-                layananList.removeAt(position)
-                notifyItemRemoved(position)
-                notifyItemRangeChanged(position, layananList.size)
-
-                Toast.makeText(context, "Layanan berhasil dibatalkan", Toast.LENGTH_SHORT).show()
+                handleCancelConfirmation(context, layananItem, position)
                 dialog.dismiss()
             }
             .setNegativeButton("Tidak") { dialog, _ ->
@@ -225,7 +335,15 @@ class LayananAdapter(
             .show()
     }
 
-    override fun getItemCount(): Int = layananList.size
+    private fun handleCancelConfirmation(context: Context, layananItem: LayananItem, position: Int) {
+        layananList.removeAt(position)
+        notifyItemRemoved(position)
+        notifyItemRangeChanged(position, layananList.size)
+
+        Toast.makeText(context, "Layanan berhasil dibatalkan", Toast.LENGTH_SHORT).show()
+        // Note: onDeleteItem is called here but could be renamed to onCancelItem for clarity
+        onDeleteItem(layananItem, position)
+    }
 
     private fun buildColoredText(text: String, color: Int): CharSequence {
         val spannable = SpannableString(text)
@@ -238,17 +356,11 @@ class LayananAdapter(
         return spannable
     }
 
-    fun removeItem(position: Int) {
-        if (position in 0 until layananList.size) {
-            layananList.removeAt(position)
-            notifyItemRemoved(position)
-            notifyItemRangeChanged(position, layananList.size)
-        }
-    }
-
     fun resetSubmitButton(position: Int) {
         if (position in 0 until layananList.size) {
             notifyItemChanged(position)
         }
     }
+
+    override fun getItemCount(): Int = layananList.size
 }
