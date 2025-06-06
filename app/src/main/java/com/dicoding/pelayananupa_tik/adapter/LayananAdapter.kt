@@ -88,6 +88,7 @@ class LayananAdapter(
         holder.btnBatalkan.visibility = View.VISIBLE
         holder.btnBatalkan.text = context.getString(R.string.submit)
         holder.btnBatalkan.setTextColor(ContextCompat.getColor(context, R.color.green))
+        holder.btnBatalkan.setBackgroundColor(Color.parseColor("#F5FFF5"))
 
         setupMoreButton(holder, context, layananItem, position)
         setupSubmitButton(holder, context, layananItem, position)
@@ -344,7 +345,6 @@ class LayananAdapter(
         notifyItemRangeChanged(position, layananList.size)
 
         Toast.makeText(context, "Layanan berhasil dibatalkan", Toast.LENGTH_SHORT).show()
-        // Note: onDeleteItem is called here but could be renamed to onCancelItem for clarity
         onDeleteItem(layananItem, position)
     }
 

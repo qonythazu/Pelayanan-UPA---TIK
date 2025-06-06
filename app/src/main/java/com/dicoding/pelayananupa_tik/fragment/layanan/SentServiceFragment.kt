@@ -38,32 +38,21 @@ class SentServiceFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_sent_service, container, false)
         recyclerView = view.findViewById(R.id.recyclerView)
         emptyStateTextView = view.findViewById(R.id.emptyStateTextView)
-
-        // Updated adapter initialization dengan callback functions
         adapter = LayananAdapter(
             layananList = layananList,
             onEditItem = { layananItem, position ->
-                // Handle edit - untuk sent service mungkin tidak bisa diedit
                 handleEditItem(layananItem, position)
             },
             onStatusChanged = { updatedItem, position ->
-                // Untuk sent service, mungkin tidak ada perubahan status
-                // atau bisa digunakan untuk fungsi lain seperti "batalkan pengiriman"
                 handleStatusChange(updatedItem, position)
             },
-            onDeleteItem = { layananItem, position ->
-                // 1. Delete dari Firestore DULU (jika diizinkan)
+            onDeleteItem = { layananItem, _ ->
                 deleteFromFirestore(layananItem) { success ->
                     if (success) {
-                        // 2. BARU hapus dari UI
-                        layananList.removeAt(position)
-                        adapter.notifyItemRemoved(position)
-                        Toast.makeText(requireContext(), "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
-
-                        // 3. Update UI untuk empty state
+                        Toast.makeText(requireContext(), "Layanan berhasil dibatalkan", Toast.LENGTH_SHORT).show()
                         updateUI()
                     } else {
-                        Toast.makeText(requireContext(), "Gagal menghapus data", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), "Gagal membatalkan layanan", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -98,18 +87,13 @@ class SentServiceFragment : Fragment() {
                         val tanggal = doc.getString("timestamp") ?: "Tidak ada tanggal"
                         val status = doc.getString("status") ?: "Tidak ada status"
                         val documentId = doc.id
-
-                        // Tambahkan info untuk operasi Firestore
                         val layananItem = LayananItem(
                             judul = judul,
                             tanggal = tanggal,
-                            status = status
-                        ).apply {
-                            // Simpan info untuk operasi CRUD
-                            // Asumsikan LayananItem punya property ini
-                            // this.documentId = documentId
-                            // this.collectionName = collection
-                        }
+                            status = status,
+                            documentId = documentId,
+                            formType = getFormTypeFromCollection(collection)
+                        )
 
                         layananList.add(layananItem)
                     }
@@ -128,6 +112,18 @@ class SentServiceFragment : Fragment() {
         }
     }
 
+    private fun getFormTypeFromCollection(collection: String): String {
+        return when (collection) {
+            "form_bantuan" -> "bantuan"
+            "form_pemasangan" -> "pemasangan"
+            "form_pembuatan" -> "pembuatan"
+            "form_pemeliharaan" -> "pemeliharaan"
+            "form_pengaduan" -> "pengaduan"
+            "form_lapor_kerusakan" -> "lapor_kerusakan"
+            else -> "unknown"
+        }
+    }
+
     private fun updateUI() {
         adapter.notifyDataSetChanged()
         if (layananList.isEmpty()) {
@@ -140,96 +136,63 @@ class SentServiceFragment : Fragment() {
         }
     }
 
-    // Fungsi untuk handle edit item (untuk sent service biasanya read-only)
     private fun handleEditItem(layananItem: LayananItem, position: Int) {
-        // Sent service biasanya tidak bisa diedit, tapi bisa dibuka untuk view detail
         Log.d("SentService", "View sent item: ${layananItem.judul}")
-
-        // Contoh: Buka detail view atau tampilkan pesan
         Toast.makeText(requireContext(), "Layanan yang sudah terkirim tidak dapat diedit", Toast.LENGTH_SHORT).show()
-
-        // Atau buka detail view:
-        // val intent = Intent(requireContext(), DetailLayananActivity::class.java)
-        // intent.putExtra("layanan_item", layananItem)
-        // intent.putExtra("is_read_only", true)
-        // startActivity(intent)
     }
 
-    // Fungsi untuk handle perubahan status (jika diperlukan)
     private fun handleStatusChange(updatedItem: LayananItem, position: Int) {
-        // Untuk sent service, mungkin bisa digunakan untuk "batalkan" jika masih memungkinkan
         Log.d("SentService", "Status change requested for: ${updatedItem.judul}")
-
-        // Contoh: Tampilkan dialog konfirmasi untuk batalkan
-        // showCancelConfirmationDialog(updatedItem, position)
-
-        // Atau tampilkan pesan bahwa tidak bisa diubah
         Toast.makeText(requireContext(), "Status layanan yang sudah terkirim tidak dapat diubah", Toast.LENGTH_SHORT).show()
     }
 
-    // Fungsi untuk delete dari Firestore (jika diizinkan)
     private fun deleteFromFirestore(layananItem: LayananItem, callback: (Boolean) -> Unit) {
         val userEmail = UserManager.getCurrentUserEmail()
         if (userEmail.isNullOrEmpty()) {
+            Log.e("SentService", "User email is null or empty")
             callback(false)
             return
         }
 
-        // Untuk sent service, mungkin tidak diizinkan dihapus
-        // Atau bisa dihapus dengan konfirmasi khusus
-        Log.d("SentService", "Delete request for sent item: ${layananItem.judul}")
-
-        // Opsi 1: Tidak izinkan hapus
-        Toast.makeText(requireContext(), "Layanan yang sudah terkirim tidak dapat dihapus", Toast.LENGTH_SHORT).show()
-        callback(false)
-        return
-
-        // Opsi 2: Izinkan hapus dengan implementasi seperti ini:
-        /*
-        var deleteSuccess = false
-        var completedCollections = 0
-
-        for (collection in collections) {
-            firestore.collection(collection)
-                .whereEqualTo("userEmail", userEmail)
-                .whereEqualTo("judul", layananItem.judul)
-                .whereEqualTo("timestamp", layananItem.tanggal)
-                .whereEqualTo("status", "Terkirim")
-                .get()
-                .addOnSuccessListener { documents ->
-                    if (documents.size() > 0 && !deleteSuccess) {
-                        val doc = documents.documents[0]
-                        firestore.collection(collection)
-                            .document(doc.id)
-                            .delete()
-                            .addOnSuccessListener {
-                                Log.d("SentService", "Document deleted successfully")
-                                deleteSuccess = true
-                                callback(true)
-                            }
-                            .addOnFailureListener { e ->
-                                Log.w("SentService", "Error deleting document", e)
-                                if (!deleteSuccess) callback(false)
-                            }
-                    } else {
-                        completedCollections++
-                        if (completedCollections == collections.size && !deleteSuccess) {
-                            callback(false)
-                        }
-                    }
-                }
-                .addOnFailureListener { e ->
-                    Log.w("SentService", "Error finding document", e)
-                    completedCollections++
-                    if (completedCollections == collections.size && !deleteSuccess) {
-                        callback(false)
-                    }
-                }
+        if (layananItem.documentId.isEmpty() || layananItem.formType.isEmpty()) {
+            Log.e("SentService", "Document ID or form type is missing")
+            callback(false)
+            return
         }
-        */
+
+        val collectionName = getCollectionFromFormType(layananItem.formType)
+        if (collectionName == null) {
+            Log.e("SentService", "Unknown form type: ${layananItem.formType}")
+            callback(false)
+            return
+        }
+
+        Log.d("SentService", "Deleting document: ${layananItem.documentId} from collection: $collectionName")
+        firestore.collection(collectionName)
+            .document(layananItem.documentId)
+            .delete()
+            .addOnSuccessListener {
+                Log.d("SentService", "Document successfully deleted from Firestore")
+                callback(true)
+            }
+            .addOnFailureListener { e ->
+                Log.e("SentService", "Error deleting document from Firestore", e)
+                callback(false)
+            }
     }
 
-    // Fungsi public untuk refresh dari fragment lain
+    private fun getCollectionFromFormType(formType: String): String? {
+        return when (formType) {
+            "bantuan" -> "form_bantuan"
+            "pemasangan" -> "form_pemasangan"
+            "pembuatan" -> "form_pembuatan"
+            "pemeliharaan" -> "form_pemeliharaan"
+            "pengaduan" -> "form_pengaduan"
+            "lapor_kerusakan" -> "form_lapor_kerusakan"
+            else -> null
+        }
+    }
+
     fun refreshData() {
         fetchAllLayanan()
     }

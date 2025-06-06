@@ -15,7 +15,10 @@ import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.adapter.ServiceHistoryPageAdapter
 import com.dicoding.pelayananupa_tik.databinding.FragmentHistoryLayananBinding
+import com.dicoding.pelayananupa_tik.fragment.layanan.DraftServiceFragment
+import com.dicoding.pelayananupa_tik.fragment.layanan.SentServiceFragment
 import com.google.android.material.tabs.TabLayout
+import android.util.Log
 
 class HistoryLayananFragment : Fragment() {
 
@@ -38,6 +41,7 @@ class HistoryLayananFragment : Fragment() {
         setupTabLayout()
         setupViewPager()
         setupTabBehavior()
+        setupFragmentCommunication()
     }
 
     private fun setupToolbar() {
@@ -94,6 +98,58 @@ class HistoryLayananFragment : Fragment() {
         })
     }
 
+    private fun setupFragmentCommunication() {
+        binding.viewPager2.post {
+            setupDraftToSentCommunication()
+        }
+    }
+
+    private fun setupDraftToSentCommunication() {
+        try {
+            val draftFragment = childFragmentManager.findFragmentByTag("f0") as? DraftServiceFragment
+
+            if (draftFragment != null) {
+                draftFragment.setOnDataChangedListener(object : DraftServiceFragment.OnDataChangedListener {
+                    override fun onDataChanged() {
+                        Log.d("HistoryLayanan", "Data changed notification received")
+                        refreshSentServiceFragment()
+                    }
+                })
+                Log.d("HistoryLayanan", "Successfully setup communication with DraftServiceFragment")
+            } else {
+                Log.w("HistoryLayanan", "DraftServiceFragment not found, retrying...")
+                binding.viewPager2.postDelayed({
+                    setupDraftToSentCommunication()
+                }, 500)
+            }
+        } catch (e: Exception) {
+            Log.e("HistoryLayanan", "Error setting up fragment communication", e)
+        }
+    }
+
+    private fun refreshSentServiceFragment() {
+        try {
+            val sentFragment = childFragmentManager.findFragmentByTag("f1") as? SentServiceFragment
+
+            if (sentFragment != null) {
+                sentFragment.refreshData()
+                Log.d("HistoryLayanan", "Successfully refreshed SentServiceFragment")
+            } else {
+                Log.w("HistoryLayanan", "SentServiceFragment not found")
+                val fragments = childFragmentManager.fragments
+                for (fragment in fragments) {
+                    if (fragment is SentServiceFragment) {
+                        fragment.refreshData()
+                        Log.d("HistoryLayanan", "Found and refreshed SentServiceFragment via iteration")
+                        break
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HistoryLayanan", "Error refreshing SentServiceFragment", e)
+        }
+    }
+
     private fun setupInitialTabStyling() {
         for (i in 0 until binding.tabLayout.tabCount) {
             val tab = binding.tabLayout.getTabAt(i)
@@ -121,8 +177,6 @@ class HistoryLayananFragment : Fragment() {
 
             textView.background = drawable
             textView.elevation = 4f
-
-            // Set text color
             when (textView.text) {
                 "Selesai" -> {
                     textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.green))
@@ -158,6 +212,7 @@ class HistoryLayananFragment : Fragment() {
         super.onResume()
         (activity as? MainActivity)?.hideBottomNavigation()
         (activity as? MainActivity)?.hideToolbar()
+        setupDraftToSentCommunication()
     }
 
     override fun onPause() {

@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.adapter.LayananAdapter
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
+import com.dicoding.pelayananupa_tik.fragment.HistoryLayananFragment
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.QueryDocumentSnapshot
@@ -33,6 +34,16 @@ class DraftServiceFragment : Fragment() {
         "form_pengaduan",
         "form_lapor_kerusakan"
     )
+
+    interface OnDataChangedListener {
+        fun onDataChanged()
+    }
+
+    private var onDataChangedListener: OnDataChangedListener? = null
+
+    fun setOnDataChangedListener(listener: OnDataChangedListener) {
+        this.onDataChangedListener = listener
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -74,6 +85,7 @@ class DraftServiceFragment : Fragment() {
                 adapter.notifyItemRemoved(position)
                 showToast("Data berhasil dikirim")
                 updateUI()
+                onDataChangedListener?.onDataChanged()
                 refreshTerkirimTab()
             } else {
                 adapter.resetSubmitButton(position)
@@ -355,7 +367,16 @@ class DraftServiceFragment : Fragment() {
 
     private fun refreshTerkirimTab() {
         Log.d("DraftService", "Refreshing Terkirim tab")
-        // TODO: Implement refresh functionality for Terkirim tab
+        val parentFragment = parentFragment as? HistoryLayananFragment
+        if (parentFragment != null) {
+            val fragmentManager = parentFragment.childFragmentManager
+            val sentFragment = fragmentManager.findFragmentByTag("f1") as? SentServiceFragment
+            sentFragment?.refreshData()
+
+            Log.d("DraftService", "Found SentServiceFragment: ${sentFragment != null}")
+        } else {
+            Log.w("DraftService", "Parent HistoryLayananFragment not found")
+        }
     }
 
     private fun showToast(message: String) {
