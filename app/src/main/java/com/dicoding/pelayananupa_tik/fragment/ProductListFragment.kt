@@ -210,6 +210,10 @@ class ProductListFragment : Fragment() {
                 return true
             }
         })
+
+        binding.searchView.setOnClickListener {
+            binding.searchView.isIconified = false
+        }
     }
 
     private fun addToBox(barang: Barang) {
