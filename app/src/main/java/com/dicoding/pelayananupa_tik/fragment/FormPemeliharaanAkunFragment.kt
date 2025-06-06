@@ -201,6 +201,36 @@ class FormPemeliharaanAkunFragment : Fragment() {
         }
     }
 
+    private fun validateForm(formData: Quadruple<String, String, String, String>): Boolean {
+        val (layanan, jenis, akun, alasan) = formData
+
+        if (layanan.isEmpty()) {
+            Toast.makeText(requireContext(), "Harap pilih layanan yang diajukan", Toast.LENGTH_SHORT).show()
+            return false
+        }
+
+        if (jenis.isEmpty()) {
+            Toast.makeText(requireContext(), "Harap pilih jenis pemeliharaan yang diajukan", Toast.LENGTH_SHORT).show()
+            return false
+        }
+
+        if (akun.isBlank()) {
+            binding.namaAkunLayout.error = "Nama Akun Layanan tidak boleh kosong"
+            return false
+        } else {
+            binding.namaAkunLayout.error = null
+        }
+
+        if (alasan.isBlank()) {
+            binding.alasanLayout.error = "Alasan Pemeliharaan tidak boleh kosong"
+            return false
+        } else {
+            binding.alasanLayout.error = null
+        }
+
+        return true
+    }
+
     private fun submitForm() {
         val formData = getFormData()
         if (!validateForm(formData)) return
@@ -236,36 +266,6 @@ class FormPemeliharaanAkunFragment : Fragment() {
         val alasan = binding.alasanLayout.editText?.text.toString().trim()
 
         return Quadruple(layanan, jenis, akun, alasan)
-    }
-
-    private fun validateForm(formData: Quadruple<String, String, String, String>): Boolean {
-        val (layanan, jenis, akun, alasan) = formData
-
-        if (layanan.isEmpty()) {
-            Toast.makeText(requireContext(), "Harap pilih layanan yang diajukan", Toast.LENGTH_SHORT).show()
-            return false
-        }
-
-        if (jenis.isEmpty()) {
-            Toast.makeText(requireContext(), "Harap pilih jenis pemeliharaan yang diajukan", Toast.LENGTH_SHORT).show()
-            return false
-        }
-
-        if (akun.isBlank()) {
-            binding.namaAkunLayout.error = "Nama Akun Layanan tidak boleh kosong"
-            return false
-        } else {
-            binding.namaAkunLayout.error = null
-        }
-
-        if (alasan.isBlank()) {
-            binding.alasanLayout.error = "Alasan Pemeliharaan tidak boleh kosong"
-            return false
-        } else {
-            binding.alasanLayout.error = null
-        }
-
-        return true
     }
 
     private fun saveDataToFirestore(

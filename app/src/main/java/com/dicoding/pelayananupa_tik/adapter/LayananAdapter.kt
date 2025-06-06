@@ -147,14 +147,17 @@ class LayananAdapter(
             putString("jenis", layananItem.jenis)
             putString("akun", layananItem.akun)
             putString("alasan", layananItem.alasan)
+            putString("jumlah", layananItem.jumlah)
+            putString("kontak", layananItem.kontak)
+            putString("tujuan", layananItem.tujuan)
             putString("filePath", layananItem.filePath)
-            // Tambahkan flag untuk menandai ini adalah edit mode
             putBoolean("isEditMode", true)
         }
 
         // Navigate based on form type
         val navigationId = when (layananItem.formType) {
             "pemeliharaan_akun" -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment
+            "bantuan" -> R.id.action_historyLayananFragment_to_formBantuanOperatorFragment
             // Add other form types here:
             // "form_peminjaman" -> R.id.action_historyLayananFragment_to_formPeminjamanFragment
             // "form_pengaduan" -> R.id.action_historyLayananFragment_to_formPengaduanFragment

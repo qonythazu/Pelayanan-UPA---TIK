@@ -113,25 +113,29 @@ class DraftServiceFragment : Fragment() {
                         val tanggal = doc.getString("timestamp") ?: "Tidak ada tanggal"
                         val status = doc.getString("status") ?: "Tidak ada status"
                         val documentId = doc.id
-
-                        // ✅ TAMBAHKAN INI - ambil field yang dibutuhkan untuk edit
                         val layanan = doc.getString("layanan") ?: ""
                         val jenis = doc.getString("jenis") ?: ""
                         val akun = doc.getString("akun") ?: ""
                         val alasan = doc.getString("alasan") ?: ""
+                        val jumlah = doc.getString("jumlah") ?: ""
+                        val kontak = doc.getString("kontak") ?: ""
+                        val tujuan = doc.getString("tujuan") ?: ""
                         val filePath = doc.getString("filePath") ?: ""
 
                         val layananItem = LayananItem(
-                            documentId = documentId,  // ✅ TAMBAHKAN
+                            documentId = documentId,
                             judul = judul,
                             tanggal = tanggal,
                             status = status,
-                            layanan = layanan,        // ✅ TAMBAHKAN
-                            jenis = jenis,            // ✅ TAMBAHKAN
-                            akun = akun,              // ✅ TAMBAHKAN
-                            alasan = alasan,          // ✅ TAMBAHKAN
-                            filePath = filePath,      // ✅ TAMBAHKAN
-                            formType = getFormType(collection) // ✅ TAMBAHKAN
+                            layanan = layanan,
+                            jenis = jenis,
+                            akun = akun,
+                            alasan = alasan,
+                            jumlah = jumlah,
+                            kontak = kontak,
+                            tujuan = tujuan,
+                            filePath = filePath,
+                            formType = getFormType(collection)
                         )
 
                         layananList.add(layananItem)
@@ -151,14 +155,15 @@ class DraftServiceFragment : Fragment() {
         }
     }
 
-    // Helper function untuk mapping collection ke formType
     private fun getFormType(collection: String): String {
         return when (collection) {
             "form_pemeliharaan" -> "pemeliharaan_akun"
             "form_bantuan" -> "bantuan"
             "form_pemasangan" -> "pemasangan"
-            // dst...
-            else -> "pemeliharaan_akun" // default
+            "form_pembuatan" -> "pembuatan"
+            "form_pengaduan" -> "pengaduan"
+            "form_lapor_kerusakan" -> "lapor_kerusakan"
+            else -> throw IllegalArgumentException("Unknown collection: $collection")
         }
     }
 
