@@ -47,7 +47,6 @@ class LayananAdapter(
         holder.tanggalText.text = layananItem.tanggal
         holder.statusText.text = layananItem.status
 
-        // Set status text color based on status
         when (layananItem.status.lowercase()) {
             "selesai" -> holder.statusText.setTextColor(Color.parseColor("#34C759")) // Green
             "ditolak" -> holder.statusText.setTextColor(Color.parseColor("#FF3B30")) // Red
@@ -153,22 +152,16 @@ class LayananAdapter(
             putString("filePath", layananItem.filePath)
             putBoolean("isEditMode", true)
         }
-
-        // Navigate based on form type
         val navigationId = when (layananItem.formType) {
             "pemeliharaan_akun" -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment
             "bantuan" -> R.id.action_historyLayananFragment_to_formBantuanOperatorFragment
-            // Add other form types here:
-            // "form_peminjaman" -> R.id.action_historyLayananFragment_to_formPeminjamanFragment
-            // "form_pengaduan" -> R.id.action_historyLayananFragment_to_formPengaduanFragment
-            // etc.
+            "pemasangan" -> R.id.action_historyLayananFragment_to_formPemasanganPerangkatFragment
             else -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment // default
         }
 
         try {
             view.findNavController().navigate(navigationId, bundle)
         } catch (e: Exception) {
-            // Fallback: use callback if navigation fails
             println("Navigation failed: ${e.message}")
             e.printStackTrace()
             onEditItem(layananItem, layananList.indexOf(layananItem))

@@ -152,4 +152,5 @@
     <string name="edit_pemeliharaan_akun">Edit Pemeliharaan Akun</string>
     <string name="updating">Updating...</string>
     <string name="edit_bantuan_operator_tik">Edit Bantuan Operator TIK</string>
+    <string name="edit_pemasangan_perangkat">Edit Pemasangan Perangkat</string>
 </resources>
