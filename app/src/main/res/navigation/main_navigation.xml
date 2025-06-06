@@ -157,6 +157,24 @@
         <action
             android:id="@+id/action_historyLayananFragment_to_historyFragment"
             app:destination="@id/historyFragment" />
+        <action
+            android:id="@+id/action_historyLayananFragment_to_formPembuatanWebDllFragment"
+            app:destination="@id/formPembuatanWebDllFragment" />
+        <action
+            android:id="@+id/action_historyLayananFragment_to_formPemasanganPerangkatFragment"
+            app:destination="@id/formPemasanganPerangkatFragment" />
+        <action
+            android:id="@+id/action_historyLayananFragment_to_formPemeliharaanAkunFragment"
+            app:destination="@id/formPemeliharaanAkunFragment" />
+        <action
+            android:id="@+id/action_historyLayananFragment_to_formBantuanOperatorFragment"
+            app:destination="@id/formBantuanOperatorFragment" />
+        <action
+            android:id="@+id/action_historyLayananFragment_to_formPengaduanLayananFragment"
+            app:destination="@id/formPengaduanLayananFragment" />
+        <action
+            android:id="@+id/action_historyLayananFragment_to_formLaporKerusakanFragment"
+            app:destination="@id/formLaporKerusakanFragment" />
     </fragment>
     <fragment
         android:id="@+id/detailBarangFragment"

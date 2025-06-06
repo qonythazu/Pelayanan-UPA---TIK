@@ -68,16 +68,15 @@ class DraftServiceFragment : Fragment() {
                     }
                 }
             },
-            onDeleteItem = { layananItem, position ->
-                // 1. Delete dari Firestore DULU
+            onDeleteItem = { layananItem, _ ->
                 deleteFromFirestore(layananItem) { success ->
                     if (success) {
-                        // 2. BARU hapus dari UI
-                        layananList.removeAt(position)
-                        adapter.notifyItemRemoved(position)
-                        Toast.makeText(requireContext(), "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
+                        // ✅ Remove berdasarkan object, bukan index
+                        if (layananList.remove(layananItem)) {
+                            adapter.notifyDataSetChanged() // Refresh seluruh adapter
+                        }
 
-                        // 3. Update UI untuk empty state
+                        Toast.makeText(requireContext(), "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
                         updateUI()
                     } else {
                         Toast.makeText(requireContext(), "Gagal menghapus data", Toast.LENGTH_SHORT).show()
@@ -95,7 +94,6 @@ class DraftServiceFragment : Fragment() {
 
     private fun fetchAllLayanan() {
         layananList.clear()
-
         val userEmail = UserManager.getCurrentUserEmail()
 
         if (userEmail.isNullOrEmpty()) {
@@ -116,17 +114,25 @@ class DraftServiceFragment : Fragment() {
                         val status = doc.getString("status") ?: "Tidak ada status"
                         val documentId = doc.id
 
-                        // Tambahkan info untuk operasi Firestore
+                        // ✅ TAMBAHKAN INI - ambil field yang dibutuhkan untuk edit
+                        val layanan = doc.getString("layanan") ?: ""
+                        val jenis = doc.getString("jenis") ?: ""
+                        val akun = doc.getString("akun") ?: ""
+                        val alasan = doc.getString("alasan") ?: ""
+                        val filePath = doc.getString("filePath") ?: ""
+
                         val layananItem = LayananItem(
+                            documentId = documentId,  // ✅ TAMBAHKAN
                             judul = judul,
                             tanggal = tanggal,
-                            status = status
-                        ).apply {
-                            // Simpan info untuk operasi CRUD
-                            // Asumsikan LayananItem punya property ini
-                            // this.documentId = documentId
-                            // this.collectionName = collection
-                        }
+                            status = status,
+                            layanan = layanan,        // ✅ TAMBAHKAN
+                            jenis = jenis,            // ✅ TAMBAHKAN
+                            akun = akun,              // ✅ TAMBAHKAN
+                            alasan = alasan,          // ✅ TAMBAHKAN
+                            filePath = filePath,      // ✅ TAMBAHKAN
+                            formType = getFormType(collection) // ✅ TAMBAHKAN
+                        )
 
                         layananList.add(layananItem)
                     }
@@ -142,6 +148,17 @@ class DraftServiceFragment : Fragment() {
                         updateUI()
                     }
                 }
+        }
+    }
+
+    // Helper function untuk mapping collection ke formType
+    private fun getFormType(collection: String): String {
+        return when (collection) {
+            "form_pemeliharaan" -> "pemeliharaan_akun"
+            "form_bantuan" -> "bantuan"
+            "form_pemasangan" -> "pemasangan"
+            // dst...
+            else -> "pemeliharaan_akun" // default
         }
     }
 
@@ -275,18 +292,7 @@ class DraftServiceFragment : Fragment() {
 
     // Fungsi untuk refresh tab Terkirim
     private fun refreshTerkirimTab() {
-        Log.d("DraftService", "Refreshing Terkirim tab")
-
-        // Implementasi refresh tab terkirim
-        // Contoh jika menggunakan interface callback:
-        // (parentFragment as? LayananTabsInterface)?.refreshTerkirimTab()
-
-        // Atau jika menggunakan ViewPager dengan fragments:
-        // val parentActivity = activity as? MainActivity
-        // parentActivity?.refreshTerkirimTab()
-    }
-
-    // Fungsi public untuk refresh dari fragment lain
+        Log.d("DraftService", "Refreshing Terkirim tab")}
     fun refreshData() {
         fetchAllLayanan()
     }

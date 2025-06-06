@@ -3,6 +3,7 @@ package com.dicoding.pelayananupa_tik.adapter
 import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
+import android.os.Bundle
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
@@ -12,6 +13,7 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.navigation.findNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
@@ -57,7 +59,7 @@ class LayananAdapter(
             "draft" -> {
                 holder.btnMore.visibility = View.VISIBLE
                 holder.btnBatalkan.visibility = View.VISIBLE
-                holder.btnBatalkan.text = "SUBMIT"
+                holder.btnBatalkan.text = context.getString(R.string.submit)
                 holder.btnBatalkan.setTextColor(ContextCompat.getColor(context, R.color.green))
                 setupMoreButton(holder, context, layananItem, position)
                 setupSubmitButton(holder, context, layananItem, position)
@@ -96,20 +98,16 @@ class LayananAdapter(
             popup.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
                     R.id.action_update -> {
-                        // Edit form - callback ke parent untuk handle edit
-                        onEditItem(layananItem, position)
+                        navigateToEditForm(view, layananItem)
                         true
                     }
                     R.id.action_delete -> {
-                        // Show confirmation dialog before delete
                         showDeleteConfirmationDialog(context, layananItem, position)
                         true
                     }
                     else -> false
                 }
             }
-
-            // Force show icons in popup menu
             try {
                 val fields = popup.javaClass.declaredFields
                 for (field in fields) {
@@ -142,25 +140,50 @@ class LayananAdapter(
         }
     }
 
+    private fun navigateToEditForm(view: View, layananItem: LayananItem) {
+        val bundle = Bundle().apply {
+            putString("documentId", layananItem.documentId)
+            putString("layanan", layananItem.layanan)
+            putString("jenis", layananItem.jenis)
+            putString("akun", layananItem.akun)
+            putString("alasan", layananItem.alasan)
+            putString("filePath", layananItem.filePath)
+            // Tambahkan flag untuk menandai ini adalah edit mode
+            putBoolean("isEditMode", true)
+        }
+
+        // Navigate based on form type
+        val navigationId = when (layananItem.formType) {
+            "pemeliharaan_akun" -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment
+            // Add other form types here:
+            // "form_peminjaman" -> R.id.action_historyLayananFragment_to_formPeminjamanFragment
+            // "form_pengaduan" -> R.id.action_historyLayananFragment_to_formPengaduanFragment
+            // etc.
+            else -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment // default
+        }
+
+        try {
+            view.findNavController().navigate(navigationId, bundle)
+        } catch (e: Exception) {
+            // Fallback: use callback if navigation fails
+            println("Navigation failed: ${e.message}")
+            e.printStackTrace()
+            onEditItem(layananItem, layananList.indexOf(layananItem))
+        }
+    }
+
     private fun setupSubmitButton(holder: LayananViewHolder, context: Context, layananItem: LayananItem, position: Int) {
         holder.btnBatalkan.setOnClickListener {
-            // Ubah status dari draft ke terkirim
-            // Buat objek baru dengan status yang diubah
             val updatedItem = layananItem.copy(status = "Terkirim")
             layananList[position] = updatedItem
             notifyItemChanged(position)
-
-            // Callback untuk memberitahu parent bahwa status berubah
             onStatusChanged(updatedItem, position)
-
-            // Optional: Show toast confirmation
             Toast.makeText(context, "Data berhasil dikirim", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun setupBatalkanButton(holder: LayananViewHolder, context: Context, layananItem: LayananItem, position: Int) {
         holder.btnBatalkan.setOnClickListener {
-            // Tampilkan dialog konfirmasi pembatalan
             showCancelConfirmationDialog(context, layananItem, position)
         }
     }
@@ -170,13 +193,13 @@ class LayananAdapter(
             .setTitle("Konfirmasi Hapus")
             .setMessage("Apakah Anda yakin ingin menghapus layanan \"${layananItem.judul}\"?")
             .setPositiveButton("Ya") { dialog, _ ->
-                // Hapus item dari list
                 layananList.removeAt(position)
                 notifyItemRemoved(position)
                 notifyItemRangeChanged(position, layananList.size)
 
                 Toast.makeText(context, "Data berhasil dihapus", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
+                onDeleteItem(layananItem, position)
             }
             .setNegativeButton("Tidak") { dialog, _ ->
                 dialog.dismiss()
@@ -190,7 +213,6 @@ class LayananAdapter(
             .setTitle("Konfirmasi Pembatalan")
             .setMessage("Apakah Anda yakin ingin membatalkan layanan \"${layananItem.judul}\"?")
             .setPositiveButton("Ya") { dialog, _ ->
-                // Hapus item dari list (karena dibatalkan)
                 layananList.removeAt(position)
                 notifyItemRemoved(position)
                 notifyItemRangeChanged(position, layananList.size)
@@ -218,7 +240,6 @@ class LayananAdapter(
         return spannable
     }
 
-    // Method untuk remove item dari UI (dipanggil dari parent setelah Firestore berhasil)
     fun removeItem(position: Int) {
         if (position in 0 until layananList.size) {
             layananList.removeAt(position)
@@ -227,10 +248,9 @@ class LayananAdapter(
         }
     }
 
-    // Method untuk reset button state jika Firestore gagal
     fun resetSubmitButton(position: Int) {
         if (position in 0 until layananList.size) {
-            notifyItemChanged(position) // Refresh item untuk reset button
+            notifyItemChanged(position)
         }
     }
 }

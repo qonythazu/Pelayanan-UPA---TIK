@@ -149,4 +149,6 @@
     <string name="belum_ada_peminjaman_yang_disetujui">Belum Ada Peminjaman yang Disetujui</string>
     <string name="barang_sudah_saya_ambil">Sudah Ambil</string>
     <string name="barang_sudah_saya_kembalikan">Sudah Kembali</string>
+    <string name="edit_pemeliharaan_akun">Edit Pemeliharaan Akun</string>
+    <string name="updating">Updating...</string>
 </resources>
