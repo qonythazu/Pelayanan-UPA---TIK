@@ -153,4 +153,5 @@
     <string name="updating">Updating...</string>
     <string name="edit_bantuan_operator_tik">Edit Bantuan Operator TIK</string>
     <string name="edit_pemasangan_perangkat">Edit Pemasangan Perangkat</string>
+    <string name="edit_pengaduan_layanan">Edit Pengaduan Layanan</string>
 </resources>

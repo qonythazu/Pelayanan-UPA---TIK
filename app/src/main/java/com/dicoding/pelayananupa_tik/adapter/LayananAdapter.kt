@@ -149,6 +149,7 @@ class LayananAdapter(
             putString("jumlah", layananItem.jumlah)
             putString("kontak", layananItem.kontak)
             putString("tujuan", layananItem.tujuan)
+            putString("keluhan", layananItem.keluhan)
             putString("filePath", layananItem.filePath)
             putBoolean("isEditMode", true)
         }
@@ -156,6 +157,7 @@ class LayananAdapter(
             "pemeliharaan_akun" -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment
             "bantuan" -> R.id.action_historyLayananFragment_to_formBantuanOperatorFragment
             "pemasangan" -> R.id.action_historyLayananFragment_to_formPemasanganPerangkatFragment
+            "pengaduan" -> R.id.action_historyLayananFragment_to_formPengaduanLayananFragment
             else -> R.id.action_historyLayananFragment_to_formPemeliharaanAkunFragment // default
         }
 

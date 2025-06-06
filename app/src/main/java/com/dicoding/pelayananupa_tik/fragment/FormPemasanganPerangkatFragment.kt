@@ -197,7 +197,7 @@ class FormPemasanganPerangkatFragment : Fragment() {
             "lastUpdated" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
         )
 
-        firestore.collection("form_bantuan")
+        firestore.collection("form_pemasangan")
             .document(documentId)
             .update(updateData)
             .addOnSuccessListener {

@@ -120,6 +120,7 @@ class DraftServiceFragment : Fragment() {
                         val jumlah = doc.getString("jumlah") ?: ""
                         val kontak = doc.getString("kontak") ?: ""
                         val tujuan = doc.getString("tujuan") ?: ""
+                        val keluhan = doc.getString("keluhan") ?: ""
                         val filePath = doc.getString("filePath") ?: ""
 
                         val layananItem = LayananItem(
@@ -135,6 +136,7 @@ class DraftServiceFragment : Fragment() {
                             kontak = kontak,
                             tujuan = tujuan,
                             filePath = filePath,
+                            keluhan = keluhan,
                             formType = getFormType(collection)
                         )
 

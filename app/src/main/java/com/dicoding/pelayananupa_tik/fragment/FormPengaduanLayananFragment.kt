@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
+import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPengaduanLayananBinding
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
@@ -29,11 +30,11 @@ class FormPengaduanLayananFragment : Fragment() {
 
     private var _binding: FragmentFormPengaduanLayananBinding? = null
     private val binding get() = _binding!!
-
     private lateinit var firestore: FirebaseFirestore
     private var selectedPdfUri: Uri? = null
     private var savedPdfPath: String? = null
-
+    private var isEditMode = false
+    private var editingItem: LayananItem? = null
     private val pdfPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -60,13 +61,63 @@ class FormPengaduanLayananFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
-
+        checkEditMode()
         binding.btnChooseFile.setOnClickListener { openPdfPicker() }
-        binding.btnSubmit.setOnClickListener { submitForm() }
-
+        binding.btnSubmit.setOnClickListener {
+            if (isEditMode) {
+                updateForm()
+            } else {
+                submitForm()
+            }
+        }
         val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         toolbar.setNavigationOnClickListener {
             requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
+        if (isEditMode) {
+            binding.textView.text = getString(R.string.edit_pengaduan_layanan)
+            binding.btnSubmit.text = getString(R.string.update)
+        }
+    }
+
+    private fun checkEditMode() {
+        arguments?.let { args ->
+            val documentId = args.getString("documentId")
+            val layanan = args.getString("layanan")
+            val kontak = args.getString("kontak")
+            val keluhan = args.getString("keluhan")
+            val filePath = args.getString("filePath")
+
+            if (!documentId.isNullOrEmpty()) {
+                isEditMode = true
+                editingItem = LayananItem(
+                    documentId = documentId,
+                    layanan = layanan ?: "",
+                    kontak = kontak ?: "",
+                    keluhan = keluhan ?: "",
+                    filePath = filePath ?: ""
+                )
+                binding.root.post {
+                    populateFormForEdit()
+                }
+            }
+        }
+    }
+
+    private fun populateFormForEdit() {
+        editingItem?.let { item ->
+            binding.layananLayout.editText?.setText(item.jumlah)
+            binding.kontakLayout.editText?.setText(item.kontak)
+            binding.keluhanAndaLayout.editText?.setText(item.tujuan)
+
+            if (item.filePath.isNotEmpty()) {
+                val file = File(item.filePath)
+                if (file.exists()) {
+                    binding.tvFileName.text = getString(R.string.file_selected, " ${file.name}")
+                    binding.btnChooseFile.text = getString(R.string.change_file)
+                    savedPdfPath = item.filePath
+                }
+            }
         }
     }
 
@@ -124,36 +175,62 @@ class FormPengaduanLayananFragment : Fragment() {
         return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
     }
 
-    private fun submitForm() {
-        val layanan = binding.layananLayout.editText?.text.toString()
-        val kontak = binding.kontakLayout.editText?.text.toString()
-        val keluhan = binding.keluhanAndaLayout.editText?.text.toString()
-
-        when {
-            layanan.isEmpty() -> {
-                binding.layananLayout.error = "Layanan tidak boleh kosong"
-                return
-            }
-            kontak.isEmpty() -> {
-                binding.kontakLayout.error = "Kontak penanggung jawab tidak boleh kosong"
-                return
-            }
-            !isValidPhoneNumber(kontak) -> {
-                binding.kontakLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
-                return
-            }
-            keluhan.isEmpty() -> {
-                binding.keluhanAndaLayout.error = "Keluhan tidak boleh kosong"
-                return
-            }
-            else -> {
-                binding.layananLayout.error = null
-                binding.kontakLayout.error = null
-                binding.keluhanAndaLayout.error = null
-
-                saveDataToFirestore(layanan, kontak, keluhan)
-            }
+    private fun validateForm(formData: Triplet<String, String, String>): Boolean {
+        val (layanan, kontak, keluhan) = formData
+        var isValid = true
+        if (layanan.isBlank()) {
+            binding.layananLayout.error = "Jumlah tidak boleh kosong"
+            isValid = false
+        } else {
+            binding.layananLayout.error = null
         }
+
+        if (kontak.isBlank()) {
+            binding.kontakLayout.error = "Kontak tidak boleh kosong"
+            isValid = false
+        } else if (!isValidPhoneNumber(kontak)) {
+            binding.kontakLayout.error = "Format nomor telepon tidak valid"
+            isValid = false
+        } else {
+            binding.kontakLayout.error = null
+        }
+
+        if (keluhan.isBlank()) {
+            binding.keluhanAndaLayout.error = "Tujuan tidak boleh kosong"
+            isValid = false
+        } else {
+            binding.keluhanAndaLayout.error = null
+        }
+
+        return isValid
+    }
+
+    private fun submitForm() {
+        val formData = getFormData()
+        if (!validateForm(formData)) return
+        saveDataToFirestore(formData.first, formData.second, formData.third)
+    }
+
+    private fun updateForm() {
+        val formData = getFormData()
+        if (!validateForm(formData)) return
+        editingItem?.let { item ->
+            if (item.documentId.isNotEmpty()) {
+                updateDataInFirestore(item.documentId, formData.first, formData.second, formData.third)
+            } else {
+                Toast.makeText(requireContext(), "Error: Document ID tidak valid", Toast.LENGTH_SHORT).show()
+            }
+        } ?: run {
+            Toast.makeText(requireContext(), "Error: Data item tidak ditemukan", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun getFormData(): Triplet<String, String, String> {
+        val layanan = binding.layananLayout.editText?.text.toString().trim()
+        val kontak = binding.kontakLayout.editText?.text.toString().trim()
+        val keluhan = binding.keluhanAndaLayout.editText?.text.toString().trim()
+
+        return Triplet(layanan, kontak, keluhan)
     }
 
     private fun saveDataToFirestore(layanan: String, kontak: String, keluhan: String) {
@@ -181,6 +258,50 @@ class FormPengaduanLayananFragment : Fragment() {
             }
             .addOnFailureListener {
                 Toast.makeText(requireContext(), "Gagal mengirim pengaduan", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun updateDataInFirestore(
+        documentId: String,
+        layanan: String,
+        kontak: String,
+        keluhan: String
+    ) {
+        if (documentId.isEmpty()) {
+            Toast.makeText(requireContext(), "Error: Document ID tidak ditemukan", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        binding.btnSubmit.isEnabled = false
+        binding.btnSubmit.text = getString(R.string.updating)
+
+        val updateData = hashMapOf<String, Any>(
+            "layanan" to layanan,
+            "kontak" to kontak,
+            "keluhan" to keluhan,
+            "filePath" to (savedPdfPath ?: editingItem?.filePath ?: ""),
+            "lastUpdated" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
+        )
+
+        firestore.collection("form_pengaduan")
+            .document(documentId)
+            .update(updateData)
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Data berhasil diupdate", Toast.LENGTH_SHORT).show()
+                binding.btnSubmit.isEnabled = true
+                binding.btnSubmit.text = getString(R.string.update)
+
+                findNavController().previousBackStackEntry?.savedStateHandle?.set("data_updated", true)
+                try {
+                    findNavController().navigateUp()
+                } catch (e: Exception) {
+                    findNavController().navigate(R.id.action_formPengaduanLayananFragment_to_historyLayananFragment)
+                }
+            }
+            .addOnFailureListener { exception ->
+                Toast.makeText(requireContext(), "Gagal mengupdate data: ${exception.message}", Toast.LENGTH_SHORT).show()
+                binding.btnSubmit.isEnabled = true
+                binding.btnSubmit.text = getString(R.string.update)
             }
     }
 
