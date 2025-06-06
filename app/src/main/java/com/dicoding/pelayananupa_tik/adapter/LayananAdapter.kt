@@ -204,7 +204,6 @@ class LayananAdapter(
                 putString("akun", layananItem.akun)
                 putString("alasan", layananItem.alasan)
                 putString("filePath", layananItem.filePath)
-                Log.d("LayananAdapter", "Pemeliharaan bundle: jenis=${layananItem.jenis}, akun=${layananItem.akun}")
             }
 
             "bantuan" -> bundle.apply {
@@ -212,14 +211,12 @@ class LayananAdapter(
                 putString("kontak", layananItem.kontak)
                 putString("tujuan", layananItem.tujuan)
                 putString("filePath", layananItem.filePath)
-                Log.d("LayananAdapter", "Bantuan bundle: keluhan=${layananItem.keluhan}")
             }
 
             "pemasangan" -> bundle.apply {
                 putString("jenis", layananItem.jenis)
                 putString("kontak", layananItem.kontak)
                 putString("tujuan", layananItem.tujuan)
-                Log.d("LayananAdapter", "Pemasangan bundle: jenis=${layananItem.jenis}, jumlah=${layananItem.jumlah}")
             }
 
             "pengaduan" -> bundle.apply {
@@ -227,7 +224,6 @@ class LayananAdapter(
                 putString("kontak", layananItem.kontak)
                 putString("keluhan", layananItem.keluhan)
                 putString("filePath", layananItem.filePath)
-                Log.d("LayananAdapter", "Pengaduan bundle: keluhan=${layananItem.keluhan}")
             }
 
             "pembuatan" -> bundle.apply {
@@ -235,7 +231,13 @@ class LayananAdapter(
                 putString("namaLayanan", layananItem.namaLayanan)
                 putString("kontak", layananItem.kontak)
                 putString("tujuan", layananItem.tujuan)
-                Log.d("LayananAdapter", "Pembuatan bundle: layanan=${layananItem.layanan}")
+            }
+
+            "lapor_kerusakan" -> bundle.apply {
+                putString("namaPerangkat", layananItem.namaPerangkat)
+                putString("kontak", layananItem.kontak)
+                putString("keterangan", layananItem.keterangan)
+                putString("imagePath", layananItem.imagePath)
             }
 
             else -> {
@@ -253,6 +255,7 @@ class LayananAdapter(
             "pemasangan" -> R.id.action_historyLayananFragment_to_formPemasanganPerangkatFragment
             "pengaduan" -> R.id.action_historyLayananFragment_to_formPengaduanLayananFragment
             "pembuatan" -> R.id.action_historyLayananFragment_to_formPembuatanWebDllFragment
+            "lapor_kerusakan" -> R.id.action_historyLayananFragment_to_formLaporKerusakanFragment
             else -> null
         }
     }

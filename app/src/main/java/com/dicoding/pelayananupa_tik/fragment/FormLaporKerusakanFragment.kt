@@ -18,6 +18,7 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
+import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormLaporKerusakanBinding
 import com.dicoding.pelayananupa_tik.utils.ProgressDialogFragment
 import com.dicoding.pelayananupa_tik.utils.UserManager
@@ -31,27 +32,25 @@ class FormLaporKerusakanFragment : Fragment() {
 
     private var _binding: FragmentFormLaporKerusakanBinding? = null
     private val binding get() = _binding!!
-
+    private lateinit var firestore: FirebaseFirestore
     private var imageUri: Uri? = null
     private var namaPerangkat: String = ""
     private var serialNumber: String = ""
     private var progressDialog: ProgressDialogFragment? = null
+    private var savedImagePath: String? = null
+    private var isEditMode = false
+    private var editingItem: LayananItem? = null
 
-    private val firestore = FirebaseFirestore.getInstance()
-
-    // Launcher untuk mengambil gambar dari galeri
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         handleImageResult(uri)
     }
 
-    // Launcher untuk mengambil foto dari kamera
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success: Boolean ->
         if (success && imageUri != null) {
             handleImageResult(imageUri)
         }
     }
 
-    // Launcher untuk meminta permission kamera
     private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
             openCamera()
@@ -66,7 +65,6 @@ class FormLaporKerusakanFragment : Fragment() {
         arguments?.let { args ->
             namaPerangkat = args.getString("nama_perangkat") ?: ""
             serialNumber = args.getString("serial_number") ?: ""
-
             Log.d(TAG, "Data received - Nama Perangkat: $namaPerangkat, Serial: $serialNumber")
         }
     }
@@ -81,18 +79,68 @@ class FormLaporKerusakanFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
+        firestore = FirebaseFirestore.getInstance()
+        checkEditMode()
         setupViews()
         setupUI()
         setupClickListeners()
+    }
 
-        Log.d(TAG, "Form setup completed")
+    private fun checkEditMode() {
+        arguments?.let { args ->
+            val documentId = args.getString("documentId")
+            val namaPerangkat = args.getString("namaPerangkat")
+            val kontak = args.getString("kontak")
+            val keterangan = args.getString("keterangan")
+            val imagePath = args.getString("imagePath")
+
+            if (!documentId.isNullOrEmpty()) {
+                isEditMode = true
+                editingItem = LayananItem(
+                    documentId = documentId,
+                    namaPerangkat = namaPerangkat ?: "",
+                    kontak = kontak ?: "",
+                    keterangan = keterangan ?: "",
+                    imagePath = imagePath ?: ""
+                )
+                binding.root.post {
+                    populateFormForEdit()
+                }
+            }
+        }
+    }
+
+    private fun populateFormForEdit() {
+        editingItem?.let { item ->
+            binding.namaPerangkatLayout.editText?.setText(item.namaPerangkat)
+            binding.kontakLayout.editText?.setText(item.kontak)
+            binding.keteranganLayout.editText?.setText(item.keterangan)
+
+            if (item.imagePath.isNotEmpty()) {
+                val file = File(item.imagePath)
+                if (file.exists()) {
+                    binding.tvFileName.text = getString(R.string.file_selected, " ${file.name}")
+                    binding.btnChooseFile.apply {
+                        backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                        text = getString(R.string.change_image)
+                        strokeWidth = 0
+                    }
+                    savedImagePath = item.imagePath
+                }
+            }
+        }
     }
 
     private fun setupViews() {
         val toolbar = view?.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         toolbar?.setNavigationOnClickListener {
             requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
+
+        if (isEditMode) {
+            binding.textView.text = getString(R.string.edit_laporan_kerusakan)
+            binding.btnSubmit.text = getString(R.string.update)
         }
     }
 
@@ -106,7 +154,11 @@ class FormLaporKerusakanFragment : Fragment() {
             showImagePickerDialog()
         }
         binding.btnSubmit.setOnClickListener {
-            submitForm()
+            if (isEditMode) {
+                updateForm()
+            } else {
+                submitForm()
+            }
         }
     }
 
@@ -171,7 +223,8 @@ class FormLaporKerusakanFragment : Fragment() {
     private fun handleImageResult(uri: Uri?) {
         imageUri = uri
         if (uri != null) {
-            binding.tvFileName.text = uri.lastPathSegment ?: "File selected"
+            val fileName = uri.lastPathSegment ?: "Gambar dipilih"
+            binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
 
             binding.btnChooseFile.apply {
                 backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
@@ -179,54 +232,12 @@ class FormLaporKerusakanFragment : Fragment() {
                 text = getString(R.string.change_image)
                 strokeWidth = 0
             }
+
+            saveImageLocally(uri)
         }
     }
 
-    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
-        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
-        return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
-    }
-
-    private fun submitForm() {
-        val namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString()
-        val kontak = binding.kontakLayout.editText?.text.toString()
-        val keterangan = binding.keteranganLayout.editText?.text.toString()
-        val localImagePath = if (imageUri != null) {
-            saveImageLocally()
-        } else {
-            null
-        }
-
-        when {
-            namaPerangkat.isEmpty() -> {
-                binding.namaPerangkatLayout.error = "Nama perangkat tidak boleh kosong"
-                return
-            }
-            kontak.isEmpty() -> {
-                binding.kontakLayout.error = "Kontak penanggung jawab tidak boleh kosong"
-                return
-            }
-            !isValidPhoneNumber(kontak) -> {
-                binding.kontakLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
-                return
-            }
-            keterangan.isEmpty() -> {
-                binding.keteranganLayout.error = "Keterangan kerusakan tidak boleh kosong"
-                return
-            }
-            else -> {
-                binding.namaPerangkatLayout.error = null
-                binding.kontakLayout.error = null
-                binding.keteranganLayout.error = null
-                showLoading()
-                saveDataToFirestore(namaPerangkat, kontak, keterangan, localImagePath)
-            }
-        }
-    }
-
-    private fun saveImageLocally(): String? {
-        if (imageUri == null) return null
-
+    private fun saveImageLocally(uri: Uri) {
         try {
             val filename = "IMG_${UUID.randomUUID()}.jpg"
             val imagesDir = File(requireContext().filesDir, "images")
@@ -236,24 +247,92 @@ class FormLaporKerusakanFragment : Fragment() {
 
             val destinationFile = File(imagesDir, filename)
 
-            requireContext().contentResolver.openInputStream(imageUri!!)?.use { inputStream ->
+            requireContext().contentResolver.openInputStream(uri)?.use { inputStream ->
                 FileOutputStream(destinationFile).use { outputStream ->
                     inputStream.copyTo(outputStream)
                 }
             }
 
-            return destinationFile.absolutePath
+            savedImagePath = destinationFile.absolutePath
+            Toast.makeText(requireContext(), "Gambar berhasil disimpan", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Gagal menyimpan gambar: ${e.message}", Toast.LENGTH_SHORT).show()
-            return null
         }
     }
 
-    private fun saveDataToFirestore(namaPerangkat: String, kontak: String, keterangan: String, localImagePath: String?) {
+    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
+        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
+        return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
+    }
+
+    private fun validateForm(formData: Triple<String, String, String>): Boolean {
+        val (namaPerangkat, kontak, keterangan) = formData
+
+        if (namaPerangkat.isBlank()) {
+            binding.namaPerangkatLayout.error = "Nama perangkat tidak boleh kosong"
+            return false
+        } else {
+            binding.namaPerangkatLayout.error = null
+        }
+
+        if (kontak.isBlank()) {
+            binding.kontakLayout.error = "Kontak penanggung jawab tidak boleh kosong"
+            return false
+        } else if (!isValidPhoneNumber(kontak)) {
+            binding.kontakLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
+            return false
+        } else {
+            binding.kontakLayout.error = null
+        }
+
+        if (keterangan.isBlank()) {
+            binding.keteranganLayout.error = "Keterangan kerusakan tidak boleh kosong"
+            return false
+        } else {
+            binding.keteranganLayout.error = null
+        }
+
+        return true
+    }
+
+    private fun submitForm() {
+        val formData = getFormData()
+        if (!validateForm(formData)) return
+
+        showLoading()
+        saveDataToFirestore(formData.first, formData.second, formData.third)
+    }
+
+    private fun updateForm() {
+        val formData = getFormData()
+        if (!validateForm(formData)) return
+
+        editingItem?.let { item ->
+            if (item.documentId.isNotEmpty()) {
+                showLoading()
+                updateDataInFirestore(item.documentId, formData.first, formData.second, formData.third)
+            } else {
+                Toast.makeText(requireContext(), "Error: Document ID tidak valid", Toast.LENGTH_SHORT).show()
+            }
+        } ?: run {
+            Toast.makeText(requireContext(), "Error: Data item tidak ditemukan", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun getFormData(): Triple<String, String, String> {
+        val namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim()
+        val kontak = binding.kontakLayout.editText?.text.toString().trim()
+        val keterangan = binding.keteranganLayout.editText?.text.toString().trim()
+
+        return Triple(namaPerangkat, kontak, keterangan)
+    }
+
+    private fun saveDataToFirestore(namaPerangkat: String, kontak: String, keterangan: String) {
         val currentTime = System.currentTimeMillis()
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         val formattedDate = dateFormat.format(Date(currentTime))
         val userEmail = UserManager.getCurrentUserEmail()
+
         val laporanData = hashMapOf(
             "userEmail" to userEmail,
             "judul" to "Laporan Kerusakan",
@@ -263,7 +342,7 @@ class FormLaporKerusakanFragment : Fragment() {
             "keterangan" to keterangan,
             "timestamp" to formattedDate,
             "status" to "Draft",
-            "localImagePath" to localImagePath
+            "imagePath" to (savedImagePath ?: "")
         )
 
         firestore.collection("form_lapor_kerusakan")
@@ -277,6 +356,7 @@ class FormLaporKerusakanFragment : Fragment() {
                     "Laporan kerusakan berhasil dikirim",
                     Toast.LENGTH_LONG
                 ).show()
+                clearForm()
                 findNavController().navigate(R.id.action_formLaporKerusakanFragment_to_historyLayananFragment)
             }
             .addOnFailureListener { e ->
@@ -288,6 +368,74 @@ class FormLaporKerusakanFragment : Fragment() {
                     Toast.LENGTH_SHORT
                 ).show()
             }
+    }
+
+    private fun updateDataInFirestore(
+        documentId: String,
+        namaPerangkat: String,
+        kontak: String,
+        keterangan: String
+    ) {
+        if (documentId.isEmpty()) {
+            hideLoading()
+            Toast.makeText(requireContext(), "Error: Document ID tidak ditemukan", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        binding.btnSubmit.isEnabled = false
+        binding.btnSubmit.text = getString(R.string.updating)
+
+        val updateData = hashMapOf<String, Any>(
+            "namaPerangkat" to namaPerangkat,
+            "kontak" to kontak,
+            "keterangan" to keterangan,
+            "imagePath" to (savedImagePath ?: editingItem?.imagePath ?: ""),
+            "lastUpdated" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
+        )
+
+        firestore.collection("form_lapor_kerusakan")
+            .document(documentId)
+            .update(updateData)
+            .addOnSuccessListener {
+                hideLoading()
+                Toast.makeText(requireContext(), "Data berhasil diupdate", Toast.LENGTH_SHORT).show()
+
+                // Reset button state
+                binding.btnSubmit.isEnabled = true
+                binding.btnSubmit.text = getString(R.string.update)
+
+                findNavController().previousBackStackEntry?.savedStateHandle?.set("data_updated", true)
+                try {
+                    findNavController().navigateUp()
+                } catch (e: Exception) {
+                    // Fallback navigation
+                    findNavController().navigate(R.id.action_formLaporKerusakanFragment_to_historyLayananFragment)
+                }
+            }
+            .addOnFailureListener { exception ->
+                hideLoading()
+                Toast.makeText(requireContext(), "Gagal mengupdate data: ${exception.message}", Toast.LENGTH_SHORT).show()
+                binding.btnSubmit.isEnabled = true
+                binding.btnSubmit.text = getString(R.string.update)
+            }
+    }
+
+    private fun clearForm() {
+        binding.namaPerangkatLayout.editText?.text?.clear()
+        binding.kontakLayout.editText?.text?.clear()
+        binding.keteranganLayout.editText?.text?.clear()
+        binding.tvFileName.text = getString(R.string.no_file_selected)
+
+        binding.btnChooseFile.apply {
+            backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.white))
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+            text = getString(R.string.choose_file)
+            strokeWidth = 2
+            strokeColor = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+        }
+
+        imageUri = null
+        savedImagePath = null
     }
 
     private fun showLoading() {

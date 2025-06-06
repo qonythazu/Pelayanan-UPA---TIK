@@ -157,7 +157,7 @@ class DraftServiceFragment : Fragment() {
             formType = formType,
 
             kontak = when (formType) {
-                "bantuan", "pemasangan", "pengaduan", "pembuatan" -> doc.getString("kontak") ?: ""
+                "bantuan", "pemasangan", "pengaduan", "pembuatan", "lapor_kerusakan" -> doc.getString("kontak") ?: ""
                 else -> ""
             },
 
@@ -198,6 +198,21 @@ class DraftServiceFragment : Fragment() {
 
             tujuan = when (formType) {
                 "bantuan", "pemasangan", "pembuatan" -> doc.getString("tujuan") ?: ""
+                else -> ""
+            },
+
+            namaPerangkat = when (formType) {
+                "lapor_kerusakan" -> doc.getString("namaPerangkat") ?: ""
+                else -> ""
+            },
+
+            keterangan = when (formType) {
+                "lapor_kerusakan" -> doc.getString("keterangan") ?: ""
+                else -> ""
+            },
+
+            imagePath = when (formType) {
+                "lapor_kerusakan" -> doc.getString("imagePath") ?: ""
                 else -> ""
             },
 

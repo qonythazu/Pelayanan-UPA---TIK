@@ -1,10 +1,10 @@
 package com.dicoding.pelayananupa_tik.backend.model
 
 data class LayananItem(
-    val documentId: String = "",
     val judul: String = "",
     val tanggal: String = "",
     val status: String = "",
+    val documentId: String = "",
     val layanan: String = "",
     val jenis: String = "",
     val akun: String = "",
@@ -17,5 +17,9 @@ data class LayananItem(
     val tujuan: String = "",
     val keluhan: String = "",
     val namaLayanan: String = "",
+    val namaPerangkat: String = "",
+    val serialNumber: String = "",
+    val keterangan: String = "",
+    val imagePath: String = "",
     val formType: String = ""
 )

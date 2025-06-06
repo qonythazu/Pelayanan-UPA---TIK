@@ -134,8 +134,8 @@
     <string name="select_all_with_count">Pilih Semua (%1$d/%2$d)</string>
     <string name="_0">0</string>
     <string name="more">more</string>
-    <string name="update">Update</string>
-    <string name="delete">Delete</string>
+    <string name="update">UPDATE</string>
+    <string name="delete">DELETE</string>
     <string name="rentang_tanggal">Rentang Tanggal</string>
     <string name="belum_ada_layanan_yang_terkirim">Belum ada layanan yang Terkirim</string>
     <string name="belum_ada_layanan_yang_diterima">Belum Ada Layanan yang Diterima</string>
@@ -154,5 +154,6 @@
     <string name="edit_bantuan_operator_tik">Edit Bantuan Operator TIK</string>
     <string name="edit_pemasangan_perangkat">Edit Pemasangan Perangkat</string>
     <string name="edit_pengaduan_layanan">Edit Pengaduan Layanan</string>
-    <string name="edit_pembuatan_web_dll">Eidt Pembuatan Web Dll</string>
+    <string name="edit_pembuatan_web_dll">Edit Pembuatan Website, Sub Domain, Dll</string>
+    <string name="edit_laporan_kerusakan">Edit Laporan Kerusakan</string>
 </resources>
