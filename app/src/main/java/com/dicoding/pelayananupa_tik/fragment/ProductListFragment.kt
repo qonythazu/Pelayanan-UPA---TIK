@@ -12,7 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.adapter.ProductAdapter
@@ -140,7 +140,7 @@ class ProductListFragment : Fragment() {
         }, true)
 
         binding.recyclerView.apply {
-            layoutManager = GridLayoutManager(requireContext(), 1)
+            layoutManager = LinearLayoutManager(requireContext())
             adapter = this@ProductListFragment.adapter
         }
     }
@@ -203,7 +203,7 @@ class ProductListFragment : Fragment() {
                     availableList
                 } else {
                     availableList.filter {
-                        it.namaBarang.contains(query, ignoreCase = true)
+                        it.namaBarang.contains(query, ignoreCase = true) || it.jenis.contains(query, ignoreCase = true)
                     }
                 }
                 adapter.updateList(filtered)

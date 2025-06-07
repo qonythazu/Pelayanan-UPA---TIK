@@ -9,6 +9,9 @@ import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.backend.model.Barang
 
@@ -49,7 +52,10 @@ class BoxAdapter(
 
         holder.tvProductName.text = barang.namaBarang
         holder.tvProductCategory.text = barang.jenis
-        holder.imgProduct.setImageResource(R.mipmap.ic_launcher)
+
+        // Load image menggunakan Glide
+        loadImage(holder.imgProduct, barang.photoUrl)
+
         holder.checkItem.isChecked = selectedItems.any { it.namaBarang == barang.namaBarang }
         holder.checkItem.setOnCheckedChangeListener(null) // Clear previous listener
         holder.checkItem.setOnCheckedChangeListener { _, isChecked ->
@@ -68,6 +74,22 @@ class BoxAdapter(
 
         holder.itemView.setOnClickListener {
             holder.checkItem.isChecked = !holder.checkItem.isChecked
+        }
+    }
+
+    private fun loadImage(imageView: ImageView, photoUrl: String) {
+        if (photoUrl.isNotEmpty()) {
+            Glide.with(imageView.context)
+                .load(photoUrl)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .placeholder(R.mipmap.ic_launcher) // Gambar sementara saat loading
+                .error(R.mipmap.ic_launcher) // Gambar jika gagal load
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .centerCrop()
+                .into(imageView)
+        } else {
+            // Jika photoUrl kosong, gunakan gambar default
+            imageView.setImageResource(R.mipmap.ic_launcher)
         }
     }
 

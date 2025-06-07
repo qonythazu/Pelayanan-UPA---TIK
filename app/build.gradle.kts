@@ -57,6 +57,9 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
+    //glide
+    implementation ("com.github.bumptech.glide:glide:4.15.1")
+
     //materialui
     implementation ("com.google.android.material:material:1.11.0")
     implementation("com.github.bumptech.glide:glide:4.11.0") {

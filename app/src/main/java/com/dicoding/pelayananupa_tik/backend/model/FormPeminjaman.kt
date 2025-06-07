@@ -7,7 +7,8 @@ import java.util.*
 data class BarangDipinjam(
     val jenis: String = "",
     val nama: String = "",
-    val namaBarang: String = ""
+    val namaBarang: String = "",
+    val photoUrl: String = "" // Tambahkan field photoUrl
 ) {
     // Helper method dengan nama berbeda
     fun getDisplayName(): String {
@@ -56,6 +57,15 @@ data class FormPeminjaman(
         }
     }
 
+    // Helper untuk mendapatkan photoUrl barang pertama
+    fun getPhotoUrl(): String {
+        return if (barangDipinjam.isNotEmpty()) {
+            barangDipinjam.first().photoUrl
+        } else {
+            ""
+        }
+    }
+
     // Helper untuk format tanggal
     fun getFormattedTanggalMulai(): String {
         return formatTimestamp(tanggalMulai)
@@ -67,9 +77,9 @@ data class FormPeminjaman(
 
     private fun formatTimestamp(timestamp: Any?): String {
         return when (timestamp) {
-            is Timestamp -> {
+            is com.google.firebase.Timestamp -> {
                 val date = timestamp.toDate()
-                SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(date)
+                java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(date)
             }
             is String -> timestamp
             else -> "Tanggal tidak tersedia"

@@ -7,6 +7,9 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.backend.model.Barang
 
@@ -34,7 +37,8 @@ class ProductAdapter(
         val barang = barangList[position]
         holder.tvName.text = barang.namaBarang
         holder.tvCategory.text = barang.jenis
-        holder.imgProduct.setImageResource(R.mipmap.ic_launcher)
+        loadImage(holder.imgProduct, barang.photoUrl)
+
         if (showAddButton && onAddClick != null) {
             holder.btnAdd.visibility = View.VISIBLE
             holder.btnAdd.setOnClickListener {
@@ -42,6 +46,21 @@ class ProductAdapter(
             }
         } else {
             holder.btnAdd.visibility = View.GONE
+        }
+    }
+
+    private fun loadImage(imageView: ImageView, photoUrl: String) {
+        if (photoUrl.isNotEmpty()) {
+            Glide.with(imageView.context)
+                .load(photoUrl)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .placeholder(R.mipmap.ic_launcher)
+                .error(R.mipmap.ic_launcher)
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .centerCrop()
+                .into(imageView)
+        } else {
+            imageView.setImageResource(R.mipmap.ic_launcher)
         }
     }
 
