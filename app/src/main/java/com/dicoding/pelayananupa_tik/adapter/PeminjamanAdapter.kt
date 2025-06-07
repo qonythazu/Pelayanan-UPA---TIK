@@ -42,73 +42,52 @@ class PeminjamanAdapter(
 
         val (documentId, history) = historyList[position]
         val namaBarang = history.getNamaBarang()
-        val jenisBarang = history.getJenisBarang()
-
+        val jenisBarang = history.getDisplayJenisBarang()
         holder.tvHistoryName.text = namaBarang
-        holder.tvHistoryCategory.text = jenisBarang
+        holder.tvHistoryCategory.text = if (jenisBarang.isEmpty() || jenisBarang == "Tidak diketahui") {
+            "Kategori tidak tersedia"
+        } else {
+            jenisBarang
+        }
         holder.tvHistoryStatus.text = history.statusPeminjaman
-        holder.tvHistoryDate.text = formatDate(history.tanggalPengajuan)
-
-        // Load image menggunakan Glide
-        loadImage(holder.imgHistoryItem, history.getPhotoUrl())
-
-        // Set warna status
+        holder.tvHistoryDate.text = history.getFormattedRentangTanggal()
+        loadImageWithBetterHandling(holder.imgHistoryItem, history.getDisplayPhotoUrl(), namaBarang)
         setStatusColor(holder.tvHistoryStatus, history.statusPeminjaman)
-
-        // Handle button visibility dan click berdasarkan status
         setupButtons(holder, documentId, history)
     }
 
-    private fun loadImage(imageView: ImageView, photoUrl: String) {
-        if (photoUrl.isNotEmpty()) {
+    private fun loadImageWithBetterHandling(imageView: ImageView, photoUrl: String?, itemName: String) {
+        if (!photoUrl.isNullOrEmpty() && photoUrl != "null") {
             Glide.with(imageView.context)
                 .load(photoUrl)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .placeholder(R.mipmap.ic_launcher) // Gambar sementara saat loading
-                .error(R.mipmap.ic_launcher) // Gambar jika gagal load
+                .placeholder(R.mipmap.ic_launcher)
+                .error(R.mipmap.ic_launcher)
                 .transition(DrawableTransitionOptions.withCrossFade())
                 .centerCrop()
                 .into(imageView)
         } else {
-            // Jika photoUrl kosong, gunakan gambar default
             imageView.setImageResource(R.mipmap.ic_launcher)
         }
     }
 
     private fun setupButtons(holder: HistoryViewHolder, documentId: String, history: FormPeminjaman) {
-        // Reset visibility - semua button disembunyikan dulu
         holder.btnTaken.visibility = View.GONE
         holder.btnReturned.visibility = View.GONE
 
         when (history.statusPeminjaman.lowercase()) {
             "disetujui" -> {
-                // Tampilkan button "Taken" jika status "Disetujui"
                 holder.btnTaken.visibility = View.VISIBLE
                 holder.btnTaken.setOnClickListener {
                     onTakenClick?.invoke(documentId, history)
                 }
             }
             "diambil" -> {
-                // Tampilkan button "Returned" jika status "Diambil"
                 holder.btnReturned.visibility = View.VISIBLE
                 holder.btnReturned.setOnClickListener {
                     onReturnedClick?.invoke(documentId, history)
                 }
             }
-            // Status lain seperti "Diajukan", "Ditolak", "Selesai" tidak menampilkan button apapun
-        }
-    }
-
-    private fun formatDate(dateString: String): String {
-        return if (dateString.isNotEmpty()) {
-            try {
-                // Sesuaikan format tanggal sesuai yang di Firestore
-                dateString.split(" ")[0] // ambil bagian tanggal aja
-            } catch (e: Exception) {
-                dateString
-            }
-        } else {
-            "Tanggal tidak tersedia"
         }
     }
 

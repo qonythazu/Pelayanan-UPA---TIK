@@ -32,18 +32,15 @@ class FormPeminjamanFragment : Fragment() {
 
     private var _binding: FragmentFormPeminjamanBinding? = null
     private val binding get() = _binding!!
-
     private var selectedItems: String? = null
     private lateinit var namaPerangkatEditText: TextInputEditText
     private lateinit var firestore: FirebaseFirestore
     private val boxViewModel: BoxViewModel by activityViewModels()
-
     private var selectedPdfUri: Uri? = null
     private var savedPdfPath: String? = null
     private var startDate: Date? = null
     private var endDate: Date? = null
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-
     private val pdfPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -145,54 +142,6 @@ class FormPeminjamanFragment : Fragment() {
         }
     }
 
-    private fun validateForm(): Boolean {
-        val namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim()
-        val tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim()
-        val rentangTanggal = binding.rentangTanggalLayout.editText?.text.toString().trim()
-        val harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim()
-        val namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim()
-        val kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
-
-        // Clear all errors first
-        clearAllErrors()
-
-        return when {
-            namaPerangkat.isEmpty() -> {
-                binding.namaPerangkatLayout.error = "Nama perangkat tidak boleh kosong"
-                false
-            }
-            tujuanPeminjaman.isEmpty() -> {
-                binding.tujuanPeminjamanLayout.error = "Tujuan peminjaman tidak boleh kosong"
-                false
-            }
-            rentangTanggal.isEmpty() || startDate == null || endDate == null -> {
-                binding.rentangTanggalLayout.error = "Rentang tanggal tidak boleh kosong"
-                false
-            }
-            startDate!!.before(Date()) -> {
-                binding.rentangTanggalLayout.error = "Tanggal mulai tidak boleh di masa lalu"
-                false
-            }
-            harapanAnda.isEmpty() -> {
-                binding.harapanAndaLayout.error = "Harapan tidak boleh kosong"
-                false
-            }
-            namaPJ.isEmpty() -> {
-                binding.namaPenanggungJawabLayout.error = "Nama penanggung jawab tidak boleh kosong"
-                false
-            }
-            kontakPJ.isEmpty() -> {
-                binding.kontakPenanggungJawabLayout.error = "Kontak penanggung jawab tidak boleh kosong"
-                false
-            }
-            !isValidPhoneNumber(kontakPJ) -> {
-                binding.kontakPenanggungJawabLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
-                false
-            }
-            else -> true
-        }
-    }
-
     private fun clearAllErrors() {
         binding.namaPerangkatLayout.error = null
         binding.tujuanPeminjamanLayout.error = null
@@ -200,11 +149,6 @@ class FormPeminjamanFragment : Fragment() {
         binding.harapanAndaLayout.error = null
         binding.namaPenanggungJawabLayout.error = null
         binding.kontakPenanggungJawabLayout.error = null
-    }
-
-    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
-        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
-        return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
     }
 
     private fun openPdfPicker() {
@@ -259,73 +203,122 @@ class FormPeminjamanFragment : Fragment() {
         }
     }
 
-    private fun submitForm() {
-        binding.btnSubmit.isEnabled = false
-        binding.btnSubmit.text = getString(R.string.submitting)
+    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
+        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
+        return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
+    }
 
+    private fun validateForm(): Boolean {
         val namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim()
         val tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim()
         val rentangTanggal = binding.rentangTanggalLayout.editText?.text.toString().trim()
         val harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim()
         val namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim()
         val kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
+        clearAllErrors()
 
+        return when {
+            namaPerangkat.isEmpty() -> {
+                binding.namaPerangkatLayout.error = "Nama perangkat tidak boleh kosong"
+                false
+            }
+            tujuanPeminjaman.isEmpty() -> {
+                binding.tujuanPeminjamanLayout.error = "Tujuan peminjaman tidak boleh kosong"
+                false
+            }
+            rentangTanggal.isEmpty() || startDate == null || endDate == null -> {
+                binding.rentangTanggalLayout.error = "Rentang tanggal tidak boleh kosong"
+                false
+            }
+            startDate!!.before(Date()) -> {
+                binding.rentangTanggalLayout.error = "Tanggal mulai tidak boleh di masa lalu"
+                false
+            }
+            harapanAnda.isEmpty() -> {
+                binding.harapanAndaLayout.error = "Harapan tidak boleh kosong"
+                false
+            }
+            namaPJ.isEmpty() -> {
+                binding.namaPenanggungJawabLayout.error = "Nama penanggung jawab tidak boleh kosong"
+                false
+            }
+            kontakPJ.isEmpty() -> {
+                binding.kontakPenanggungJawabLayout.error = "Kontak penanggung jawab tidak boleh kosong"
+                false
+            }
+            !isValidPhoneNumber(kontakPJ) -> {
+                binding.kontakPenanggungJawabLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
+                false
+            }
+            else -> true
+        }
+    }
+
+    private fun submitForm() {
+        binding.btnSubmit.isEnabled = false
+        binding.btnSubmit.text = getString(R.string.submitting)
+
+        val tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim()
+        val rentangTanggal = binding.rentangTanggalLayout.editText?.text.toString().trim()
+        val harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim()
+        val namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim()
+        val kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
         val currentTime = System.currentTimeMillis()
         val dateTimeFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         val formattedDate = dateTimeFormat.format(Date(currentTime))
-
         val userEmail = UserManager.getCurrentUserEmail()
-        val peminjamanData = hashMapOf(
-            "userEmail" to userEmail,
-            "judul" to "Form Peminjaman",
-            "namaPerangkat" to namaPerangkat,
-            "tujuanPeminjaman" to tujuanPeminjaman,
-            "rentangTanggal" to rentangTanggal,
-            "tanggalMulai" to com.google.firebase.Timestamp(startDate!!),
-            "tanggalSelesai" to com.google.firebase.Timestamp(endDate!!),
-            "harapanAnda" to harapanAnda,
-            "namaPenanggungJawab" to namaPJ,
-            "kontakPenanggungJawab" to kontakPJ,
-            "filePath" to (savedPdfPath ?: ""),
-            "statusPeminjaman" to "Diajukan",
-            "tanggalPengajuan" to formattedDate,
-            "timestamp" to com.google.firebase.Timestamp.now(),
-            "barangDipinjam" to getSelectedItemsList()
-        )
+        val grupId = UUID.randomUUID().toString()
+        val selectedBarang = boxViewModel.getSelectedItems()
+        var successCount = 0
+        val totalItems = selectedBarang.size
+        selectedBarang.forEach { barang ->
+            val peminjamanData = hashMapOf(
+                "userEmail" to userEmail,
+                "judul" to "Form Peminjaman",
+                "namaPerangkat" to barang.namaBarang, // Nama barang spesifik
+                "jenisBarang" to barang.jenis,
+                "tujuanPeminjaman" to tujuanPeminjaman,
+                "rentangTanggal" to rentangTanggal,
+                "tanggalMulai" to com.google.firebase.Timestamp(startDate!!),
+                "tanggalSelesai" to com.google.firebase.Timestamp(endDate!!),
+                "harapanAnda" to harapanAnda,
+                "namaPenanggungJawab" to namaPJ,
+                "kontakPenanggungJawab" to kontakPJ,
+                "filePath" to (savedPdfPath ?: ""),
+                "statusPeminjaman" to "Diajukan",
+                "tanggalPengajuan" to formattedDate,
+                "timestamp" to com.google.firebase.Timestamp.now(),
+                "grupPeminjaman" to grupId, // ID untuk mengelompokkan peminjaman yang sama
+                "totalItemsInGroup" to totalItems,
+                "photoUrl" to (barang.photoUrl) // Foto barang spesifik
+            )
 
-        firestore.collection("form_peminjaman")
-            .add(peminjamanData)
-            .addOnSuccessListener {
-                boxViewModel.clearBox()
+            firestore.collection("form_peminjaman")
+                .add(peminjamanData)
+                .addOnSuccessListener {
+                    successCount++
+                    if (successCount == totalItems) {
+                        boxViewModel.clearBox()
 
-                lifecycleScope.launch {
+                        lifecycleScope.launch {
+                            Toast.makeText(
+                                requireContext(),
+                                "Peminjaman $totalItems barang berhasil diajukan! Menunggu persetujuan admin.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
+                        }
+                    }
+                }
+                .addOnFailureListener { e ->
+                    binding.btnSubmit.isEnabled = true
+                    binding.btnSubmit.text = getString(R.string.submit_button)
                     Toast.makeText(
                         requireContext(),
-                        "Peminjaman berhasil diajukan! Menunggu persetujuan admin.",
-                        Toast.LENGTH_LONG
+                        "Gagal mengirim peminjaman untuk ${barang.namaBarang}: ${e.message}",
+                        Toast.LENGTH_SHORT
                     ).show()
-                    findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
                 }
-            }
-            .addOnFailureListener { e ->
-                binding.btnSubmit.isEnabled = true
-                binding.btnSubmit.text = getString(R.string.submit_button)
-                Toast.makeText(
-                    requireContext(),
-                    "Gagal mengirim peminjaman: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-    }
-
-    private fun getSelectedItemsList(): List<Map<String, Any>> {
-        val selectedBarang = boxViewModel.getSelectedItems()
-        return selectedBarang.map { barang ->
-            mapOf(
-                "namaBarang" to barang.namaBarang,
-                "jenis" to barang.jenis,
-                "tanggalPinjam" to com.google.firebase.Timestamp(startDate!!)
-            )
         }
     }
 
