@@ -1,13 +1,12 @@
 package com.dicoding.pelayananupa_tik.activity
 
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.Toolbar
@@ -15,7 +14,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.dicoding.pelayananupa_tik.R
+import com.dicoding.pelayananupa_tik.addon.FeedbackHelper
 import com.dicoding.pelayananupa_tik.databinding.ActivityMainBinding
+import com.dicoding.pelayananupa_tik.fcm.FCMManager
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.dicoding.pelayananupa_tik.utils.UserData
 import com.google.android.material.bottomnavigation.BottomNavigationView
@@ -24,7 +25,15 @@ import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private val requestCodeNotificationPermission = 1001
+    private lateinit var feedbackHelper: FeedbackHelper
+    private lateinit var fcmManager: FCMManager
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            fcmManager.initializeFCM()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
@@ -48,8 +57,13 @@ class MainActivity : AppCompatActivity() {
             redirectToLogin()
         }
 
+        feedbackHelper = FeedbackHelper(this)
+
+        fcmManager = FCMManager(this)
+        fcmManager.requestNotificationPermission(requestPermissionLauncher)
+        fcmManager.initializeFCM()
+
         setupNavigation()
-        setupPermissions()
         setupLogoutButton()
         loadUserInfo()
     }
@@ -61,17 +75,6 @@ class MainActivity : AppCompatActivity() {
         val navController = navHostFragment.navController
 
         navView.setupWithNavController(navController)
-    }
-
-    private fun setupPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(
-                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
-                    requestCodeNotificationPermission
-                )
-            }
-        }
     }
 
     private fun setupLogoutButton() {
@@ -112,19 +115,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == requestCodeNotificationPermission) {
-            if (grantResults.isNotEmpty() && grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Izin notifikasi diperlukan untuk melanjutkan", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
     private fun logout() {
         lifecycleScope.launch {
             try {
@@ -153,10 +143,16 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
 
+        feedbackHelper.startFeedbackMonitoring()
         if (!UserManager.isUserLoggedIn()) {
             Log.w(TAG, "User session expired, redirecting to login")
             redirectToLogin()
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        feedbackHelper.stopFeedbackMonitoring()
     }
 
     fun hideBottomNavigation() {

@@ -83,6 +83,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-base:18.2.0")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-messaging:23.4.0")
+    implementation("com.google.firebase:firebase-firestore:24.10.0")
+    implementation("androidx.core:core:1.12.0")
 
     //viewmodel
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")

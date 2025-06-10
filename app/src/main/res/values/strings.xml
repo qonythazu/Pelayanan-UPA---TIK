@@ -157,4 +157,10 @@
     <string name="edit_pembuatan_web_dll">Edit Pembuatan Website, Sub Domain, Dll</string>
     <string name="edit_laporan_kerusakan">Edit Laporan Kerusakan</string>
     <string name="gambarbarang">GambarBarang</string>
+    <string name="feedback_message">Feedback Message</string>
+    <string name="rating">Rating:</string>
+    <string name="komentar_opsional">Komentar (opsional):</string>
+    <string name="tulis_komentar_anda">Tulis komentar Anda...</string>
+    <string name="lewati">Lewati</string>
+    <string name="kirim_feedback">Kirim Feedback</string>
 </resources>
