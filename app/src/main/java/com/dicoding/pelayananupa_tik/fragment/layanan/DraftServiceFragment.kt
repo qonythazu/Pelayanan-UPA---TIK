@@ -132,7 +132,7 @@ class DraftServiceFragment : Fragment() {
         for (collection in collections) {
             firestore.collection(collection)
                 .whereEqualTo("userEmail", userEmail)
-                .whereEqualTo("status", "Draft")
+                .whereEqualTo("status", "draft")
                 .get()
                 .addOnSuccessListener { documents ->
                     processDocuments(documents, collection)

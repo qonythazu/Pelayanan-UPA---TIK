@@ -196,7 +196,7 @@ class FormPembuatanWebDllFragment : Fragment() {
             "namaLayanan" to namaLayanan,
             "kontak" to kontak,
             "tujuan" to tujuan,
-            "status" to "Draft",
+            "status" to "draft",
             "timestamp" to formattedDate
         )
 

@@ -245,7 +245,7 @@ class FormPengaduanLayananFragment : Fragment() {
             "kontak" to kontak,
             "keluhan" to keluhan,
             "filePath" to (savedPdfPath ?: ""),
-            "status" to "Draft",
+            "status" to "draft",
             "timestamp" to formattedDate
         )
 

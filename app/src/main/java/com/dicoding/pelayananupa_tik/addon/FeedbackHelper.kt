@@ -36,7 +36,7 @@ class FeedbackHelper(private val context: Context) {
     private fun monitorPeminjaman(userEmail: String) {
         val listener = db.collection("form_peminjaman")
             .whereEqualTo("userEmail", userEmail)
-            .whereEqualTo("statusPeminjaman", "Selesai")
+            .whereEqualTo("statusPeminjaman", "selesai")
             .addSnapshotListener { snapshots, e ->
                 if (e != null) return@addSnapshotListener
 
@@ -50,7 +50,7 @@ class FeedbackHelper(private val context: Context) {
     private fun monitorLayanan(collection: String, userEmail: String) {
         val listener = db.collection(collection)
             .whereEqualTo("userEmail", userEmail)
-            .whereEqualTo("status", "Selesai")
+            .whereEqualTo("status", "selesai")
             .addSnapshotListener { snapshots, e ->
                 if (e != null) return@addSnapshotListener
 

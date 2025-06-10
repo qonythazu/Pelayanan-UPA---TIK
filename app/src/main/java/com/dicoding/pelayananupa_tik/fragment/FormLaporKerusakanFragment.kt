@@ -341,7 +341,7 @@ class FormLaporKerusakanFragment : Fragment() {
             "kontak" to kontak,
             "keterangan" to keterangan,
             "timestamp" to formattedDate,
-            "status" to "Draft",
+            "status" to "draft",
             "imagePath" to (savedImagePath ?: "")
         )
 

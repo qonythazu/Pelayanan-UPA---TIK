@@ -57,7 +57,7 @@ class RejectedItemFragment : Fragment() {
 
         db.collection("form_peminjaman")
             .whereEqualTo("userEmail", currentUserEmail)
-            .whereEqualTo("statusPeminjaman", "Ditolak")
+            .whereEqualTo("statusPeminjaman", "ditolak")
             .get()
             .addOnSuccessListener { result ->
                 processResults(result)

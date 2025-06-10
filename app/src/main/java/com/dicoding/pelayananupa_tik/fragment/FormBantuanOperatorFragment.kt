@@ -246,7 +246,7 @@ class FormBantuanOperatorFragment : Fragment() {
             "jumlah" to jumlah,
             "kontak" to kontak,
             "tujuan" to tujuan,
-            "status" to "Draft",
+            "status" to "draft",
             "filePath" to (savedPdfPath ?: ""),
             "timestamp" to formattedDate
         )

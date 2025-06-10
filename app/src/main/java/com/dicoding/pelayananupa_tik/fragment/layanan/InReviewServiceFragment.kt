@@ -60,7 +60,7 @@ class InReviewServiceFragment : Fragment() {
         for (collection in collections) {
             firestore.collection(collection)
                 .whereEqualTo("userEmail", userEmail)
-                .whereEqualTo("status", "In-Review")
+                .whereEqualTo("status", "in review")
                 .get()
                 .addOnSuccessListener { documents ->
                     for (doc in documents) {

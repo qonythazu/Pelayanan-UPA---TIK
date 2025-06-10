@@ -287,7 +287,7 @@ class FormPemeliharaanAkunFragment : Fragment() {
             "akun" to akun,
             "alasan" to alasan,
             "filePath" to (savedPdfPath ?: ""),
-            "status" to "Draft",
+            "status" to "draft",
             "timestamp" to formattedDate
         )
 

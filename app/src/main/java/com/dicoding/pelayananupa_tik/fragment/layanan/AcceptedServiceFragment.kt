@@ -60,7 +60,7 @@ class AcceptedServiceFragment : Fragment() {
         for (collection in collections) {
             firestore.collection(collection)
                 .whereEqualTo("userEmail", userEmail)
-                .whereEqualTo("status", "Diterima")
+                .whereEqualTo("status", "diterima")
                 .get()
                 .addOnSuccessListener { documents ->
                     for (doc in documents) {

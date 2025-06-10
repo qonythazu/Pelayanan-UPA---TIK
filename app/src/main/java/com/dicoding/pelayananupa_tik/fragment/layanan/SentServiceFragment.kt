@@ -79,7 +79,7 @@ class SentServiceFragment : Fragment() {
         for (collection in collections) {
             firestore.collection(collection)
                 .whereEqualTo("userEmail", userEmail)
-                .whereEqualTo("status", "Terkirim")
+                .whereEqualTo("status", "terkirim")
                 .get()
                 .addOnSuccessListener { documents ->
                     for (doc in documents) {

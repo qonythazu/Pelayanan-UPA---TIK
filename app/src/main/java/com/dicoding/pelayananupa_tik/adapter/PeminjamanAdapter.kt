@@ -49,11 +49,15 @@ class PeminjamanAdapter(
         } else {
             jenisBarang
         }
-        holder.tvHistoryStatus.text = history.statusPeminjaman
+        holder.tvHistoryStatus.text = capitalizeWords(history.statusPeminjaman)
         holder.tvHistoryDate.text = history.getFormattedRentangTanggal()
         loadImageWithBetterHandling(holder.imgHistoryItem, history.getDisplayPhotoUrl(), namaBarang)
         setStatusColor(holder.tvHistoryStatus, history.statusPeminjaman)
         setupButtons(holder, documentId, history)
+    }
+
+    private fun capitalizeWords(text: String): String {
+        return text.split(" ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercaseChar() } }
     }
 
     private fun loadImageWithBetterHandling(imageView: ImageView, photoUrl: String?, itemName: String) {

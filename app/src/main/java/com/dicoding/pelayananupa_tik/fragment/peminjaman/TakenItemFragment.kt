@@ -75,7 +75,7 @@ class TakenItemFragment : Fragment() {
             .document(documentId)
             .update(
                 mapOf(
-                    "statusPeminjaman" to "Selesai",
+                    "statusPeminjaman" to "selesai",
                     "tanggalPengembalian" to getCurrentDateTime() // Optional: tambah timestamp pengembalian
                 )
             )
@@ -107,7 +107,7 @@ class TakenItemFragment : Fragment() {
 
         db.collection("form_peminjaman")
             .whereEqualTo("userEmail", currentUserEmail)
-            .whereEqualTo("statusPeminjaman", "Diambil")
+            .whereEqualTo("statusPeminjaman", "diambil")
             .get()
             .addOnSuccessListener { result ->
                 processResults(result)

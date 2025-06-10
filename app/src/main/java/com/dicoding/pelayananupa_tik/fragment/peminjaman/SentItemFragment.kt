@@ -57,7 +57,7 @@ class SentItemFragment : Fragment() {
 
         db.collection("form_peminjaman")
             .whereEqualTo("userEmail", currentUserEmail)
-            .whereEqualTo("statusPeminjaman", "Diajukan")
+            .whereEqualTo("statusPeminjaman", "diajukan")
             .get()
             .addOnSuccessListener { result ->
                 processResults(result)

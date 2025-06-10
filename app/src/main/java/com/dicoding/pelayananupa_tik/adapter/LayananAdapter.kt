@@ -53,7 +53,11 @@ class LayananAdapter(
     private fun bindBasicInfo(holder: LayananViewHolder, layananItem: LayananItem) {
         holder.layananText.text = layananItem.judul
         holder.tanggalText.text = layananItem.tanggal
-        holder.statusText.text = layananItem.status
+        holder.statusText.text = capitalizeWords(layananItem.status)
+    }
+
+    private fun capitalizeWords(text: String): String {
+        return text.split(" ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercaseChar() } }
     }
 
     private fun setStatusColor(holder: LayananViewHolder, layananItem: LayananItem) {

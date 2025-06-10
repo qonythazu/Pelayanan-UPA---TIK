@@ -160,7 +160,7 @@ class FormPemasanganPerangkatFragment : Fragment() {
             "jenis" to jenis,
             "kontak" to kontak,
             "tujuan" to tujuan,
-            "status" to "Draft",
+            "status" to "draft",
             "timestamp" to formattedDate
         )
 

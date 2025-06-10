@@ -57,7 +57,7 @@ class FinishedItemFragment : Fragment() {
 
         db.collection("form_peminjaman")
             .whereEqualTo("userEmail", currentUserEmail)
-            .whereEqualTo("statusPeminjaman", "Selesai")
+            .whereEqualTo("statusPeminjaman", "selesai")
             .get()
             .addOnSuccessListener { result ->
                 processResults(result)

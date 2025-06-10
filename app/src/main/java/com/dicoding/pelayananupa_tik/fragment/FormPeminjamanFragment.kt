@@ -285,7 +285,7 @@ class FormPeminjamanFragment : Fragment() {
                 "namaPenanggungJawab" to namaPJ,
                 "kontakPenanggungJawab" to kontakPJ,
                 "filePath" to (savedPdfPath ?: ""),
-                "statusPeminjaman" to "Diajukan",
+                "statusPeminjaman" to "diajukan",
                 "tanggalPengajuan" to formattedDate,
                 "timestamp" to com.google.firebase.Timestamp.now(),
                 "grupPeminjaman" to grupId, // ID untuk mengelompokkan peminjaman yang sama
