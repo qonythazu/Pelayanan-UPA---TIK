@@ -140,6 +140,29 @@ object UserManager {
         }
     }
 
+    // New method for updating phone number specifically
+    fun updatePhoneNumber(newPhone: String, callback: (Boolean) -> Unit) {
+        val currentEmail = getCurrentUserEmail()
+
+        if (currentEmail == null) {
+            Log.e(TAG, "No user logged in")
+            callback(false)
+            return
+        }
+
+        firestore.collection(USERS_COLLECTION)
+            .document(currentEmail)
+            .update("nomorTelepon", newPhone)
+            .addOnSuccessListener {
+                Log.d(TAG, "Phone number updated successfully for: $currentEmail")
+                callback(true)
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error updating phone number for: $currentEmail", e)
+                callback(false)
+            }
+    }
+
     private fun createNewUserData(email: String): UserData {
         return if (predefinedUsers.containsKey(email)) {
             predefinedUsers[email]!!

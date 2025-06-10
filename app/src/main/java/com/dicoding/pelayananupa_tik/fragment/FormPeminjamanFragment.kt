@@ -275,7 +275,7 @@ class FormPeminjamanFragment : Fragment() {
             val peminjamanData = hashMapOf(
                 "userEmail" to userEmail,
                 "judul" to "Form Peminjaman",
-                "namaPerangkat" to barang.namaBarang, // Nama barang spesifik
+                "namaPerangkat" to barang.namaBarang,
                 "jenisBarang" to barang.jenis,
                 "tujuanPeminjaman" to tujuanPeminjaman,
                 "rentangTanggal" to rentangTanggal,
@@ -288,9 +288,9 @@ class FormPeminjamanFragment : Fragment() {
                 "statusPeminjaman" to "diajukan",
                 "tanggalPengajuan" to formattedDate,
                 "timestamp" to com.google.firebase.Timestamp.now(),
-                "grupPeminjaman" to grupId, // ID untuk mengelompokkan peminjaman yang sama
+                "grupPeminjaman" to grupId,
                 "totalItemsInGroup" to totalItems,
-                "photoUrl" to (barang.photoUrl) // Foto barang spesifik
+                "photoUrl" to (barang.photoUrl)
             )
 
             firestore.collection("form_peminjaman")

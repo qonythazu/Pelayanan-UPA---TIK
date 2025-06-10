@@ -165,11 +165,8 @@ class ScanFragment : BottomSheetDialogFragment() {
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     private fun bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
         if (!isAdded) {
-            Log.d(TAG, "Fragment not attached to activity, skipping camera setup")
             return
         }
-
-        Log.d(TAG, "Binding camera use cases")
         cameraProvider.unbindAll()
         val preview = Preview.Builder()
             .setTargetRotation(viewfinder.display.rotation)
@@ -479,7 +476,6 @@ class ScanFragment : BottomSheetDialogFragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // Release camera resources
         if (::cameraProviderFuture.isInitialized) {
             try {
                 val cameraProvider = cameraProviderFuture.get()

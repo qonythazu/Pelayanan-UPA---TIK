@@ -1,16 +1,22 @@
 package com.dicoding.pelayananupa_tik.fragment
 
+import android.app.AlertDialog
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.databinding.FragmentProfileBinding
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.dicoding.pelayananupa_tik.utils.UserData
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
 
 class ProfileFragment : Fragment() {
@@ -35,6 +41,73 @@ class ProfileFragment : Fragment() {
 
     private fun setupUI() {
         setFieldsReadOnly()
+        setupPhoneEditButton()
+    }
+
+    private fun setupPhoneEditButton() {
+        binding.nomorTeleponLayout.setEndIconDrawable(R.drawable.ic_edit)
+        binding.nomorTeleponLayout.endIconMode = TextInputLayout.END_ICON_CUSTOM
+        binding.nomorTeleponLayout.setEndIconOnClickListener {
+            showEditPhoneDialog()
+        }
+    }
+
+    private fun showEditPhoneDialog() {
+        val editText = EditText(requireContext()).apply {
+            inputType = InputType.TYPE_CLASS_PHONE
+            hint = "Masukkan nomor telepon"
+            val currentPhone = binding.nomorTeleponLayout.editText?.text.toString()
+            if (currentPhone != "Tidak tersedia") {
+                setText(currentPhone)
+                setSelection(text.length)
+            }
+        }
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 20, 50, 0)
+            addView(editText)
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Edit Nomor Telepon")
+            .setMessage("Minimal 10 digit angka")
+            .setView(container)
+            .setPositiveButton("Simpan") { _, _ ->
+                val newPhone = editText.text.toString().trim()
+                if (isValidPhoneNumber(newPhone)) {
+                    updatePhoneNumber(newPhone)
+                } else {
+                    Toast.makeText(
+                        requireContext(),
+                        "Nomor telepon harus minimal 10 digit dan format valid",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun updatePhoneNumber(newPhone: String) {
+        showLoading(true)
+        UserManager.updatePhoneNumber(newPhone) { success ->
+            activity?.runOnUiThread {
+                showLoading(false)
+                if (success) {
+                    binding.nomorTeleponLayout.editText?.setText(newPhone)
+                    Toast.makeText(requireContext(), "Nomor telepon berhasil diperbarui", Toast.LENGTH_SHORT).show()
+                    Log.d(TAG, "Phone number updated to: $newPhone")
+                } else {
+                    Toast.makeText(requireContext(), "Gagal memperbarui nomor telepon", Toast.LENGTH_SHORT).show()
+                    Log.e(TAG, "Failed to update phone number")
+                }
+            }
+        }
+    }
+
+    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
+        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
+        return digitsOnly.length >= 10 && phoneNumber.matches(Regex("^[0-9+\\-\\s()]*$"))
     }
 
     private fun loadUserProfile() {
@@ -123,6 +196,7 @@ class ProfileFragment : Fragment() {
                 isEnabled = false
                 isFocusable = false
             }
+            // Nomor telepon tetap disabled karena kita pakai end icon untuk edit
             nomorTeleponLayout.editText?.apply {
                 isEnabled = false
                 isFocusable = false
