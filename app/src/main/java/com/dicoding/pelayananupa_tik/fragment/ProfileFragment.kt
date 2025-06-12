@@ -16,7 +16,6 @@ import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.databinding.FragmentProfileBinding
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.dicoding.pelayananupa_tik.utils.UserData
-import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
 
 class ProfileFragment : Fragment() {
@@ -45,8 +44,6 @@ class ProfileFragment : Fragment() {
     }
 
     private fun setupPhoneEditButton() {
-        binding.nomorTeleponLayout.setEndIconDrawable(R.drawable.ic_edit)
-        binding.nomorTeleponLayout.endIconMode = TextInputLayout.END_ICON_CUSTOM
         binding.nomorTeleponLayout.setEndIconOnClickListener {
             showEditPhoneDialog()
         }
@@ -62,30 +59,46 @@ class ProfileFragment : Fragment() {
                 setSelection(text.length)
             }
         }
+
+        val errorText = android.widget.TextView(requireContext()).apply {
+            text = ""
+            setTextColor(resources.getColor(android.R.color.holo_red_dark, null))
+            textSize = 12f
+            visibility = View.GONE
+        }
+
         val container = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(50, 20, 50, 0)
             addView(editText)
+            addView(errorText)
         }
 
-        AlertDialog.Builder(requireContext())
+        val dialog = AlertDialog.Builder(requireContext())
             .setTitle("Edit Nomor Telepon")
             .setMessage("Minimal 10 digit angka")
             .setView(container)
-            .setPositiveButton("Simpan") { _, _ ->
+            .setPositiveButton("Simpan", null) // Set null dulu
+            .setNegativeButton("Batal", null)
+            .create()
+
+        // Override positive button click setelah dialog dibuat
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
                 val newPhone = editText.text.toString().trim()
                 if (isValidPhoneNumber(newPhone)) {
                     updatePhoneNumber(newPhone)
+                    dialog.dismiss() // Tutup dialog hanya jika valid
                 } else {
-                    Toast.makeText(
-                        requireContext(),
-                        "Nomor telepon harus minimal 10 digit dan format valid",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    errorText.text = getString(R.string.nomor_telepon_harus_minimal_10_digit_dan_format_valid)
+                    errorText.visibility = View.VISIBLE
+                    // Dialog tetap terbuka karena tidak ada dismiss()
                 }
             }
-            .setNegativeButton("Batal", null)
-            .show()
+        }
+
+        dialog.show()
     }
 
     private fun updatePhoneNumber(newPhone: String) {

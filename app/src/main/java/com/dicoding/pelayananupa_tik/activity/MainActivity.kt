@@ -77,13 +77,6 @@ class MainActivity : AppCompatActivity() {
         navView.setupWithNavController(navController)
     }
 
-    private fun setupLogoutButton() {
-        val btnLogout = findViewById<ImageView>(R.id.btn_logout)
-        btnLogout.setOnClickListener {
-            logout()
-        }
-    }
-
     private fun loadUserInfo() {
         lifecycleScope.launch {
             UserManager.getCurrentUserData { userData: UserData? ->
@@ -115,6 +108,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupLogoutButton() {
+        val btnLogout = findViewById<ImageView>(R.id.btn_logout)
+        btnLogout.setOnClickListener {
+            logout()
+        }
+    }
+
     private fun logout() {
         lifecycleScope.launch {
             try {
@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "Logging out user: $currentEmail")
                 UserManager.signOut()
 
-                Toast.makeText(this@MainActivity, "Logout berhasil", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Anda berhasil logout", Toast.LENGTH_SHORT).show()
                 redirectToLogin()
 
             } catch (e: Exception) {

@@ -48,8 +48,8 @@ class DraftServiceFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        val view = inflater.inflate(R.layout.fragment_service_history, container, false)
+    ): View {
+        val view = inflater.inflate(R.layout.fragment_draft_service, container, false)
         setupViews(view)
         setupAdapter()
         fetchAllLayanan()

@@ -163,4 +163,5 @@
     <string name="tulis_komentar_anda">Tulis komentar Anda...</string>
     <string name="lewati">Lewati</string>
     <string name="kirim_feedback">Kirim Feedback</string>
+    <string name="nomor_telepon_harus_minimal_10_digit_dan_format_valid">Nomor telepon harus minimal 10 digit dan format valid</string>
 </resources>

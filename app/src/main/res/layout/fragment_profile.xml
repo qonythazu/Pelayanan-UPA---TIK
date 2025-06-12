@@ -113,6 +113,8 @@
         android:layout_height="wrap_content"
         android:hint="@string/nomor_telepon"
         app:boxStrokeColor="@color/black"
+        app:endIconMode="custom"
+        app:endIconDrawable="@drawable/ic_edit"
         app:layout_constraintTop_toBottomOf="@+id/programStudiLayout"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

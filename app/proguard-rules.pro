@@ -19,3 +19,15 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Firebase Firestore
+-keep class com.google.firebase.firestore.** { *; }
+-keep class com.google.firestore.** { *; }
+
+# Firebase
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+
+# Keep test classes
+-keep class androidx.test.** { *; }
+-keep class org.junit.** { *; }
