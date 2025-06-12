@@ -122,21 +122,39 @@ class FormPemasanganPerangkatFragment : Fragment() {
     }
 
     private fun submitForm() {
+        binding.btnSubmit.isEnabled = false
+        binding.btnSubmit.text = getString(R.string.submitting)
+
         val formData = getFormData()
-        if (!validateForm(formData)) return
+        if (!validateForm(formData)) {
+            binding.btnSubmit.isEnabled = true
+            binding.btnSubmit.text = getString(R.string.submit)
+            return
+        }
         saveDataToFirestore(formData.first, formData.second, formData.third)
     }
 
     private fun updateForm() {
+        binding.btnSubmit.isEnabled = false
+        binding.btnSubmit.text = getString(R.string.submitting)
+
         val formData = getFormData()
-        if (!validateForm(formData)) return
+        if (!validateForm(formData)) {
+            binding.btnSubmit.isEnabled = true
+            binding.btnSubmit.text = getString(R.string.update)
+            return
+        }
         editingItem?.let { item ->
             if (item.documentId.isNotEmpty()) {
                 updateDataInFirestore(item.documentId, formData.first, formData.second, formData.third)
             } else {
+                binding.btnSubmit.isEnabled = true
+                binding.btnSubmit.text = getString(R.string.update)
                 Toast.makeText(requireContext(), "Error: Document ID tidak valid", Toast.LENGTH_SHORT).show()
             }
         } ?: run {
+            binding.btnSubmit.isEnabled = true
+            binding.btnSubmit.text = getString(R.string.update)
             Toast.makeText(requireContext(), "Error: Data item tidak ditemukan", Toast.LENGTH_SHORT).show()
         }
     }

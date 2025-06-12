@@ -2,6 +2,7 @@ package com.dicoding.pelayananupa_tik.fragment
 
 import android.app.Activity
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -11,6 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -49,7 +51,12 @@ class FormPeminjamanFragment : Fragment() {
             selectedPdfUri?.let { uri ->
                 val fileName = getFileName(uri)
                 binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
-                binding.btnChooseFile.text = getString(R.string.change_file)
+                binding.btnChooseFile.apply {
+                    backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                    text = getString(R.string.change_image)
+                    strokeWidth = 0
+                }
                 savePdfLocally(uri)
             }
         }

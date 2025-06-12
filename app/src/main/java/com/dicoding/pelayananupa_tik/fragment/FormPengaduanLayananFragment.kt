@@ -41,11 +41,24 @@ class FormPengaduanLayananFragment : Fragment() {
         if (result.resultCode == Activity.RESULT_OK) {
             selectedPdfUri = result.data?.data
             selectedPdfUri?.let { uri ->
-                val fileName = getFileName(uri)
-                binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
-                binding.btnChooseFile.text = getString(R.string.change_file)
-
-                savePdfLocally(uri)
+                if (isFileSizeValid(uri)) {
+                    val fileName = getFileName(uri)
+                    binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
+                    binding.btnChooseFile.apply {
+                        backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                        text = getString(R.string.change_image)
+                        strokeWidth = 0
+                    }
+                    savePdfLocally(uri)
+                } else {
+                    selectedPdfUri = null
+                    Toast.makeText(
+                        requireContext(),
+                        "File terlalu besar! Maksimal ukuran file adalah 2MB.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
     }
@@ -129,6 +142,18 @@ class FormPengaduanLayananFragment : Fragment() {
         pdfPickerLauncher.launch(Intent.createChooser(intent, "Pilih File PDF"))
     }
 
+    private fun isFileSizeValid(uri: Uri): Boolean {
+        return try {
+            val inputStream = requireContext().contentResolver.openInputStream(uri)
+            val fileSize = inputStream?.available() ?: 0
+            inputStream?.close()
+
+            fileSize <= MAX_FILE_SIZE_BYTES
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     private fun getFileName(uri: Uri): String {
         var result: String? = null
         if (uri.scheme == "content") {
@@ -202,26 +227,55 @@ class FormPengaduanLayananFragment : Fragment() {
             binding.keluhanAndaLayout.error = null
         }
 
+        selectedPdfUri?.let { uri ->
+            if (!isFileSizeValid(uri)) {
+                Toast.makeText(
+                    requireContext(),
+                    "File yang dipilih terlalu besar! Maksimal ukuran file adalah 2MB.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return false
+            }
+        }
+
         return isValid
     }
 
     private fun submitForm() {
+        binding.btnSubmit.isEnabled = false
+        binding.btnSubmit.text = getString(R.string.submitting)
+
         val formData = getFormData()
-        if (!validateForm(formData)) return
+        if (!validateForm(formData)) {
+            binding.btnSubmit.isEnabled = true
+            binding.btnSubmit.text = getString(R.string.submit)
+            return
+        }
         saveDataToFirestore(formData.first, formData.second, formData.third)
     }
 
     private fun updateForm() {
+        binding.btnSubmit.isEnabled = false
+        binding.btnSubmit.text = getString(R.string.submitting)
+
         val formData = getFormData()
-        if (!validateForm(formData)) return
+        if (!validateForm(formData)) {
+            binding.btnSubmit.isEnabled = true
+            binding.btnSubmit.text = getString(R.string.update)
+            return
+        }
         editingItem?.let { item ->
             if (item.documentId.isNotEmpty()) {
                 updateDataInFirestore(item.documentId, formData.first, formData.second, formData.third)
             } else {
                 Toast.makeText(requireContext(), "Error: Document ID tidak valid", Toast.LENGTH_SHORT).show()
+                binding.btnSubmit.isEnabled = true
+                binding.btnSubmit.text = getString(R.string.update)
             }
         } ?: run {
             Toast.makeText(requireContext(), "Error: Data item tidak ditemukan", Toast.LENGTH_SHORT).show()
+            binding.btnSubmit.isEnabled = true
+            binding.btnSubmit.text = getString(R.string.update)
         }
     }
 
@@ -335,5 +389,9 @@ class FormPengaduanLayananFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private companion object {
+        private const val MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
     }
 }
