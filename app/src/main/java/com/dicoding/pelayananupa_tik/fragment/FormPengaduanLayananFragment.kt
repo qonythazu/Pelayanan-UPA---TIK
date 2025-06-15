@@ -75,6 +75,8 @@ class FormPengaduanLayananFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
         checkEditMode()
+        // Load user phone number automatically
+        loadUserPhoneNumber()
         binding.btnChooseFile.setOnClickListener { openPdfPicker() }
         binding.btnSubmit.setOnClickListener {
             if (isEditMode) {
@@ -90,6 +92,30 @@ class FormPengaduanLayananFragment : Fragment() {
         if (isEditMode) {
             binding.textView.text = getString(R.string.edit_pengaduan_layanan)
             binding.btnSubmit.text = getString(R.string.update)
+        }
+    }
+
+    private fun loadUserPhoneNumber() {
+        val userEmail = UserManager.getCurrentUserEmail()
+        if (!userEmail.isNullOrEmpty()) {
+            firestore.collection("users")
+                .whereEqualTo("email", userEmail)
+                .get()
+                .addOnSuccessListener { documents ->
+                    if (!documents.isEmpty) {
+                        val userDocument = documents.first()
+                        val nomorTelepon = userDocument.getString("nomorTelepon")
+
+                        // Hanya isi otomatis jika bukan mode edit atau field kosong
+                        if (!isEditMode || binding.kontakLayout.editText?.text.toString().trim().isEmpty()) {
+                            nomorTelepon?.let { phoneNumber ->
+                                if (phoneNumber.isNotEmpty()) {
+                                    binding.kontakLayout.editText?.setText(phoneNumber)
+                                }
+                            }
+                        }
+                    }
+                }
         }
     }
 

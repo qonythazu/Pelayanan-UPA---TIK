@@ -49,15 +49,24 @@ class FormPeminjamanFragment : Fragment() {
         if (result.resultCode == Activity.RESULT_OK) {
             selectedPdfUri = result.data?.data
             selectedPdfUri?.let { uri ->
-                val fileName = getFileName(uri)
-                binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
-                binding.btnChooseFile.apply {
-                    backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
-                    setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                    text = getString(R.string.change_image)
-                    strokeWidth = 0
+                if (isFileSizeValid(uri)) {
+                    val fileName = getFileName(uri)
+                    binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
+                    binding.btnChooseFile.apply {
+                        backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                        text = getString(R.string.change_image)
+                        strokeWidth = 0
+                    }
+                    savePdfLocally(uri)
+                } else {
+                    selectedPdfUri = null
+                    Toast.makeText(
+                        requireContext(),
+                        "File terlalu besar! Maksimal ukuran file adalah 2MB.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
-                savePdfLocally(uri)
             }
         }
     }
@@ -82,6 +91,9 @@ class FormPeminjamanFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
 
+        // Load user phone number automatically
+        loadUserPhoneNumber()
+
         setupViews()
         setupClickListeners()
 
@@ -89,6 +101,30 @@ class FormPeminjamanFragment : Fragment() {
             val namaPerangkatLayout = binding.namaPerangkatLayout
             namaPerangkatEditText = namaPerangkatLayout.editText as? TextInputEditText ?: return
             namaPerangkatEditText.setText(items)
+        }
+    }
+
+    private fun loadUserPhoneNumber() {
+        val userEmail = UserManager.getCurrentUserEmail()
+        if (!userEmail.isNullOrEmpty()) {
+            firestore.collection("users")
+                .whereEqualTo("email", userEmail)
+                .get()
+                .addOnSuccessListener { documents ->
+                    if (!documents.isEmpty) {
+                        val userDocument = documents.first()
+                        val nomorTelepon = userDocument.getString("nomorTelepon")
+
+                        // Hanya isi otomatis jika bukan mode edit atau field kosong
+                        if (binding.kontakPenanggungJawabLayout.editText?.text.toString().trim().isEmpty()) {
+                            nomorTelepon?.let { phoneNumber ->
+                                if (phoneNumber.isNotEmpty()) {
+                                    binding.kontakPenanggungJawabLayout.editText?.setText(phoneNumber)
+                                }
+                            }
+                        }
+                    }
+                }
         }
     }
 
@@ -164,6 +200,18 @@ class FormPeminjamanFragment : Fragment() {
             addCategory(Intent.CATEGORY_OPENABLE)
         }
         pdfPickerLauncher.launch(Intent.createChooser(intent, "Pilih File PDF"))
+    }
+
+    private fun isFileSizeValid(uri: Uri): Boolean {
+        return try {
+            val inputStream = requireContext().contentResolver.openInputStream(uri)
+            val fileSize = inputStream?.available() ?: 0
+            inputStream?.close()
+
+            fileSize <= MAX_FILE_SIZE_BYTES
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun getFileName(uri: Uri): String {
@@ -394,5 +442,9 @@ class FormPeminjamanFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private companion object {
+        private const val MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
     }
 }
