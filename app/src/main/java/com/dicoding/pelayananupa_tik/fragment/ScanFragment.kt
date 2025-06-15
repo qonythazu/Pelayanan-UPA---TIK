@@ -22,7 +22,6 @@ import androidx.fragment.app.FragmentManager
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
-import com.dicoding.pelayananupa_tik.utils.ProgressDialogFragment
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.snackbar.Snackbar
@@ -48,7 +47,8 @@ class ScanFragment : BottomSheetDialogFragment() {
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var barcodeScanner: BarcodeScanner
     private var isScanning = false
-    private var progressDialog: ProgressDialogFragment? = null
+    private var isProcessingResult = false // Flag tambahan untuk mencegah multiple processing
+    private var isCameraSetup = false // Flag untuk tracking camera setup
     private val firestore = FirebaseFirestore.getInstance()
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -144,12 +144,18 @@ class ScanFragment : BottomSheetDialogFragment() {
     }
 
     private fun setupCamera() {
+        if (isCameraSetup) {
+            Log.d(TAG, "Camera already setup, skipping")
+            return
+        }
+
         Log.d(TAG, "Setting up camera")
         cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener({
             try {
                 val cameraProvider = cameraProviderFuture.get()
                 bindCameraUseCases(cameraProvider)
+                isCameraSetup = true
                 Log.d(TAG, "Camera provider initialized")
             } catch (e: Exception) {
                 Log.e(TAG, "Camera provider setup failed", e)
@@ -164,9 +170,16 @@ class ScanFragment : BottomSheetDialogFragment() {
 
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     private fun bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
-        if (!isAdded) {
+        if (!isAdded || isProcessingResult) {
             return
         }
+
+        // Pastikan viewfinder dan display tersedia
+        if (viewfinder.display == null) {
+            Log.w(TAG, "Viewfinder display is null, cannot bind camera")
+            return
+        }
+
         cameraProvider.unbindAll()
         val preview = Preview.Builder()
             .setTargetRotation(viewfinder.display.rotation)
@@ -201,7 +214,7 @@ class ScanFragment : BottomSheetDialogFragment() {
             }
 
             imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                if (!isAdded) {
+                if (!isAdded || isProcessingResult) {
                     imageProxy.close()
                     return@setAnalyzer
                 }
@@ -222,13 +235,13 @@ class ScanFragment : BottomSheetDialogFragment() {
                             for (barcode in barcodes) {
                                 val rawValue = barcode.rawValue
                                 Log.d(TAG, "Raw barcode value: $rawValue")
-                                if (!rawValue.isNullOrEmpty()) {
+                                if (!rawValue.isNullOrEmpty() && !isProcessingResult) {
                                     Log.d(TAG, "Barcode detected: $rawValue")
+                                    isProcessingResult = true // Set flag untuk mencegah processing berulang
 
                                     val activity = activity
                                     if (activity != null && !activity.isFinishing && isAdded) {
                                         activity.runOnUiThread {
-                                            showLoading()
                                             fetchDataFromFirestore(rawValue.trim())
                                         }
                                     }
@@ -258,9 +271,8 @@ class ScanFragment : BottomSheetDialogFragment() {
     private fun fetchDataFromFirestore(serialNumber: String) {
         Log.d(TAG, "Fetching data for serial: $serialNumber")
 
-        if (!isAdded) {
-            Log.d(TAG, "Fragment not attached, skipping Firestore fetch")
-            hideLoading()
+        if (!isAdded || isProcessingResult.not()) {
+            Log.d(TAG, "Fragment not attached or already processing, skipping Firestore fetch")
             return
         }
 
@@ -268,9 +280,7 @@ class ScanFragment : BottomSheetDialogFragment() {
             .whereEqualTo("serial_number", serialNumber)
             .get()
             .addOnSuccessListener { querySnapshot ->
-                hideLoading()
-
-                if (!isAdded) {
+                if (!isAdded || isProcessingResult.not()) {
                     Log.d(TAG, "Fragment no longer attached after Firestore fetch")
                     return@addOnSuccessListener
                 }
@@ -285,8 +295,7 @@ class ScanFragment : BottomSheetDialogFragment() {
                         .document(serialNumber)
                         .get()
                         .addOnSuccessListener fallbackListener@{ document ->
-                            hideLoading()
-                            if (!isAdded) return@fallbackListener
+                            if (!isAdded || isProcessingResult.not()) return@fallbackListener
 
                             if (document.exists()) {
                                 Log.d(TAG, "Document found via ID: ${document.data}")
@@ -297,16 +306,14 @@ class ScanFragment : BottomSheetDialogFragment() {
                             }
                         }
                         .addOnFailureListener fallbackFailure@{ e ->
-                            hideLoading()
-                            if (!isAdded) return@fallbackFailure
+                            if (!isAdded || isProcessingResult.not()) return@fallbackFailure
                             Log.e(TAG, "Firestore document query failed", e)
                             showErrorMessage(e.message)
                         }
                 }
             }
             .addOnFailureListener { e ->
-                hideLoading()
-                if (!isAdded) return@addOnFailureListener
+                if (!isAdded || isProcessingResult.not()) return@addOnFailureListener
 
                 Log.e(TAG, "Firestore collection query failed", e)
                 showErrorMessage(e.message)
@@ -382,6 +389,9 @@ class ScanFragment : BottomSheetDialogFragment() {
                 "Gagal membuka detail: ${e.message}",
                 Toast.LENGTH_SHORT
             ).show()
+            // Reset flag jika navigasi gagal
+            isProcessingResult = false
+            isScanning = false
         }
     }
 
@@ -389,6 +399,9 @@ class ScanFragment : BottomSheetDialogFragment() {
         if (!isAdded) return
 
         activity?.runOnUiThread {
+            // Stop scanning completely
+            isProcessingResult = true
+
             val snackbar = Snackbar.make(
                 requireView(),
                 "⚠️ Barang Tidak Ditemukan",
@@ -417,53 +430,35 @@ class ScanFragment : BottomSheetDialogFragment() {
     }
 
     private fun showErrorMessage(message: String?) {
+        // Stop scanning completely when showing error
+        isProcessingResult = true
+
         Toast.makeText(
             requireContext(),
             "Gagal mengambil data: ${message ?: "Unknown error"}",
             Toast.LENGTH_SHORT
         ).show()
-    }
 
-    private fun showLoading() {
-        if (!isAdded) return
-
-        try {
-            progressDialog = ProgressDialogFragment()
-            val fm = parentFragmentManager
-            if (!fm.isDestroyed && !fm.isStateSaved) {
-                progressDialog?.show(fm, "loading")
-                Log.d(TAG, "Loading dialog shown")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error showing loading dialog", e)
-        }
-    }
-
-    private fun hideLoading() {
-        try {
-            progressDialog?.let { dialog ->
-                if (dialog.isAdded) {
-                    dialog.dismissAllowingStateLoss()
-                }
-            }
-            progressDialog = null
-            Log.d(TAG, "Loading dialog hidden")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error hiding loading dialog", e)
-        }
+        // Navigate to home after showing error
+        Handler(Looper.getMainLooper()).postDelayed({
+            navigateToHome()
+        }, 2000)
     }
 
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "Fragment resumed")
-        if (::cameraProviderFuture.isInitialized && isAdded &&
+
+        // Jangan rebind camera jika sudah di-setup atau sedang processing result
+        if (!isCameraSetup && !isProcessingResult && isAdded &&
             ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED) {
-            try {
-                val cameraProvider = cameraProviderFuture.get()
-                bindCameraUseCases(cameraProvider)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to rebind camera use cases on resume", e)
+
+            // Pastikan viewfinder sudah siap
+            viewfinder.post {
+                if (viewfinder.display != null) {
+                    setupCamera()
+                }
             }
         }
     }
@@ -484,12 +479,15 @@ class ScanFragment : BottomSheetDialogFragment() {
                 Log.e(TAG, "Error unbinding camera", e)
             }
         }
+        // Reset flags
+        isProcessingResult = false
+        isCameraSetup = false
+        isScanning = false
     }
 
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "Fragment destroyed, releasing resources")
-        hideLoading()
         if (::cameraExecutor.isInitialized) {
             cameraExecutor.shutdown()
         }

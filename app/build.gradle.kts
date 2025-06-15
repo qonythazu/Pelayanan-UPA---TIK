@@ -124,6 +124,7 @@ dependencies {
 
     // Mockito untuk Android Tests
     androidTestImplementation("org.mockito:mockito-android:4.11.0")
+    androidTestImplementation("org.mockito.kotlin:mockito-kotlin:4.0.0")
 
     // MockK sebagai alternatif
     testImplementation("io.mockk:mockk:1.13.8")
