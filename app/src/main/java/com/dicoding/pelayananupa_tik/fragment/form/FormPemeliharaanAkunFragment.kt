@@ -1,32 +1,33 @@
 package com.dicoding.pelayananupa_tik.fragment.form
 
 import android.app.Activity
-import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.RadioButton
-import android.widget.Toast
+import android.widget.RadioGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPemeliharaanAkunBinding
-import com.dicoding.pelayananupa_tik.helper.Quadruple
-import com.dicoding.pelayananupa_tik.utils.UserManager
+import com.dicoding.pelayananupa_tik.helper.*
+import com.dicoding.pelayananupa_tik.utils.FormUtils
+import com.dicoding.pelayananupa_tik.utils.FormUtils.getFileName
+import com.dicoding.pelayananupa_tik.utils.FormUtils.isFileValid
+import com.dicoding.pelayananupa_tik.utils.FormUtils.openPdfPicker
+import com.dicoding.pelayananupa_tik.utils.FormUtils.saveFormToFirestore
+import com.dicoding.pelayananupa_tik.utils.FormUtils.savePdfLocally
+import com.dicoding.pelayananupa_tik.utils.FormUtils.setupEditModeUI
+import com.dicoding.pelayananupa_tik.utils.FormUtils.setupToolbarNavigation
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
-import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class FormPemeliharaanAkunFragment : Fragment() {
 
@@ -37,31 +38,12 @@ class FormPemeliharaanAkunFragment : Fragment() {
     private var savedPdfPath: String? = null
     private var isEditMode = false
     private var editingItem: LayananItem? = null
+
     private val pdfPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            selectedPdfUri = result.data?.data
-            selectedPdfUri?.let { uri ->
-                if (isFileSizeValid(uri)) {
-                    val fileName = getFileName(uri)
-                    binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
-                    binding.btnChooseFile.apply {
-                        backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
-                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                        text = getString(R.string.change_image)
-                        strokeWidth = 0
-                    }
-                    savePdfLocally(uri)
-                } else {
-                    selectedPdfUri = null
-                    Toast.makeText(
-                        requireContext(),
-                        "File terlalu besar! Maksimal ukuran file adalah 2MB.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
+            handlePdfSelection(result.data?.data)
         }
     }
 
@@ -76,7 +58,19 @@ class FormPemeliharaanAkunFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
+
         checkEditMode()
+        setupUI()
+        setupClickListeners()
+    }
+
+    private fun setupUI() {
+        setupToolbarNavigation(R.id.toolbar)
+        setupEditModeUI(isEditMode, binding.textView, binding.btnSubmit, R.string.edit_pemeliharaan_akun)
+        setupRadioGroupListeners()
+    }
+
+    private fun setupRadioGroupListeners() {
         binding.radioGroupLayanan.setOnCheckedChangeListener { _, _ -> }
         binding.radioGroupJenis.setOnCheckedChangeListener { _, checkedId ->
             binding.textInputLayoutOther.visibility = if (checkedId == R.id.radioOther) {
@@ -85,330 +79,213 @@ class FormPemeliharaanAkunFragment : Fragment() {
                 View.GONE
             }
         }
-        binding.btnChooseFile.setOnClickListener { openPdfPicker() }
-        binding.btnSubmit.setOnClickListener {
-            if (isEditMode) {
-                updateForm()
-            } else {
-                submitForm()
+    }
+
+    private fun setupClickListeners() {
+        binding.btnChooseFile.setOnClickListener { openPdfPicker(pdfPickerLauncher) }
+        binding.btnSubmit.setOnClickListener { handleFormSubmission() }
+    }
+
+    private fun handlePdfSelection(uri: Uri?) {
+        selectedPdfUri = uri
+        uri?.let {
+            if (isFileValid(requireContext(), it)) {
+                val fileName = getFileName(requireContext(), it)
+                updateFileUI(fileName)
+                savedPdfPath = savePdfLocally(requireContext(), it)
             }
         }
-        val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
-        toolbar.setNavigationOnClickListener {
-            requireActivity().onBackPressedDispatcher.onBackPressed()
+    }
+
+    private fun updateFileUI(fileName: String) {
+        binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
+        binding.btnChooseFile.apply {
+            backgroundTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(requireContext(), R.color.primary_blue)
+            )
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+            text = getString(R.string.change_image)
+            strokeWidth = 0
         }
-        if (isEditMode) {
-            binding.textView.text = getString(R.string.edit_pemeliharaan_akun)
-            binding.btnSubmit.text = getString(R.string.update)
+    }
+
+    private fun handleFormSubmission() {
+        val formData = getFormData()
+        val validationRules = buildValidation {
+            radioButton(formData.first, "Harap pilih layanan yang diajukan")
+            radioButton(formData.second, "Harap pilih jenis pemeliharaan yang diajukan")
+            required(formData.third, binding.namaAkunLayout, "Nama Akun Layanan tidak boleh kosong")
+            required(formData.fourth, binding.alasanLayout, "Alasan Pemeliharaan tidak boleh kosong")
+            file(selectedPdfUri, requireContext())
+        }
+
+        FormUtils.handleFormSubmission(
+            isEditMode = isEditMode,
+            submitButton = binding.btnSubmit,
+            context = requireContext(),
+            formData = mapOf(
+                "layanan" to formData.first,
+                "jenis" to formData.second,
+                "akun" to formData.third,
+                "alasan" to formData.fourth
+            ),
+            validationResult = ValidationHelper.validateFormWithRules(
+                requireContext(),
+                validationRules
+            ).isValid,
+            onSubmit = { submitNewForm(formData) },
+            onUpdate = { updateExistingForm(formData) }
+        )
+    }
+
+    private fun submitNewForm(formData: Quadruple<String, String, String, String>) {
+        val dataToSave = mapOf(
+            "judul" to "Form Pemeliharaan Akun",
+            "layanan" to formData.first,
+            "jenis" to formData.second,
+            "akun" to formData.third,
+            "alasan" to formData.fourth,
+            "filePath" to (savedPdfPath ?: "")
+        )
+
+        saveFormToFirestore(
+            firestore = firestore,
+            collectionName = "form_pemeliharaan",
+            formData = dataToSave,
+            context = requireContext(),
+            onSuccess = {
+                clearForm()
+                findNavController().navigate(R.id.action_formPemeliharaanAkunFragment_to_historyLayananFragment)
+            },
+            onFailure = {
+                FormUtils.resetButton(binding.btnSubmit, R.string.submit, requireContext())
+            }
+        )
+    }
+
+    private fun updateExistingForm(formData: Quadruple<String, String, String, String>) {
+        FormUtils.handleEditModeError(
+            editingItem = editingItem,
+            submitButton = binding.btnSubmit,
+            context = requireContext()
+        ) { documentId ->
+            val updateData = mapOf(
+                "layanan" to formData.first,
+                "jenis" to formData.second,
+                "akun" to formData.third,
+                "alasan" to formData.fourth,
+                "filePath" to (savedPdfPath ?: editingItem?.filePath ?: "")
+            )
+
+            FormUtils.updateFormInFirestore(
+                firestore = firestore,
+                collectionName = "form_pemeliharaan",
+                documentId = documentId,
+                updateData = updateData,
+                context = requireContext(),
+                onSuccess = {
+                    FormUtils.resetButton(binding.btnSubmit, R.string.update, requireContext())
+                    FormUtils.handleUpdateNavigation(
+                        findNavController(),
+                        R.id.action_formPemeliharaanAkunFragment_to_historyLayananFragment
+                    )
+                },
+                onFailure = {
+                    FormUtils.resetButton(binding.btnSubmit, R.string.update, requireContext())
+                }
+            )
         }
     }
 
     private fun checkEditMode() {
         arguments?.let { args ->
             val documentId = args.getString("documentId")
-            val layanan = args.getString("layanan")
-            val jenis = args.getString("jenis")
-            val akun = args.getString("akun")
-            val alasan = args.getString("alasan")
-            val filePath = args.getString("filePath")
-
             if (!documentId.isNullOrEmpty()) {
                 isEditMode = true
                 editingItem = LayananItem(
                     documentId = documentId,
-                    layanan = layanan ?: "",
-                    jenis = jenis ?: "",
-                    akun = akun ?: "",
-                    alasan = alasan ?: "",
-                    filePath = filePath ?: ""
+                    layanan = args.getString("layanan") ?: "",
+                    jenis = args.getString("jenis") ?: "",
+                    akun = args.getString("akun") ?: "",
+                    alasan = args.getString("alasan") ?: "",
+                    filePath = args.getString("filePath") ?: ""
                 )
-                binding.root.post {
-                    populateFormForEdit()
-                }
+                binding.root.post { populateFormForEdit() }
             }
         }
     }
 
     private fun populateFormForEdit() {
         editingItem?.let { item ->
-            val layananRadioButtons = mapOf(
-                "Subdomain" to binding.radioSubDomain,
-                "Hosting" to binding.radioHosting,
-                "Virtual Private Server (VPS)" to binding.radioVPS,
-                "Website" to binding.radioWebsite,
-                "Email" to binding.radioEmail,
-                "Gerbang ITK" to binding.radioGerbang,
-                "Microsoft 365" to binding.radioMic
-            )
-            layananRadioButtons[item.layanan]?.isChecked = true
-            val jenisRadioButtons = mapOf(
-                "Reset Password Akun" to binding.radioReset,
-                "Perubahan/Penambahan Data Layanan" to binding.radioPerubahan,
-                "Penambahan Penyimpanan" to binding.radioPenambahan
-            )
-            if (jenisRadioButtons.containsKey(item.jenis)) {
-                jenisRadioButtons[item.jenis]?.isChecked = true
-            } else {
-                binding.radioOther.isChecked = true
-                binding.textInputLayoutOther.visibility = View.VISIBLE
-                binding.editTextOther.setText(item.jenis)
-            }
+            populateLayananRadioButtons(item.layanan)
+            populateJenisRadioButtons(item.jenis)
             binding.namaAkunLayout.editText?.setText(item.akun)
             binding.alasanLayout.editText?.setText(item.alasan)
-
-            if (item.filePath.isNotEmpty()) {
-                val file = File(item.filePath)
-                if (file.exists()) {
-                    binding.tvFileName.text = getString(R.string.file_selected, " ${file.name}")
-                    binding.btnChooseFile.apply {
-                        backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
-                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                        text = getString(R.string.change_image)
-                        strokeWidth = 0
-                    }
-                    savedPdfPath = item.filePath
-                }
-            }
+            populateFileData(item.filePath)
         }
     }
 
-    private fun openPdfPicker() {
-        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-            type = "application/pdf"
-            addCategory(Intent.CATEGORY_OPENABLE)
-        }
-        pdfPickerLauncher.launch(Intent.createChooser(intent, "Pilih File PDF"))
+    private fun populateLayananRadioButtons(layanan: String) {
+        val layananRadioButtons = mapOf(
+            "Subdomain" to binding.radioSubDomain,
+            "Hosting" to binding.radioHosting,
+            "Virtual Private Server (VPS)" to binding.radioVPS,
+            "Website" to binding.radioWebsite,
+            "Email" to binding.radioEmail,
+            "Gerbang ITK" to binding.radioGerbang,
+            "Microsoft 365" to binding.radioMic
+        )
+        layananRadioButtons[layanan]?.isChecked = true
     }
 
-    private fun isFileSizeValid(uri: Uri): Boolean {
-        return try {
-            val inputStream = requireContext().contentResolver.openInputStream(uri)
-            val fileSize = inputStream?.available() ?: 0
-            inputStream?.close()
+    private fun populateJenisRadioButtons(jenis: String) {
+        val jenisRadioButtons = mapOf(
+            "Reset Password Akun" to binding.radioReset,
+            "Perubahan/Penambahan Data Layanan" to binding.radioPerubahan,
+            "Penambahan Penyimpanan" to binding.radioPenambahan
+        )
 
-            fileSize <= MAX_FILE_SIZE_BYTES
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    private fun getFileName(uri: Uri): String {
-        var result: String? = null
-        if (uri.scheme == "content") {
-            val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (index >= 0) {
-                        result = it.getString(index)
-                    }
-                }
-            }
-        }
-        if (result == null) {
-            result = uri.path
-            val cut = result?.lastIndexOf('/')
-            if (cut != -1) {
-                result = result?.substring(cut!! + 1)
-            }
-        }
-        return result ?: "unknown_file.pdf"
-    }
-
-    private fun savePdfLocally(uri: Uri) {
-        try {
-            val inputStream = requireContext().contentResolver.openInputStream(uri)
-            val fileName = getFileName(uri)
-            val file = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
-
-            val outputStream = FileOutputStream(file)
-            inputStream?.copyTo(outputStream)
-            inputStream?.close()
-            outputStream.close()
-
-            savedPdfPath = file.absolutePath
-            Toast.makeText(requireContext(), "File berhasil disimpan", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Gagal menyimpan file: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun validateForm(formData: Quadruple<String, String, String, String>): Boolean {
-        val (layanan, jenis, akun, alasan) = formData
-
-        if (layanan.isEmpty()) {
-            Toast.makeText(requireContext(), "Harap pilih layanan yang diajukan", Toast.LENGTH_SHORT).show()
-            return false
-        }
-
-        if (jenis.isEmpty()) {
-            Toast.makeText(requireContext(), "Harap pilih jenis pemeliharaan yang diajukan", Toast.LENGTH_SHORT).show()
-            return false
-        }
-
-        if (akun.isBlank()) {
-            binding.namaAkunLayout.error = "Nama Akun Layanan tidak boleh kosong"
-            return false
+        if (jenisRadioButtons.containsKey(jenis)) {
+            jenisRadioButtons[jenis]?.isChecked = true
         } else {
-            binding.namaAkunLayout.error = null
+            binding.radioOther.isChecked = true
+            binding.textInputLayoutOther.visibility = View.VISIBLE
+            binding.editTextOther.setText(jenis)
         }
-
-        if (alasan.isBlank()) {
-            binding.alasanLayout.error = "Alasan Pemeliharaan tidak boleh kosong"
-            return false
-        } else {
-            binding.alasanLayout.error = null
-        }
-
-        selectedPdfUri?.let { uri ->
-            if (!isFileSizeValid(uri)) {
-                Toast.makeText(
-                    requireContext(),
-                    "File yang dipilih terlalu besar! Maksimal ukuran file adalah 2MB.",
-                    Toast.LENGTH_LONG
-                ).show()
-                return false
-            }
-        }
-
-        return true
     }
 
-    private fun submitForm() {
-        binding.btnSubmit.isEnabled = false
-        binding.btnSubmit.text = getString(R.string.submitting)
-
-        val formData = getFormData()
-        if (!validateForm(formData)) {
-            binding.btnSubmit.isEnabled = true
-            binding.btnSubmit.text = getString(R.string.submit)
-            return
-        }
-        saveDataToFirestore(formData.first, formData.second, formData.third, formData.fourth)
-    }
-
-    private fun updateForm() {
-        binding.btnSubmit.isEnabled = false
-        binding.btnSubmit.text = getString(R.string.submitting)
-
-        val formData = getFormData()
-        if (!validateForm(formData)) {
-            binding.btnSubmit.isEnabled = true
-            binding.btnSubmit.text = getString(R.string.update)
-            return
-        }
-        editingItem?.let { item ->
-            if (item.documentId.isNotEmpty()) {
-                updateDataInFirestore(item.documentId, formData.first, formData.second, formData.third, formData.fourth)
-            } else {
-                Toast.makeText(requireContext(), "Error: Document ID tidak valid", Toast.LENGTH_SHORT).show()
-                binding.btnSubmit.isEnabled = true
-                binding.btnSubmit.text = getString(R.string.update)
+    private fun populateFileData(filePath: String) {
+        if (filePath.isNotEmpty()) {
+            val file = File(filePath)
+            if (file.exists()) {
+                updateFileUI(file.name)
+                savedPdfPath = filePath
             }
-        } ?: run {
-            Toast.makeText(requireContext(), "Error: Data item tidak ditemukan", Toast.LENGTH_SHORT).show()
-            binding.btnSubmit.isEnabled = true
-            binding.btnSubmit.text = getString(R.string.update)
         }
     }
 
     private fun getFormData(): Quadruple<String, String, String, String> {
-        val selectedRadioButtonLayanan = binding.radioGroupLayanan.checkedRadioButtonId
-        val selectedRadioButtonJenis = binding.radioGroupJenis.checkedRadioButtonId
-        val layanan = if (selectedRadioButtonLayanan != -1) {
-            view?.findViewById<RadioButton>(selectedRadioButtonLayanan)?.text?.toString() ?: ""
-        } else ""
-        val jenis = if (selectedRadioButtonJenis == R.id.radioOther) {
-            binding.editTextOther.text.toString().trim()
-        } else if (selectedRadioButtonJenis != -1) {
-            view?.findViewById<RadioButton>(selectedRadioButtonJenis)?.text?.toString() ?: ""
-        } else ""
-        val akun = binding.namaAkunLayout.editText?.text.toString().trim()
-        val alasan = binding.alasanLayout.editText?.text.toString().trim()
-
-        return Quadruple(layanan, jenis, akun, alasan)
-    }
-
-    private fun saveDataToFirestore(
-        layanan: String,
-        jenis: String,
-        akun: String,
-        alasan: String
-    ) {
-        val userEmail = UserManager.getCurrentUserEmail()
-        val currentTime = System.currentTimeMillis()
-        val formattedDate = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(currentTime))
-
-        val pemeliharaan = hashMapOf(
-            "userEmail" to userEmail,
-            "judul" to "Form Pemeliharaan Akun",
-            "layanan" to layanan,
-            "jenis" to jenis,
-            "akun" to akun,
-            "alasan" to alasan,
-            "filePath" to (savedPdfPath ?: ""),
-            "status" to "draft",
-            "timestamp" to formattedDate
+        return Quadruple(
+            getSelectedRadioButtonText(binding.radioGroupLayanan),
+            getJenisValue(),
+            binding.namaAkunLayout.editText?.text.toString().trim(),
+            binding.alasanLayout.editText?.text.toString().trim()
         )
-
-        firestore.collection("form_pemeliharaan")
-            .add(pemeliharaan)
-            .addOnSuccessListener {
-                Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
-                clearForm()
-                findNavController().navigate(R.id.action_formPemeliharaanAkunFragment_to_historyLayananFragment)
-            }
-            .addOnFailureListener { exception ->
-                Toast.makeText(requireContext(), "Gagal mengirim pengaduan: ${exception.message}", Toast.LENGTH_SHORT).show()
-            }
     }
 
-    private fun updateDataInFirestore(
-        documentId: String,
-        layanan: String,
-        jenis: String,
-        akun: String,
-        alasan: String
-    ) {
-        if (documentId.isEmpty()) {
-            Toast.makeText(requireContext(), "Error: Document ID tidak ditemukan", Toast.LENGTH_SHORT).show()
-            return
+    private fun getSelectedRadioButtonText(radioGroup: RadioGroup): String {
+        val selectedId = radioGroup.checkedRadioButtonId
+        return if (selectedId != -1) {
+            view?.findViewById<RadioButton>(selectedId)?.text?.toString() ?: ""
+        } else ""
+    }
+
+    private fun getJenisValue(): String {
+        return when (val selectedId = binding.radioGroupJenis.checkedRadioButtonId) {
+            R.id.radioOther -> binding.editTextOther.text.toString().trim()
+            -1 -> ""
+            else -> view?.findViewById<RadioButton>(selectedId)?.text?.toString() ?: ""
         }
-
-        binding.btnSubmit.isEnabled = false
-        binding.btnSubmit.text = getString(R.string.updating)
-
-        val updateData = hashMapOf<String, Any>(
-            "layanan" to layanan,
-            "jenis" to jenis,
-            "akun" to akun,
-            "alasan" to alasan,
-            "filePath" to (savedPdfPath ?: editingItem?.filePath ?: ""),
-            "lastUpdated" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
-        )
-
-        firestore.collection("form_pemeliharaan")
-            .document(documentId)
-            .update(updateData)
-            .addOnSuccessListener {
-                Toast.makeText(requireContext(), "Data berhasil diupdate", Toast.LENGTH_SHORT).show()
-                // Reset button state
-                binding.btnSubmit.isEnabled = true
-                binding.btnSubmit.text = getString(R.string.update)
-
-                findNavController().previousBackStackEntry?.savedStateHandle?.set("data_updated", true)
-                try {
-                    findNavController().navigateUp()
-                } catch (e: Exception) {
-                    // Fallback navigation
-                    findNavController().navigate(R.id.action_formPemeliharaanAkunFragment_to_historyLayananFragment)
-                }
-            }
-            .addOnFailureListener { exception ->
-                Toast.makeText(requireContext(), "Gagal mengupdate data: ${exception.message}", Toast.LENGTH_SHORT).show()
-                binding.btnSubmit.isEnabled = true
-                binding.btnSubmit.text = getString(R.string.update)
-            }
     }
 
     private fun clearForm() {
@@ -418,8 +295,13 @@ class FormPemeliharaanAkunFragment : Fragment() {
         binding.editTextOther.text?.clear()
         binding.namaAkunLayout.editText?.text?.clear()
         binding.alasanLayout.editText?.text?.clear()
-        binding.tvFileName.text = getString(R.string.no_file_selected)
+        resetFileUI()
+        selectedPdfUri = null
+        savedPdfPath = null
+    }
 
+    private fun resetFileUI() {
+        binding.tvFileName.text = getString(R.string.no_file_selected)
         binding.btnChooseFile.apply {
             backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.white))
             setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
@@ -427,9 +309,6 @@ class FormPemeliharaanAkunFragment : Fragment() {
             strokeWidth = 2
             strokeColor = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
         }
-
-        selectedPdfUri = null
-        savedPdfPath = null
     }
 
     override fun onResume() {
@@ -447,9 +326,5 @@ class FormPemeliharaanAkunFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-    }
-
-    private companion object {
-        private const val MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
     }
 }

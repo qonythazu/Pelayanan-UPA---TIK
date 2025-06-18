@@ -1,11 +1,9 @@
 package com.dicoding.pelayananupa_tik.fragment.peminjamanFeature
 
 import android.app.Activity
-import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -21,13 +19,15 @@ import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.viewmodel.BoxViewModel
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPeminjamanBinding
 import com.dicoding.pelayananupa_tik.helper.isValidPhoneNumber
+import com.dicoding.pelayananupa_tik.utils.FormUtils.getFileName
+import com.dicoding.pelayananupa_tik.utils.FormUtils.isFileValid
+import com.dicoding.pelayananupa_tik.utils.FormUtils.openPdfPicker
+import com.dicoding.pelayananupa_tik.utils.FormUtils.savePdfLocally
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -50,23 +50,18 @@ class FormPeminjamanFragment : Fragment() {
         if (result.resultCode == Activity.RESULT_OK) {
             selectedPdfUri = result.data?.data
             selectedPdfUri?.let { uri ->
-                if (isFileSizeValid(uri)) {
-                    val fileName = getFileName(uri)
+                if (isFileValid(requireContext(), uri)) {
+                    val fileName = getFileName(requireContext(), uri)
                     binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
                     binding.btnChooseFile.apply {
-                        backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                        backgroundTintList = ColorStateList.valueOf(
+                            ContextCompat.getColor(requireContext(), R.color.primary_blue)
+                        )
                         setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                         text = getString(R.string.change_image)
                         strokeWidth = 0
                     }
-                    savePdfLocally(uri)
-                } else {
-                    selectedPdfUri = null
-                    Toast.makeText(
-                        requireContext(),
-                        "File terlalu besar! Maksimal ukuran file adalah 2MB.",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    savedPdfPath = savePdfLocally(requireContext(), uri)
                 }
             }
         }
@@ -182,7 +177,7 @@ class FormPeminjamanFragment : Fragment() {
         }
 
         binding.btnChooseFile.setOnClickListener {
-            openPdfPicker()
+            openPdfPicker(pdfPickerLauncher)
         }
     }
 
@@ -193,70 +188,6 @@ class FormPeminjamanFragment : Fragment() {
         binding.harapanAndaLayout.error = null
         binding.namaPenanggungJawabLayout.error = null
         binding.kontakPenanggungJawabLayout.error = null
-    }
-
-    private fun openPdfPicker() {
-        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-            type = "application/pdf"
-            addCategory(Intent.CATEGORY_OPENABLE)
-        }
-        pdfPickerLauncher.launch(Intent.createChooser(intent, "Pilih File PDF"))
-    }
-
-    private fun isFileSizeValid(uri: Uri): Boolean {
-        return try {
-            val inputStream = requireContext().contentResolver.openInputStream(uri)
-            val fileSize = inputStream?.available() ?: 0
-            inputStream?.close()
-
-            fileSize <= MAX_FILE_SIZE_BYTES
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    private fun getFileName(uri: Uri): String {
-        var result: String? = null
-
-        if (uri.scheme == "content") {
-            val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (index >= 0) {
-                        result = it.getString(index)
-                    }
-                }
-            }
-        }
-
-        if (result == null) {
-            result = uri.path
-            val cut = result?.lastIndexOf('/')
-            if (cut != -1) {
-                result = result?.substring(cut!! + 1)
-            }
-        }
-
-        return result ?: "unknown_file.pdf"
-    }
-
-    private fun savePdfLocally(uri: Uri) {
-        try {
-            val inputStream = requireContext().contentResolver.openInputStream(uri)
-            val fileName = "peminjaman_${System.currentTimeMillis()}.pdf"
-            val file = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
-
-            val outputStream = FileOutputStream(file)
-            inputStream?.copyTo(outputStream)
-            inputStream?.close()
-            outputStream.close()
-
-            savedPdfPath = file.absolutePath
-            Toast.makeText(requireContext(), "File berhasil disimpan", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Gagal menyimpan file: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
     }
 
     private fun validateForm(): Boolean {
@@ -388,9 +319,5 @@ class FormPeminjamanFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-    }
-
-    private companion object {
-        private const val MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
     }
 }

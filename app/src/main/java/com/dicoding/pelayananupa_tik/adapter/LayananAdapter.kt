@@ -286,7 +286,7 @@ class LayananAdapter(
         position: Int
     ) {
         holder.btnBatalkan.setOnClickListener {
-            val updatedItem = layananItem.copy(status = "Terkirim")
+            val updatedItem = layananItem.copy(status = "terkirim")
             layananList[position] = updatedItem
             notifyItemChanged(position)
             onStatusChanged(updatedItem, position)

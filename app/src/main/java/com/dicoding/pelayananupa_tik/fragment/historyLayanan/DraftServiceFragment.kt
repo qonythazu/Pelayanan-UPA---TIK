@@ -284,7 +284,7 @@ class DraftServiceFragment : Fragment() {
                         val doc = documents.documents[0]
                         firestore.collection(collection)
                             .document(doc.id)
-                            .update("status", "terkrim")
+                            .update("status", "terkirim")
                             .addOnSuccessListener {
                                 Log.d("DraftService", "Status updated successfully")
                                 updateSuccess = true

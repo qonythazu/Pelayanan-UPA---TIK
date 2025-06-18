@@ -1,15 +1,12 @@
 package com.dicoding.pelayananupa_tik.fragment.form
 
 import android.app.Activity
-import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -18,15 +15,17 @@ import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPengaduanLayananBinding
-import com.dicoding.pelayananupa_tik.helper.Triplet
-import com.dicoding.pelayananupa_tik.helper.isValidPhoneNumber
-import com.dicoding.pelayananupa_tik.utils.UserManager
+import com.dicoding.pelayananupa_tik.helper.*
+import com.dicoding.pelayananupa_tik.utils.FormUtils
+import com.dicoding.pelayananupa_tik.utils.FormUtils.getFileName
+import com.dicoding.pelayananupa_tik.utils.FormUtils.isFileValid
+import com.dicoding.pelayananupa_tik.utils.FormUtils.openPdfPicker
+import com.dicoding.pelayananupa_tik.utils.FormUtils.saveFormToFirestore
+import com.dicoding.pelayananupa_tik.utils.FormUtils.savePdfLocally
+import com.dicoding.pelayananupa_tik.utils.FormUtils.setupEditModeUI
+import com.dicoding.pelayananupa_tik.utils.FormUtils.setupToolbarNavigation
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
-import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class FormPengaduanLayananFragment : Fragment() {
 
@@ -37,31 +36,12 @@ class FormPengaduanLayananFragment : Fragment() {
     private var savedPdfPath: String? = null
     private var isEditMode = false
     private var editingItem: LayananItem? = null
+
     private val pdfPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            selectedPdfUri = result.data?.data
-            selectedPdfUri?.let { uri ->
-                if (isFileSizeValid(uri)) {
-                    val fileName = getFileName(uri)
-                    binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
-                    binding.btnChooseFile.apply {
-                        backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
-                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                        text = getString(R.string.change_image)
-                        strokeWidth = 0
-                    }
-                    savePdfLocally(uri)
-                } else {
-                    selectedPdfUri = null
-                    Toast.makeText(
-                        requireContext(),
-                        "File terlalu besar! Maksimal ukuran file adalah 2MB.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
+            handlePdfSelection(result.data?.data)
         }
     }
 
@@ -76,71 +56,153 @@ class FormPengaduanLayananFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
+
         checkEditMode()
-        // Load user phone number automatically
+        setupUI()
         loadUserPhoneNumber()
-        binding.btnChooseFile.setOnClickListener { openPdfPicker() }
-        binding.btnSubmit.setOnClickListener {
-            if (isEditMode) {
-                updateForm()
-            } else {
-                submitForm()
-            }
-        }
-        val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
-        toolbar.setNavigationOnClickListener {
-            requireActivity().onBackPressedDispatcher.onBackPressed()
-        }
-        if (isEditMode) {
-            binding.textView.text = getString(R.string.edit_pengaduan_layanan)
-            binding.btnSubmit.text = getString(R.string.update)
-        }
+        setupClickListeners()
+    }
+
+    private fun setupUI() {
+        setupToolbarNavigation(R.id.toolbar)
+        setupEditModeUI(isEditMode, binding.textView, binding.btnSubmit, R.string.edit_pengaduan_layanan)
     }
 
     private fun loadUserPhoneNumber() {
-        val userEmail = UserManager.getCurrentUserEmail()
-        if (!userEmail.isNullOrEmpty()) {
-            firestore.collection("users")
-                .whereEqualTo("email", userEmail)
-                .get()
-                .addOnSuccessListener { documents ->
-                    if (!documents.isEmpty) {
-                        val userDocument = documents.first()
-                        val nomorTelepon = userDocument.getString("nomorTelepon")
+        FormUtils.loadUserPhoneNumber(
+            firestore = firestore,
+            isEditMode = isEditMode,
+            currentContactText = binding.kontakLayout.editText?.text.toString()
+        ) { phoneNumber ->
+            binding.kontakLayout.editText?.setText(phoneNumber)
+        }
+    }
 
-                        // Hanya isi otomatis jika bukan mode edit atau field kosong
-                        if (!isEditMode || binding.kontakLayout.editText?.text.toString().trim().isEmpty()) {
-                            nomorTelepon?.let { phoneNumber ->
-                                if (phoneNumber.isNotEmpty()) {
-                                    binding.kontakLayout.editText?.setText(phoneNumber)
-                                }
-                            }
-                        }
-                    }
+    private fun setupClickListeners() {
+        binding.btnChooseFile.setOnClickListener { openPdfPicker(pdfPickerLauncher) }
+        binding.btnSubmit.setOnClickListener { handleFormSubmission() }
+    }
+
+    private fun handlePdfSelection(uri: Uri?) {
+        selectedPdfUri = uri
+        uri?.let {
+            if (isFileValid(requireContext(), it)) {
+                val fileName = getFileName(requireContext(), it)
+                updateFileUI(fileName)
+                savedPdfPath = savePdfLocally(requireContext(), it)
+            }
+        }
+    }
+
+    private fun updateFileUI(fileName: String) {
+        binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
+        binding.btnChooseFile.apply {
+            backgroundTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(requireContext(), R.color.primary_blue)
+            )
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+            text = getString(R.string.change_image)
+            strokeWidth = 0
+        }
+    }
+
+    private fun handleFormSubmission() {
+        val formData = getFormData()
+        val validationRules = buildValidation {
+            required(formData.first, binding.layananLayout, "Layanan tidak boleh kosong")
+            phone(formData.second, binding.kontakLayout)
+            required(formData.third, binding.keluhanAndaLayout, "Keluhan tidak boleh kosong")
+            file(selectedPdfUri, requireContext())
+        }
+
+        FormUtils.handleFormSubmission(
+            isEditMode = isEditMode,
+            submitButton = binding.btnSubmit,
+            context = requireContext(),
+            formData = mapOf(
+                "layanan" to formData.first,
+                "kontak" to formData.second,
+                "keluhan" to formData.third
+            ),
+            validationResult = ValidationHelper.validateFormWithRules(
+                requireContext(),
+                validationRules
+            ).isValid,
+            onSubmit = { submitNewForm(formData) },
+            onUpdate = { updateExistingForm(formData) }
+        )
+    }
+
+    private fun submitNewForm(formData: Triple<String, String, String>) {
+        val dataToSave = mapOf(
+            "judul" to "Form Pengaduan Layanan",
+            "layanan" to formData.first,
+            "kontak" to formData.second,
+            "keluhan" to formData.third,
+            "filePath" to (savedPdfPath ?: "")
+        )
+
+        saveFormToFirestore(
+            firestore = firestore,
+            collectionName = "form_pengaduan",
+            formData = dataToSave,
+            context = requireContext(),
+            onSuccess = {
+                clearForm()
+                findNavController().navigate(R.id.action_formPengaduanLayananFragment_to_historyLayananFragment)
+            },
+            onFailure = {
+                FormUtils.resetButton(binding.btnSubmit, R.string.submit, requireContext())
+            }
+        )
+    }
+
+    private fun updateExistingForm(formData: Triple<String, String, String>) {
+        FormUtils.handleEditModeError(
+            editingItem = editingItem,
+            submitButton = binding.btnSubmit,
+            context = requireContext()
+        ) { documentId ->
+            val updateData = mapOf(
+                "layanan" to formData.first,
+                "kontak" to formData.second,
+                "keluhan" to formData.third,
+                "filePath" to (savedPdfPath ?: editingItem?.filePath ?: "")
+            )
+
+            FormUtils.updateFormInFirestore(
+                firestore = firestore,
+                collectionName = "form_pengaduan",
+                documentId = documentId,
+                updateData = updateData,
+                context = requireContext(),
+                onSuccess = {
+                    FormUtils.resetButton(binding.btnSubmit, R.string.update, requireContext())
+                    FormUtils.handleUpdateNavigation(
+                        findNavController(),
+                        R.id.action_formPengaduanLayananFragment_to_historyLayananFragment
+                    )
+                },
+                onFailure = {
+                    FormUtils.resetButton(binding.btnSubmit, R.string.update, requireContext())
                 }
+            )
         }
     }
 
     private fun checkEditMode() {
         arguments?.let { args ->
             val documentId = args.getString("documentId")
-            val layanan = args.getString("layanan")
-            val kontak = args.getString("kontak")
-            val keluhan = args.getString("keluhan")
-            val filePath = args.getString("filePath")
-
             if (!documentId.isNullOrEmpty()) {
                 isEditMode = true
                 editingItem = LayananItem(
                     documentId = documentId,
-                    layanan = layanan ?: "",
-                    kontak = kontak ?: "",
-                    keluhan = keluhan ?: "",
-                    filePath = filePath ?: ""
+                    layanan = args.getString("layanan") ?: "",
+                    kontak = args.getString("kontak") ?: "",
+                    keluhan = args.getString("keluhan") ?: "",
+                    filePath = args.getString("filePath") ?: ""
                 )
-                binding.root.post {
-                    populateFormForEdit()
-                }
+                binding.root.post { populateFormForEdit() }
             }
         }
     }
@@ -150,242 +212,39 @@ class FormPengaduanLayananFragment : Fragment() {
             binding.layananLayout.editText?.setText(item.layanan)
             binding.kontakLayout.editText?.setText(item.kontak)
             binding.keluhanAndaLayout.editText?.setText(item.keluhan)
+            populateFileData(item.filePath)
+        }
+    }
 
-            if (item.filePath.isNotEmpty()) {
-                val file = File(item.filePath)
-                if (file.exists()) {
-                    binding.tvFileName.text = getString(R.string.file_selected, " ${file.name}")
-                    binding.btnChooseFile.text = getString(R.string.change_file)
-                    savedPdfPath = item.filePath
-                }
+    private fun populateFileData(filePath: String) {
+        if (filePath.isNotEmpty()) {
+            val file = File(filePath)
+            if (file.exists()) {
+                binding.tvFileName.text = getString(R.string.file_selected, " ${file.name}")
+                binding.btnChooseFile.text = getString(R.string.change_file)
+                savedPdfPath = filePath
             }
         }
     }
 
-    private fun openPdfPicker() {
-        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-            type = "application/pdf"
-            addCategory(Intent.CATEGORY_OPENABLE)
-        }
-        pdfPickerLauncher.launch(Intent.createChooser(intent, "Pilih File PDF"))
-    }
-
-    private fun isFileSizeValid(uri: Uri): Boolean {
-        return try {
-            val inputStream = requireContext().contentResolver.openInputStream(uri)
-            val fileSize = inputStream?.available() ?: 0
-            inputStream?.close()
-
-            fileSize <= MAX_FILE_SIZE_BYTES
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    private fun getFileName(uri: Uri): String {
-        var result: String? = null
-        if (uri.scheme == "content") {
-            val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (index >= 0) {
-                        result = it.getString(index)
-                    }
-                }
-            }
-        }
-        if (result == null) {
-            result = uri.path
-            val cut = result?.lastIndexOf('/')
-            if (cut != -1) {
-                result = result?.substring(cut!! + 1)
-            }
-        }
-        return result ?: "unknown_file.pdf"
-    }
-
-    private fun savePdfLocally(uri: Uri) {
-        try {
-            val inputStream = requireContext().contentResolver.openInputStream(uri)
-            val fileName = getFileName(uri)
-            val file = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
-
-            val outputStream = FileOutputStream(file)
-            inputStream?.copyTo(outputStream)
-            inputStream?.close()
-            outputStream.close()
-
-            savedPdfPath = file.absolutePath
-            Toast.makeText(requireContext(), "File berhasil disimpan", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Gagal menyimpan file: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun validateForm(formData: Triplet<String, String, String>): Boolean {
-        val (layanan, kontak, keluhan) = formData
-        var isValid = true
-        if (layanan.isBlank()) {
-            binding.layananLayout.error = "Jumlah tidak boleh kosong"
-            isValid = false
-        } else {
-            binding.layananLayout.error = null
-        }
-
-        if (kontak.isBlank()) {
-            binding.kontakLayout.error = "Kontak tidak boleh kosong"
-            isValid = false
-        } else if (!isValidPhoneNumber(kontak)) {
-            binding.kontakLayout.error = "Format nomor telepon tidak valid"
-            isValid = false
-        } else {
-            binding.kontakLayout.error = null
-        }
-
-        if (keluhan.isBlank()) {
-            binding.keluhanAndaLayout.error = "Tujuan tidak boleh kosong"
-            isValid = false
-        } else {
-            binding.keluhanAndaLayout.error = null
-        }
-
-        selectedPdfUri?.let { uri ->
-            if (!isFileSizeValid(uri)) {
-                Toast.makeText(
-                    requireContext(),
-                    "File yang dipilih terlalu besar! Maksimal ukuran file adalah 2MB.",
-                    Toast.LENGTH_LONG
-                ).show()
-                return false
-            }
-        }
-
-        return isValid
-    }
-
-    private fun submitForm() {
-        binding.btnSubmit.isEnabled = false
-        binding.btnSubmit.text = getString(R.string.submitting)
-
-        val formData = getFormData()
-        if (!validateForm(formData)) {
-            binding.btnSubmit.isEnabled = true
-            binding.btnSubmit.text = getString(R.string.submit)
-            return
-        }
-        saveDataToFirestore(formData.first, formData.second, formData.third)
-    }
-
-    private fun updateForm() {
-        binding.btnSubmit.isEnabled = false
-        binding.btnSubmit.text = getString(R.string.submitting)
-
-        val formData = getFormData()
-        if (!validateForm(formData)) {
-            binding.btnSubmit.isEnabled = true
-            binding.btnSubmit.text = getString(R.string.update)
-            return
-        }
-        editingItem?.let { item ->
-            if (item.documentId.isNotEmpty()) {
-                updateDataInFirestore(item.documentId, formData.first, formData.second, formData.third)
-            } else {
-                Toast.makeText(requireContext(), "Error: Document ID tidak valid", Toast.LENGTH_SHORT).show()
-                binding.btnSubmit.isEnabled = true
-                binding.btnSubmit.text = getString(R.string.update)
-            }
-        } ?: run {
-            Toast.makeText(requireContext(), "Error: Data item tidak ditemukan", Toast.LENGTH_SHORT).show()
-            binding.btnSubmit.isEnabled = true
-            binding.btnSubmit.text = getString(R.string.update)
-        }
-    }
-
-    private fun getFormData(): Triplet<String, String, String> {
-        val layanan = binding.layananLayout.editText?.text.toString().trim()
-        val kontak = binding.kontakLayout.editText?.text.toString().trim()
-        val keluhan = binding.keluhanAndaLayout.editText?.text.toString().trim()
-
-        return Triplet(layanan, kontak, keluhan)
-    }
-
-    private fun saveDataToFirestore(layanan: String, kontak: String, keluhan: String) {
-        val currentTime = System.currentTimeMillis()
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        val formattedDate = dateFormat.format(Date(currentTime))
-        val userEmail = UserManager.getCurrentUserEmail()
-        val pengaduan = hashMapOf(
-            "userEmail" to userEmail,
-            "judul" to "Form Pengaduan Layanan",
-            "layanan" to layanan,
-            "kontak" to kontak,
-            "keluhan" to keluhan,
-            "filePath" to (savedPdfPath ?: ""),
-            "status" to "draft",
-            "timestamp" to formattedDate
+    private fun getFormData(): Triple<String, String, String> {
+        return Triple(
+            binding.layananLayout.editText?.text.toString().trim(),
+            binding.kontakLayout.editText?.text.toString().trim(),
+            binding.keluhanAndaLayout.editText?.text.toString().trim()
         )
-
-        firestore.collection("form_pengaduan")
-            .add(pengaduan)
-            .addOnSuccessListener {
-                Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
-                clearForm()
-                findNavController().navigate(R.id.action_formPengaduanLayananFragment_to_historyLayananFragment)
-            }
-            .addOnFailureListener {
-                Toast.makeText(requireContext(), "Gagal mengirim pengaduan", Toast.LENGTH_SHORT).show()
-            }
-    }
-
-    private fun updateDataInFirestore(
-        documentId: String,
-        layanan: String,
-        kontak: String,
-        keluhan: String
-    ) {
-        if (documentId.isEmpty()) {
-            Toast.makeText(requireContext(), "Error: Document ID tidak ditemukan", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        binding.btnSubmit.isEnabled = false
-        binding.btnSubmit.text = getString(R.string.updating)
-
-        val updateData = hashMapOf<String, Any>(
-            "layanan" to layanan,
-            "kontak" to kontak,
-            "keluhan" to keluhan,
-            "filePath" to (savedPdfPath ?: editingItem?.filePath ?: ""),
-            "lastUpdated" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
-        )
-
-        firestore.collection("form_pengaduan")
-            .document(documentId)
-            .update(updateData)
-            .addOnSuccessListener {
-                Toast.makeText(requireContext(), "Data berhasil diupdate", Toast.LENGTH_SHORT).show()
-                binding.btnSubmit.isEnabled = true
-                binding.btnSubmit.text = getString(R.string.update)
-
-                findNavController().previousBackStackEntry?.savedStateHandle?.set("data_updated", true)
-                try {
-                    findNavController().navigateUp()
-                } catch (e: Exception) {
-                    findNavController().navigate(R.id.action_formPengaduanLayananFragment_to_historyLayananFragment)
-                }
-            }
-            .addOnFailureListener { exception ->
-                Toast.makeText(requireContext(), "Gagal mengupdate data: ${exception.message}", Toast.LENGTH_SHORT).show()
-                binding.btnSubmit.isEnabled = true
-                binding.btnSubmit.text = getString(R.string.update)
-            }
     }
 
     private fun clearForm() {
         binding.layananLayout.editText?.text?.clear()
         binding.kontakLayout.editText?.text?.clear()
         binding.keluhanAndaLayout.editText?.text?.clear()
+        resetFileUI()
+        selectedPdfUri = null
+        savedPdfPath = null
+    }
+
+    private fun resetFileUI() {
         binding.tvFileName.text = ""
         binding.btnChooseFile.apply {
             backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.white))
@@ -394,7 +253,6 @@ class FormPengaduanLayananFragment : Fragment() {
             strokeWidth = 2
             strokeColor = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
         }
-        selectedPdfUri = null
     }
 
     override fun onResume() {
@@ -412,9 +270,5 @@ class FormPengaduanLayananFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-    }
-
-    private companion object {
-        private const val MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
     }
 }
