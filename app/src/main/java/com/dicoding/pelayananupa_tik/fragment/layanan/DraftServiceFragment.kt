@@ -165,7 +165,7 @@ class DraftServiceFragment : Fragment() {
             documentId = doc.id,
             judul = doc.getString("judul") ?: "Tidak ada judul",
             tanggal = doc.getString("timestamp") ?: "Tidak ada tanggal",
-            status = doc.getString("status") ?: "Draft",
+            status = doc.getString("status") ?: "draft",
             formType = formType,
 
             kontak = when (formType) {
@@ -278,14 +278,14 @@ class DraftServiceFragment : Fragment() {
                 .whereEqualTo("userEmail", userEmail)
                 .whereEqualTo("judul", updatedItem.judul)
                 .whereEqualTo("timestamp", updatedItem.tanggal)
-                .whereEqualTo("status", "Draft")
+                .whereEqualTo("status", "draft")
                 .get()
                 .addOnSuccessListener { documents ->
                     if (documents.size() > 0 && !updateSuccess) {
                         val doc = documents.documents[0]
                         firestore.collection(collection)
                             .document(doc.id)
-                            .update("status", "Terkirim")
+                            .update("status", "terkrim")
                             .addOnSuccessListener {
                                 Log.d("DraftService", "Status updated successfully")
                                 updateSuccess = true
