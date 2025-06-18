@@ -41,8 +41,9 @@ class PeminjamanAdapter(
         if (position >= historyList.size) return
 
         val (documentId, history) = historyList[position]
-        val namaBarang = history.getNamaBarang()
+        val namaBarang = cleanNamaBarang(history.getNamaBarang())
         val jenisBarang = history.getDisplayJenisBarang()
+
         holder.tvHistoryName.text = namaBarang
         holder.tvHistoryCategory.text = if (jenisBarang.isEmpty() || jenisBarang == "Tidak diketahui") {
             "Kategori tidak tersedia"
@@ -54,6 +55,29 @@ class PeminjamanAdapter(
         loadImageWithBetterHandling(holder.imgHistoryItem, history.getDisplayPhotoUrl(), namaBarang)
         setStatusColor(holder.tvHistoryStatus, history.statusPeminjaman)
         setupButtons(holder, documentId, history)
+    }
+
+    private fun cleanNamaBarang(namaBarang: String): String {
+        return if (namaBarang.contains("namaBarang=") || namaBarang.contains("Barang(")) {
+            // Handle format lama yang masih ada string panjang
+            try {
+                val namaBarangRegex = """namaBarang[=:]([^,}]+)""".toRegex()
+                val namaBarangMatch = namaBarangRegex.find(namaBarang)
+
+                if (namaBarangMatch != null) {
+                    namaBarangMatch.groupValues[1].trim()
+                } else {
+                    // Fallback: ambil text setelah "Barang(" dan sebelum koma pertama
+                    val fallbackRegex = """Barang\([^=]*=([^,}]+)""".toRegex()
+                    val fallbackMatch = fallbackRegex.find(namaBarang)
+                    fallbackMatch?.groupValues?.get(1)?.trim() ?: namaBarang
+                }
+            } catch (e: Exception) {
+                namaBarang
+            }
+        } else {
+            namaBarang
+        }
     }
 
     private fun capitalizeWords(text: String): String {

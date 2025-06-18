@@ -17,15 +17,15 @@ import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.viewmodel.BoxViewModel
+import com.dicoding.pelayananupa_tik.backend.model.Barang
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPeminjamanBinding
-import com.dicoding.pelayananupa_tik.helper.isValidPhoneNumber
+import com.dicoding.pelayananupa_tik.helper.*
+import com.dicoding.pelayananupa_tik.utils.FormUtils
 import com.dicoding.pelayananupa_tik.utils.FormUtils.getFileName
 import com.dicoding.pelayananupa_tik.utils.FormUtils.isFileValid
 import com.dicoding.pelayananupa_tik.utils.FormUtils.openPdfPicker
 import com.dicoding.pelayananupa_tik.utils.FormUtils.savePdfLocally
-import com.dicoding.pelayananupa_tik.utils.UserManager
-import com.google.android.material.datepicker.MaterialDatePicker
-import com.google.android.material.textfield.TextInputEditText
+import com.dicoding.pelayananupa_tik.utils.FormUtils.setupToolbarNavigation
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -36,7 +36,6 @@ class FormPeminjamanFragment : Fragment() {
     private var _binding: FragmentFormPeminjamanBinding? = null
     private val binding get() = _binding!!
     private var selectedItems: String? = null
-    private lateinit var namaPerangkatEditText: TextInputEditText
     private lateinit var firestore: FirebaseFirestore
     private val boxViewModel: BoxViewModel by activityViewModels()
     private var selectedPdfUri: Uri? = null
@@ -44,27 +43,11 @@ class FormPeminjamanFragment : Fragment() {
     private var startDate: Date? = null
     private var endDate: Date? = null
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+
     private val pdfPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            selectedPdfUri = result.data?.data
-            selectedPdfUri?.let { uri ->
-                if (isFileValid(requireContext(), uri)) {
-                    val fileName = getFileName(requireContext(), uri)
-                    binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
-                    binding.btnChooseFile.apply {
-                        backgroundTintList = ColorStateList.valueOf(
-                            ContextCompat.getColor(requireContext(), R.color.primary_blue)
-                        )
-                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                        text = getString(R.string.change_image)
-                        strokeWidth = 0
-                    }
-                    savedPdfPath = savePdfLocally(requireContext(), uri)
-                }
-            }
-        }
+        handlePdfPickerResult(result)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,221 +70,362 @@ class FormPeminjamanFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
 
-        // Load user phone number automatically
+        setupUI()
         loadUserPhoneNumber()
-
-        setupViews()
         setupClickListeners()
+        populateSelectedItems()
+    }
 
-        selectedItems?.let { items ->
-            val namaPerangkatLayout = binding.namaPerangkatLayout
-            namaPerangkatEditText = namaPerangkatLayout.editText as? TextInputEditText ?: return
-            namaPerangkatEditText.setText(items)
+    private fun setupUI() {
+        setupToolbarNavigation(R.id.toolbar)
+        setupDateFields()
+    }
+
+    private fun setupDateFields() {
+        // Setup tanggal mulai
+        binding.tanggalMulaiLayout.editText?.apply {
+            isFocusable = false
+            isClickable = true
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setOnClickListener { showDatePicker(true) }
         }
+
+        // Setup tanggal selesai
+        binding.tanggalSelesaiLayout.editText?.apply {
+            isFocusable = false
+            isClickable = true
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setOnClickListener { showDatePicker(false) }
+        }
+    }
+
+    private fun showDatePicker(isStartDate: Boolean) {
+        val calendar = Calendar.getInstance()
+        val today = Calendar.getInstance()
+
+        // Set initial date
+        if (isStartDate && startDate != null) {
+            calendar.time = startDate!!
+        } else if (!isStartDate && endDate != null) {
+            calendar.time = endDate!!
+        }
+
+        val dateListener = android.app.DatePickerDialog.OnDateSetListener { _, year, month, dayOfMonth ->
+            val selectedDate = Calendar.getInstance().apply {
+                set(year, month, dayOfMonth)
+            }.time
+
+            if (isStartDate) {
+                startDate = selectedDate
+                binding.tanggalMulaiLayout.editText?.setText(dateFormat.format(selectedDate))
+                binding.tanggalMulaiLayout.error = null
+
+                // Reset end date if it's before start date
+                if (endDate != null && endDate!!.before(selectedDate)) {
+                    endDate = null
+                    binding.tanggalSelesaiLayout.editText?.text?.clear()
+                }
+            } else {
+                // Validate end date is not before start date
+                if (startDate != null && selectedDate.before(startDate)) {
+                    binding.tanggalSelesaiLayout.error = "Tanggal selesai tidak boleh sebelum tanggal mulai"
+                    return@OnDateSetListener
+                }
+
+                endDate = selectedDate
+                binding.tanggalSelesaiLayout.editText?.setText(dateFormat.format(selectedDate))
+                binding.tanggalSelesaiLayout.error = null
+            }
+        }
+
+        val datePickerDialog = android.app.DatePickerDialog(
+            requireContext(),
+            dateListener,
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+
+        datePickerDialog.datePicker.minDate = today.timeInMillis
+        if (!isStartDate && startDate != null) {
+            datePickerDialog.datePicker.minDate = startDate!!.time
+        }
+
+        datePickerDialog.show()
     }
 
     private fun loadUserPhoneNumber() {
-        val userEmail = UserManager.getCurrentUserEmail()
-        if (!userEmail.isNullOrEmpty()) {
-            firestore.collection("users")
-                .whereEqualTo("email", userEmail)
-                .get()
-                .addOnSuccessListener { documents ->
-                    if (!documents.isEmpty) {
-                        val userDocument = documents.first()
-                        val nomorTelepon = userDocument.getString("nomorTelepon")
-
-                        // Hanya isi otomatis jika bukan mode edit atau field kosong
-                        if (binding.kontakPenanggungJawabLayout.editText?.text.toString().trim().isEmpty()) {
-                            nomorTelepon?.let { phoneNumber ->
-                                if (phoneNumber.isNotEmpty()) {
-                                    binding.kontakPenanggungJawabLayout.editText?.setText(phoneNumber)
-                                }
-                            }
-                        }
-                    }
-                }
+        FormUtils.loadUserPhoneNumber(
+            firestore = firestore,
+            isEditMode = false,
+            currentContactText = binding.kontakPenanggungJawabLayout.editText?.text.toString()
+        ) { phoneNumber ->
+            binding.kontakPenanggungJawabLayout.editText?.setText(phoneNumber)
         }
-    }
-
-    private fun setupViews() {
-        val toolbar = view?.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
-        toolbar?.setNavigationOnClickListener {
-            requireActivity().onBackPressedDispatcher.onBackPressed()
-        }
-        setupDateRangePicker()
-    }
-
-    private fun setupDateRangePicker() {
-        val rentangTanggalEditText = binding.rentangTanggalLayout.editText
-        rentangTanggalEditText?.apply {
-            isFocusable = false
-            isClickable = true
-            setOnClickListener { showDateRangePicker() }
-        }
-    }
-
-    private fun showDateRangePicker() {
-        val today = MaterialDatePicker.todayInUtcMilliseconds()
-
-        val dateRangePicker = MaterialDatePicker.Builder.dateRangePicker()
-            .setTitleText("Pilih Rentang Tanggal Peminjaman")
-            .setSelection(
-                androidx.core.util.Pair(
-                    startDate?.time ?: today,
-                    endDate?.time ?: (today + (7 * 24 * 60 * 60 * 1000))
-                )
-            )
-            .build()
-
-        dateRangePicker.addOnPositiveButtonClickListener { selection ->
-            startDate = Date(selection.first)
-            endDate = Date(selection.second)
-
-            val startDateStr = dateFormat.format(startDate!!)
-            val endDateStr = dateFormat.format(endDate!!)
-            val dateRangeStr = "$startDateStr - $endDateStr"
-
-            binding.rentangTanggalLayout.editText?.setText(dateRangeStr)
-            binding.rentangTanggalLayout.error = null
-        }
-
-        dateRangePicker.show(parentFragmentManager, "DATE_RANGE_PICKER")
     }
 
     private fun setupClickListeners() {
-        binding.btnSubmit.setOnClickListener {
-            if (validateForm()) {
-                submitForm()
-            }
-        }
-
         binding.btnChooseFile.setOnClickListener {
             openPdfPicker(pdfPickerLauncher)
         }
+
+        binding.btnSubmit.setOnClickListener {
+            handleFormSubmission()
+        }
     }
 
-    private fun clearAllErrors() {
-        binding.namaPerangkatLayout.error = null
-        binding.tujuanPeminjamanLayout.error = null
-        binding.rentangTanggalLayout.error = null
-        binding.harapanAndaLayout.error = null
-        binding.namaPenanggungJawabLayout.error = null
-        binding.kontakPenanggungJawabLayout.error = null
+    private fun populateSelectedItems() {
+        selectedItems?.let { items ->
+            binding.namaPerangkatLayout.editText?.setText(items)
+        }
     }
 
-    private fun validateForm(): Boolean {
-        val namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim()
-        val tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim()
-        val rentangTanggal = binding.rentangTanggalLayout.editText?.text.toString().trim()
-        val harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim()
-        val namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim()
-        val kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
-        clearAllErrors()
+    private fun handlePdfPickerResult(result: androidx.activity.result.ActivityResult) {
+        if (result.resultCode == Activity.RESULT_OK) {
+            selectedPdfUri = result.data?.data
+            selectedPdfUri?.let { uri ->
+                if (isFileValid(requireContext(), uri)) {
+                    updateFileSelection(uri)
+                }
+            }
+        }
+    }
+
+    private fun updateFileSelection(uri: Uri) {
+        val fileName = getFileName(requireContext(), uri)
+        binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
+
+        binding.btnChooseFile.apply {
+            backgroundTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(requireContext(), R.color.primary_blue)
+            )
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+            text = getString(R.string.change_image)
+            strokeWidth = 0
+        }
+
+        savedPdfPath = savePdfLocally(requireContext(), uri)
+    }
+
+    private fun handleFormSubmission() {
+        val formData = getFormData()
+        val validationRules = buildValidation {
+            required(formData.namaPerangkat, binding.namaPerangkatLayout, "Nama perangkat tidak boleh kosong")
+            required(formData.tujuanPeminjaman, binding.tujuanPeminjamanLayout, "Tujuan peminjaman tidak boleh kosong")
+            dateValidation()
+            required(formData.harapanAnda, binding.harapanAndaLayout, "Harapan tidak boleh kosong")
+            required(formData.namaPJ, binding.namaPenanggungJawabLayout, "Nama penanggung jawab tidak boleh kosong")
+            phone(formData.kontakPJ, binding.kontakPenanggungJawabLayout)
+            fileValidation()
+        }
+
+        FormUtils.handleFormSubmission(
+            isEditMode = false,
+            submitButton = binding.btnSubmit,
+            context = requireContext(),
+            formData = mapOf(
+                "namaPerangkat" to formData.namaPerangkat,
+                "tujuanPeminjaman" to formData.tujuanPeminjaman,
+                "tanggalMulai" to (startDate?.let { dateFormat.format(it) } ?: ""),
+                "tanggalSelesai" to (endDate?.let { dateFormat.format(it) } ?: ""),
+                "harapanAnda" to formData.harapanAnda,
+                "namaPJ" to formData.namaPJ,
+                "kontakPJ" to formData.kontakPJ,
+                "filePath" to (savedPdfPath ?: "")
+            ),
+            validationResult = ValidationHelper.validateFormWithRules(
+                requireContext(),
+                validationRules
+            ).isValid,
+            onSubmit = { submitNewForm(formData) },
+            onUpdate = { /* Not used in peminjaman form */ }
+        )
+    }
+
+    private fun fileValidation(): Boolean {
+        return selectedPdfUri?.let { isFileValid(requireContext(), it) } ?: true
+    }
+
+    private fun dateValidation(): Boolean {
+        val today = Date()
 
         return when {
-            namaPerangkat.isEmpty() -> {
-                binding.namaPerangkatLayout.error = "Nama perangkat tidak boleh kosong"
+            startDate == null -> {
+                binding.tanggalMulaiLayout.error = "Tanggal mulai tidak boleh kosong"
                 false
             }
-            tujuanPeminjaman.isEmpty() -> {
-                binding.tujuanPeminjamanLayout.error = "Tujuan peminjaman tidak boleh kosong"
+            endDate == null -> {
+                binding.tanggalSelesaiLayout.error = "Tanggal selesai tidak boleh kosong"
                 false
             }
-            rentangTanggal.isEmpty() || startDate == null || endDate == null -> {
-                binding.rentangTanggalLayout.error = "Rentang tanggal tidak boleh kosong"
+            startDate!!.before(today) -> {
+                binding.tanggalMulaiLayout.error = "Tanggal mulai tidak boleh di masa lalu"
                 false
             }
-            startDate!!.before(Date()) -> {
-                binding.rentangTanggalLayout.error = "Tanggal mulai tidak boleh di masa lalu"
+            endDate!!.before(startDate) -> {
+                binding.tanggalSelesaiLayout.error = "Tanggal selesai tidak boleh sebelum tanggal mulai"
                 false
             }
-            harapanAnda.isEmpty() -> {
-                binding.harapanAndaLayout.error = "Harapan tidak boleh kosong"
-                false
+            else -> {
+                binding.tanggalMulaiLayout.error = null
+                binding.tanggalSelesaiLayout.error = null
+                true
             }
-            namaPJ.isEmpty() -> {
-                binding.namaPenanggungJawabLayout.error = "Nama penanggung jawab tidak boleh kosong"
-                false
-            }
-            kontakPJ.isEmpty() -> {
-                binding.kontakPenanggungJawabLayout.error = "Kontak penanggung jawab tidak boleh kosong"
-                false
-            }
-            !isValidPhoneNumber(kontakPJ) -> {
-                binding.kontakPenanggungJawabLayout.error = "Kontak harus berupa nomor dan minimal 10 digit"
-                false
-            }
-            else -> true
         }
     }
 
-    private fun submitForm() {
-        binding.btnSubmit.isEnabled = false
-        binding.btnSubmit.text = getString(R.string.submitting)
-
-        val tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim()
-        val rentangTanggal = binding.rentangTanggalLayout.editText?.text.toString().trim()
-        val harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim()
-        val namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim()
-        val kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
-        val currentTime = System.currentTimeMillis()
-        val dateTimeFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        val formattedDate = dateTimeFormat.format(Date(currentTime))
-        val userEmail = UserManager.getCurrentUserEmail()
-        val grupId = UUID.randomUUID().toString()
+    private fun submitNewForm(formData: PeminjamanFormData) {
         val selectedBarang = boxViewModel.getSelectedItems()
+        val grupId = UUID.randomUUID().toString()
         var successCount = 0
         val totalItems = selectedBarang.size
+
         selectedBarang.forEach { barang ->
-            val peminjamanData = hashMapOf(
-                "userEmail" to userEmail,
-                "judul" to "Form Peminjaman",
-                "namaPerangkat" to barang.namaBarang,
-                "jenisBarang" to barang.jenis,
-                "tujuanPeminjaman" to tujuanPeminjaman,
-                "rentangTanggal" to rentangTanggal,
-                "tanggalMulai" to com.google.firebase.Timestamp(startDate!!),
-                "tanggalSelesai" to com.google.firebase.Timestamp(endDate!!),
-                "harapanAnda" to harapanAnda,
-                "namaPenanggungJawab" to namaPJ,
-                "kontakPenanggungJawab" to kontakPJ,
-                "filePath" to (savedPdfPath ?: ""),
-                "statusPeminjaman" to "diajukan",
-                "tanggalPengajuan" to formattedDate,
-                "timestamp" to com.google.firebase.Timestamp.now(),
-                "grupPeminjaman" to grupId,
-                "totalItemsInGroup" to totalItems,
-                "photoUrl" to (barang.photoUrl)
+            val peminjamanData = createPeminjamanData(
+                formData = formData,
+                barang = barang,
+                grupId = grupId,
+                totalItems = totalItems
             )
 
-            firestore.collection("form_peminjaman")
-                .add(peminjamanData)
-                .addOnSuccessListener {
+            // Use FormUtils for consistent submission handling
+            FormUtils.saveFormToFirestore(
+                firestore = firestore,
+                collectionName = "form_peminjaman",
+                formData = peminjamanData,
+                context = requireContext(),
+                onSuccess = {
+                    clearForm()
                     successCount++
                     if (successCount == totalItems) {
-                        boxViewModel.clearBox()
-
-                        lifecycleScope.launch {
-                            Toast.makeText(
-                                requireContext(),
-                                "Peminjaman $totalItems barang berhasil diajukan! Menunggu persetujuan admin.",
-                                Toast.LENGTH_LONG
-                            ).show()
-                            findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
-                        }
+                        handleSubmissionSuccess(totalItems)
                     }
+                },
+                onFailure = {
+                    handleSubmissionFailure(getBarangName(barang))
                 }
-                .addOnFailureListener { e ->
-                    binding.btnSubmit.isEnabled = true
-                    binding.btnSubmit.text = getString(R.string.submit_button)
-                    Toast.makeText(
-                        requireContext(),
-                        "Gagal mengirim peminjaman untuk ${barang.namaBarang}: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+            )
         }
+    }
+
+    private fun getBarangName(barang: Any): String {
+        return when (barang) {
+            is Barang -> barang.namaBarang
+            else -> barang.toString()
+        }
+    }
+
+    private fun createPeminjamanData(
+        formData: PeminjamanFormData,
+        barang: Any,
+        grupId: String,
+        totalItems: Int
+    ): Map<String, Any> {
+        // Extract proper data from barang object
+        val (namaBarang, jenisBarang, photoUrl) = when (barang) {
+            is Barang -> Triple(barang.namaBarang, barang.jenis, barang.photoUrl)
+            else -> {
+                // Fallback for other types - try to extract from string representation
+                val barangStr = barang.toString()
+                Triple(
+                    extractValueFromString(barangStr, "namaBarang") ?: "Unknown Item",
+                    extractValueFromString(barangStr, "jenis") ?: "",
+                    extractValueFromString(barangStr, "photoUrl") ?: ""
+                )
+            }
+        }
+
+        return hashMapOf(
+            "judul" to "Form Peminjaman",
+            "namaPerangkat" to namaBarang,
+            "jenisBarang" to jenisBarang,
+            "tujuanPeminjaman" to formData.tujuanPeminjaman,
+            "tanggalMulai" to com.google.firebase.Timestamp(startDate!!),
+            "tanggalSelesai" to com.google.firebase.Timestamp(endDate!!),
+            "harapanAnda" to formData.harapanAnda,
+            "namaPenanggungJawab" to formData.namaPJ,
+            "kontakPenanggungJawab" to formData.kontakPJ,
+            "filePath" to (savedPdfPath ?: ""),
+            "statusPeminjaman" to "diajukan",
+            "grupPeminjaman" to grupId,
+            "totalItemsInGroup" to totalItems,
+            "photoUrl" to photoUrl
+        )
+    }
+
+    private fun extractValueFromString(input: String, key: String): String? {
+        return try {
+            val regex = """$key[=:]([^,}]+)""".toRegex()
+            val matchResult = regex.find(input)
+            matchResult?.groupValues?.get(1)?.trim()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun handleSubmissionSuccess(totalItems: Int) {
+        boxViewModel.clearBox()
+        FormUtils.resetButton(binding.btnSubmit, R.string.submit_button, requireContext())
+
+        lifecycleScope.launch {
+            Toast.makeText(
+                requireContext(),
+                "Peminjaman $totalItems barang berhasil diajukan! Menunggu persetujuan admin.",
+                Toast.LENGTH_LONG
+            ).show()
+            findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
+        }
+    }
+
+    private fun handleSubmissionFailure(namaBarang: String) {
+        FormUtils.resetButton(binding.btnSubmit, R.string.submit_button, requireContext())
+        Toast.makeText(
+            requireContext(),
+            "Gagal mengirim peminjaman untuk $namaBarang",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun getFormData(): PeminjamanFormData {
+        return PeminjamanFormData(
+            namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim(),
+            tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim(),
+            harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim(),
+            namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim(),
+            kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
+        )
+    }
+
+    private fun clearForm() {
+        binding.namaPerangkatLayout.editText?.text?.clear()
+        binding.tujuanPeminjamanLayout.editText?.text?.clear()
+        binding.harapanAndaLayout.editText?.text?.clear()
+        binding.namaPenanggungJawabLayout.editText?.text?.clear()
+        binding.kontakPenanggungJawabLayout.editText?.text?.clear()
+        binding.tanggalMulaiLayout.editText?.text?.clear()
+        binding.tanggalSelesaiLayout.editText?.text?.clear()
+        resetFileSelection()
+        startDate = null
+        endDate = null
+    }
+
+    private fun resetFileSelection() {
+        binding.tvFileName.text = getString(R.string.no_file_selected)
+        binding.btnChooseFile.apply {
+            backgroundTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(requireContext(), R.color.white)
+            )
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+            text = getString(R.string.choose_file)
+            strokeWidth = 2
+            strokeColor = ColorStateList.valueOf(
+                ContextCompat.getColor(requireContext(), R.color.primary_blue)
+            )
+        }
+        selectedPdfUri = null
+        savedPdfPath = null
     }
 
     override fun onResume() {
@@ -320,4 +444,12 @@ class FormPeminjamanFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
+
+    data class PeminjamanFormData(
+        val namaPerangkat: String,
+        val tujuanPeminjaman: String,
+        val harapanAnda: String,
+        val namaPJ: String,
+        val kontakPJ: String
+    )
 }

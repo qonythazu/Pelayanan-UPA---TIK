@@ -77,23 +77,58 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/rentangTanggalLayout"
+            android:id="@+id/tanggalMulaiLayout"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:hint="@string/rentang_tanggal"
-            app:boxStrokeColor="@color/black"
-            app:layout_constraintTop_toBottomOf="@+id/tujuanPeminjamanLayout"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginTop="16dp"
+            android:hint="Tanggal Mulai"
+            app:boxStrokeColor="@color/primary_blue"
+            app:hintTextColor="@color/primary_blue"
+            app:layout_constraintEnd_toStartOf="@+id/tanggalSelesaiLayout"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginHorizontal="20dp"
-            android:layout_marginTop="8dp">
+            app:layout_constraintTop_toBottomOf="@+id/tujuanPeminjamanLayout"
+            app:startIconDrawable="@drawable/ic_calendar"
+            app:startIconTint="@color/primary_blue">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text=""
-                android:textColor="@color/black"
-                android:inputType="date"/>
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:clickable="true"
+                android:focusable="false"
+                android:inputType="none" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Tanggal Selesai -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tanggalSelesaiLayout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginTop="16dp"
+            android:hint="Tanggal Selesai"
+            app:boxStrokeColor="@color/primary_blue"
+            app:hintTextColor="@color/primary_blue"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/tanggalMulaiLayout"
+            app:layout_constraintTop_toBottomOf="@+id/tujuanPeminjamanLayout"
+            app:startIconDrawable="@drawable/ic_calendar"
+            app:startIconTint="@color/primary_blue">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:clickable="true"
+                android:focusable="false"
+                android:inputType="none" />
+
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -102,7 +137,7 @@
             android:layout_height="wrap_content"
             android:hint="@string/harapan_anda"
             app:boxStrokeColor="@color/black"
-            app:layout_constraintTop_toBottomOf="@+id/rentangTanggalLayout"
+            app:layout_constraintTop_toBottomOf="@+id/tanggalSelesaiLayout"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginHorizontal="20dp"

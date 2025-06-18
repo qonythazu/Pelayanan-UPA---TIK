@@ -1,5 +1,8 @@
 package com.dicoding.pelayananupa_tik.backend.model
 
+import java.text.SimpleDateFormat
+import java.util.Locale
+
 data class BarangDipinjam(
     val jenis: String = "",
     val nama: String = "",
@@ -58,9 +61,65 @@ data class FormPeminjaman(
     }
 
     fun getFormattedRentangTanggal(): String {
-        return if (rentangTanggal.isNotEmpty()) {
-            rentangTanggal.replace("-", " - ")
-        } else {
+        return try {
+            val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+
+            if (rentangTanggal.isNotEmpty() && rentangTanggal != "Tanggal tidak tersedia") {
+                return rentangTanggal.replace("-", " - ")
+            }
+            val startDateStr = when (tanggalMulai) {
+                is com.google.firebase.Timestamp -> {
+                    formatter.format(tanggalMulai.toDate())
+                }
+                is java.util.Date -> {
+                    formatter.format(tanggalMulai)
+                }
+                is String -> {
+                    try {
+                        val parseFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        val date = parseFormatter.parse(tanggalMulai)
+                        date?.let { formatter.format(it) }
+                    } catch (e: Exception) {
+                        tanggalMulai.takeIf { it.isNotEmpty() }
+                    }
+                }
+                else -> null
+            }
+
+            val endDateStr = when (tanggalSelesai) {
+                is com.google.firebase.Timestamp -> {
+                    formatter.format(tanggalSelesai.toDate())
+                }
+                is java.util.Date -> {
+                    formatter.format(tanggalSelesai)
+                }
+                is String -> {
+                    try {
+                        val parseFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        val date = parseFormatter.parse(tanggalSelesai)
+                        date?.let { formatter.format(it) }
+                    } catch (e: Exception) {
+                        tanggalSelesai.takeIf { it.isNotEmpty() }
+                    }
+                }
+                else -> null
+            }
+
+            when {
+                startDateStr != null && endDateStr != null -> {
+                    "$startDateStr - $endDateStr"
+                }
+                startDateStr != null -> {
+                    "Mulai: $startDateStr"
+                }
+                endDateStr != null -> {
+                    "Selesai: $endDateStr"
+                }
+                else -> {
+                    "Tanggal tidak tersedia"
+                }
+            }
+        } catch (e: Exception) {
             "Tanggal tidak tersedia"
         }
     }
