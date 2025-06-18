@@ -1,4 +1,4 @@
-package com.dicoding.pelayananupa_tik.fragment.layanan
+package com.dicoding.pelayananupa_tik.fragment.historyLayanan
 
 import android.os.Bundle
 import android.util.Log
@@ -15,7 +15,7 @@ import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 
-class AcceptedServiceFragment : Fragment() {
+class RejectedServiceFragment : Fragment() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: LayananAdapter
     private lateinit var emptyStateTextView: TextView
@@ -34,7 +34,7 @@ class AcceptedServiceFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_accepted_service, container, false)
+        val view = inflater.inflate(R.layout.fragment_rejected_service, container, false)
         recyclerView = view.findViewById(R.id.recyclerView)
         emptyStateTextView = view.findViewById(R .id.emptyStateTextView)
 
@@ -60,7 +60,7 @@ class AcceptedServiceFragment : Fragment() {
         for (collection in collections) {
             firestore.collection(collection)
                 .whereEqualTo("userEmail", userEmail)
-                .whereEqualTo("status", "diterima")
+                .whereEqualTo("status", "ditolak")
                 .get()
                 .addOnSuccessListener { documents ->
                     for (doc in documents) {
@@ -90,7 +90,7 @@ class AcceptedServiceFragment : Fragment() {
         if (layananList.isEmpty()) {
             recyclerView.visibility = View.GONE
             emptyStateTextView.visibility = View.VISIBLE
-            emptyStateTextView.text = getString(R.string.belum_ada_layanan_yang_diterima)
+            emptyStateTextView.text = getString(R.string.belum_ada_layanan_yang_ditolak)
         } else {
             recyclerView.visibility = View.VISIBLE
             emptyStateTextView.visibility = View.GONE

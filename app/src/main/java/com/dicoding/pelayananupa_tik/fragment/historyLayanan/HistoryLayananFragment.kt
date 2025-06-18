@@ -1,32 +1,34 @@
-package com.dicoding.pelayananupa_tik.fragment
+package com.dicoding.pelayananupa_tik.fragment.historyLayanan
 
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
-import com.dicoding.pelayananupa_tik.adapter.ItemHistoryPageAdapter
-import com.dicoding.pelayananupa_tik.databinding.FragmentHistoryPeminjamanBarangBinding
+import com.dicoding.pelayananupa_tik.adapter.ServiceHistoryPageAdapter
+import com.dicoding.pelayananupa_tik.databinding.FragmentHistoryLayananBinding
 import com.google.android.material.tabs.TabLayout
+import android.util.Log
 
-class HistoryPeminjamanBarangFragment : Fragment() {
-    private var _binding: FragmentHistoryPeminjamanBarangBinding? = null
+class HistoryLayananFragment : Fragment() {
+
+    private var _binding: FragmentHistoryLayananBinding? = null
     private val binding get() = _binding!!
-    private lateinit var adapter: ItemHistoryPageAdapter
+    private lateinit var adapter: ServiceHistoryPageAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentHistoryPeminjamanBarangBinding.inflate(inflater, container, false)
+        _binding = FragmentHistoryLayananBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -37,13 +39,14 @@ class HistoryPeminjamanBarangFragment : Fragment() {
         setupTabLayout()
         setupViewPager()
         setupTabBehavior()
+        setupFragmentCommunication()
     }
 
     private fun setupToolbar() {
         binding.toolbar.apply {
             navigationIcon?.setTint(ContextCompat.getColor(requireContext(), R.color.white))
             setNavigationOnClickListener {
-                findNavController().navigate(R.id.action_historyPeminjamanBarangFragment_to_historyFragment)
+                findNavController().navigate(R.id.action_historyLayananFragment_to_historyFragment)
             }
         }
     }
@@ -51,7 +54,7 @@ class HistoryPeminjamanBarangFragment : Fragment() {
     private fun setupTabLayout() {
         binding.tabLayout.setSelectedTabIndicatorColor(Color.TRANSPARENT)
 
-        val tabTitles = listOf("Diajukan", "Disetujui", "Diambil", "Ditolak", "Selesai")
+        val tabTitles = listOf("Draft", "Terkirim", "In-Review", "Diterima", "Proses Pengerjaan", "Ditolak", "Selesai")
         for (title in tabTitles) {
             val tab = binding.tabLayout.newTab()
             val tabView = layoutInflater.inflate(R.layout.item_tab, binding.tabLayout, false) as TextView
@@ -64,7 +67,7 @@ class HistoryPeminjamanBarangFragment : Fragment() {
     }
 
     private fun setupViewPager() {
-        adapter = ItemHistoryPageAdapter(childFragmentManager, viewLifecycleOwner.lifecycle)
+        adapter = ServiceHistoryPageAdapter(childFragmentManager, viewLifecycleOwner.lifecycle)
         binding.viewPager2.adapter = adapter
     }
 
@@ -82,9 +85,7 @@ class HistoryPeminjamanBarangFragment : Fragment() {
                 setUnselectedTabStyle(tabTextView)
             }
 
-            override fun onTabReselected(tab: TabLayout.Tab?) {
-                // Handle tab reselected if needed
-            }
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
 
         binding.viewPager2.registerOnPageChangeCallback(object : OnPageChangeCallback() {
@@ -93,6 +94,58 @@ class HistoryPeminjamanBarangFragment : Fragment() {
                 binding.tabLayout.selectTab(binding.tabLayout.getTabAt(position))
             }
         })
+    }
+
+    private fun setupFragmentCommunication() {
+        binding.viewPager2.post {
+            setupDraftToSentCommunication()
+        }
+    }
+
+    private fun setupDraftToSentCommunication() {
+        try {
+            val draftFragment = childFragmentManager.findFragmentByTag("f0") as? DraftServiceFragment
+
+            if (draftFragment != null) {
+                draftFragment.setOnDataChangedListener(object : DraftServiceFragment.OnDataChangedListener {
+                    override fun onDataChanged() {
+                        Log.d("HistoryLayanan", "Data changed notification received")
+                        refreshSentServiceFragment()
+                    }
+                })
+                Log.d("HistoryLayanan", "Successfully setup communication with DraftServiceFragment")
+            } else {
+                Log.w("HistoryLayanan", "DraftServiceFragment not found, retrying...")
+                binding.viewPager2.postDelayed({
+                    setupDraftToSentCommunication()
+                }, 500)
+            }
+        } catch (e: Exception) {
+            Log.e("HistoryLayanan", "Error setting up fragment communication", e)
+        }
+    }
+
+    private fun refreshSentServiceFragment() {
+        try {
+            val sentFragment = childFragmentManager.findFragmentByTag("f1") as? SentServiceFragment
+
+            if (sentFragment != null) {
+                sentFragment.refreshData()
+                Log.d("HistoryLayanan", "Successfully refreshed SentServiceFragment")
+            } else {
+                Log.w("HistoryLayanan", "SentServiceFragment not found")
+                val fragments = childFragmentManager.fragments
+                for (fragment in fragments) {
+                    if (fragment is SentServiceFragment) {
+                        fragment.refreshData()
+                        Log.d("HistoryLayanan", "Found and refreshed SentServiceFragment via iteration")
+                        break
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HistoryLayanan", "Error refreshing SentServiceFragment", e)
+        }
     }
 
     private fun setupInitialTabStyling() {
@@ -117,17 +170,21 @@ class HistoryPeminjamanBarangFragment : Fragment() {
                     "Ditolak" -> ContextCompat.getColor(requireContext(), R.color.red)
                     else -> ContextCompat.getColor(requireContext(), R.color.primary_blue)
                 })
-                cornerRadius = 24f // Rounded corners
+                cornerRadius = 24f
             }
 
             textView.background = drawable
-            textView.elevation = 4f // Shadow effect
-
-            // Set text color
+            textView.elevation = 4f
             when (textView.text) {
-                "Selesai" -> textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.green))
-                "Ditolak" -> textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.red))
-                else -> textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                "Selesai" -> {
+                    textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.green))
+                }
+                "Ditolak" -> {
+                    textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.red))
+                }
+                else -> {
+                    textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                }
             }
         }
     }
@@ -135,17 +192,17 @@ class HistoryPeminjamanBarangFragment : Fragment() {
     private fun setSelectedTabStyle(tabTextView: TextView?) {
         tabTextView?.let { textView ->
             val drawable = GradientDrawable().apply {
-                if (textView.text == "Selesai") {
-                    setColor(ContextCompat.getColor(requireContext(), R.color.green))
-                } else {
-                    setColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                when (textView.text) {
+                    "Selesai" -> setColor(ContextCompat.getColor(requireContext(), R.color.green))
+                    "Ditolak" -> setColor(ContextCompat.getColor(requireContext(), R.color.red))
+                    else -> setColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
                 }
                 cornerRadius = 24f
             }
 
             textView.background = drawable
             textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-            textView.elevation = 6f // Slightly higher elevation when selected
+            textView.elevation = 6f
         }
     }
 
@@ -153,6 +210,7 @@ class HistoryPeminjamanBarangFragment : Fragment() {
         super.onResume()
         (activity as? MainActivity)?.hideBottomNavigation()
         (activity as? MainActivity)?.hideToolbar()
+        setupDraftToSentCommunication()
     }
 
     override fun onPause() {

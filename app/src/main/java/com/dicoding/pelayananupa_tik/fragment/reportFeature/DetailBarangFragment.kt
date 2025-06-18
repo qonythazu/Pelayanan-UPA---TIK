@@ -1,4 +1,4 @@
-package com.dicoding.pelayananupa_tik.fragment
+package com.dicoding.pelayananupa_tik.fragment.reportFeature
 
 import android.os.Bundle
 import android.util.Log

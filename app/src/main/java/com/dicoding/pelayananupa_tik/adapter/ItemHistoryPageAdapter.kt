@@ -4,11 +4,11 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.Lifecycle
 import androidx.viewpager2.adapter.FragmentStateAdapter
-import com.dicoding.pelayananupa_tik.fragment.peminjaman.FinishedItemFragment
-import com.dicoding.pelayananupa_tik.fragment.peminjaman.SentItemFragment
-import com.dicoding.pelayananupa_tik.fragment.peminjaman.ApprovedItemFragment
-import com.dicoding.pelayananupa_tik.fragment.peminjaman.TakenItemFragment
-import com.dicoding.pelayananupa_tik.fragment.peminjaman.RejectedItemFragment
+import com.dicoding.pelayananupa_tik.fragment.historyPeminjaman.FinishedItemFragment
+import com.dicoding.pelayananupa_tik.fragment.historyPeminjaman.SentItemFragment
+import com.dicoding.pelayananupa_tik.fragment.historyPeminjaman.ApprovedItemFragment
+import com.dicoding.pelayananupa_tik.fragment.historyPeminjaman.TakenItemFragment
+import com.dicoding.pelayananupa_tik.fragment.historyPeminjaman.RejectedItemFragment
 
 class ItemHistoryPageAdapter (
     fragmentManager: FragmentManager,

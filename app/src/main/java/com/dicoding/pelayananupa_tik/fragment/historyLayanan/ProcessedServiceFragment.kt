@@ -1,4 +1,4 @@
-package com.dicoding.pelayananupa_tik.fragment.layanan
+package com.dicoding.pelayananupa_tik.fragment.historyLayanan
 
 import android.os.Bundle
 import android.util.Log

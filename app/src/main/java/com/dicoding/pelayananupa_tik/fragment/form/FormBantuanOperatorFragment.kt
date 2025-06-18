@@ -1,36 +1,76 @@
-package com.dicoding.pelayananupa_tik.fragment
+package com.dicoding.pelayananupa_tik.fragment.form
 
+import android.app.Activity
+import android.content.Intent
+import android.content.res.ColorStateList
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
+import android.provider.OpenableColumns
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.RadioButton
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
-import com.dicoding.pelayananupa_tik.databinding.FragmentFormPembuatanWebDllBinding
+import com.dicoding.pelayananupa_tik.databinding.FragmentFormBantuanOperatorBinding
+import com.dicoding.pelayananupa_tik.helper.Triplet
+import com.dicoding.pelayananupa_tik.helper.isValidPhoneNumber
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class FormPembuatanWebDllFragment : Fragment() {
+class FormBantuanOperatorFragment : Fragment() {
 
-    private var _binding : FragmentFormPembuatanWebDllBinding? = null
+    private var _binding: FragmentFormBantuanOperatorBinding? = null
     private val binding get() = _binding!!
+    private lateinit var firestore: FirebaseFirestore
+    private var selectedPdfUri: Uri? = null
+    private var savedPdfPath: String? = null
     private var isEditMode = false
     private var editingItem: LayananItem? = null
-    private lateinit var firestore: FirebaseFirestore
+    private val pdfPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            selectedPdfUri = result.data?.data
+            selectedPdfUri?.let { uri ->
+                if (isFileSizeValid(uri)) {
+                    val fileName = getFileName(uri)
+                    binding.tvFileName.text = getString(R.string.file_selected, " $fileName")
+                    binding.btnChooseFile.apply {
+                        backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                        text = getString(R.string.change_image)
+                        strokeWidth = 0
+                    }
+                    savePdfLocally(uri)
+                } else {
+                    selectedPdfUri = null
+                    Toast.makeText(
+                        requireContext(),
+                        "File terlalu besar! Maksimal ukuran file adalah 2MB.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentFormPembuatanWebDllBinding.inflate(inflater, container, false)
+        _binding = FragmentFormBantuanOperatorBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -41,14 +81,8 @@ class FormPembuatanWebDllFragment : Fragment() {
 
         // Load user phone number automatically
         loadUserPhoneNumber()
-        binding.radioGroupServices.setOnCheckedChangeListener { _, checkedId ->
-            binding.textInputLayoutOther.visibility = if (checkedId == R.id.radioOther) {
-                View.VISIBLE
-            } else {
-                View.GONE
-            }
-        }
 
+        binding.btnChooseFile.setOnClickListener { openPdfPicker() }
         binding.btnSubmit.setOnClickListener {
             if (isEditMode) {
                 updateForm()
@@ -56,12 +90,13 @@ class FormPembuatanWebDllFragment : Fragment() {
                 submitForm()
             }
         }
+
         val toolbar = view.findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         toolbar.setNavigationOnClickListener {
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
         if (isEditMode) {
-            binding.textView.text = getString(R.string.edit_pembuatan_web_dll)
+            binding.textView.text = getString(R.string.edit_bantuan_operator_tik)
             binding.btnSubmit.text = getString(R.string.update)
         }
     }
@@ -93,19 +128,19 @@ class FormPembuatanWebDllFragment : Fragment() {
     private fun checkEditMode() {
         arguments?.let { args ->
             val documentId = args.getString("documentId")
-            val layanan = args.getString("layanan")
-            val namaLayanan = args.getString("namaLayanan")
+            val jumlah = args.getString("jumlah")
             val kontak = args.getString("kontak")
             val tujuan = args.getString("tujuan")
+            val filePath = args.getString("filePath")
 
             if (!documentId.isNullOrEmpty()) {
                 isEditMode = true
                 editingItem = LayananItem(
                     documentId = documentId,
-                    layanan = layanan ?: "",
-                    namaLayanan = namaLayanan ?: "",
+                    jumlah = jumlah ?: "",
                     kontak = kontak ?: "",
-                    tujuan = tujuan ?: ""
+                    tujuan = tujuan ?: "",
+                    filePath = filePath ?: ""
                 )
                 binding.root.post {
                     populateFormForEdit()
@@ -116,95 +151,90 @@ class FormPembuatanWebDllFragment : Fragment() {
 
     private fun populateFormForEdit() {
         editingItem?.let { item ->
-            val layananRadioButtons = mapOf(
-                "Subdomain" to binding.radioSubDomain,
-                "Hosting" to binding.radioHosting,
-                "Virtual Private Server (VPS)" to binding.radioVPS,
-                "Website" to binding.radioWebsite,
-                "Email" to binding.radioEmail
-            )
-            if (layananRadioButtons.containsKey(item.layanan)) {
-                layananRadioButtons[item.layanan]?.isChecked = true
-            } else {
-                binding.radioOther.isChecked = true
-                binding.textInputLayoutOther.visibility = View.VISIBLE
-                binding.editTextOther.setText(item.layanan)
-            }
-            binding.namaLayananLayout.editText?.setText(item.namaLayanan)
+            binding.jumlahLayout.editText?.setText(item.jumlah)
             binding.kontakLayout.editText?.setText(item.kontak)
-            binding.tujuanPembuatanLayout.editText?.setText(item.tujuan)
+            binding.tujuanPeminjamanLayout.editText?.setText(item.tujuan)
 
-        }
-    }
-
-    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
-        // Hapus semua karakter non-digit
-        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
-
-        // Cek panjang minimal dan maksimal
-        if (digitsOnly.length < 10 || digitsOnly.length > 15) {
-            return false
-        }
-
-        // Validasi format nomor Indonesia
-        return when {
-            // Format +62 (kode negara Indonesia)
-            digitsOnly.startsWith("62") -> {
-                val localNumber = digitsOnly.substring(2)
-                isValidIndonesianLocalNumber(localNumber)
-            }
-            // Format 0 (format lokal Indonesia)
-            digitsOnly.startsWith("0") -> {
-                val localNumber = digitsOnly.substring(1)
-                isValidIndonesianLocalNumber(localNumber)
-            }
-            // Format tanpa awalan (langsung nomor operator)
-            else -> {
-                isValidIndonesianLocalNumber(digitsOnly)
+            if (item.filePath.isNotEmpty()) {
+                val file = File(item.filePath)
+                if (file.exists()) {
+                    binding.tvFileName.text = getString(R.string.file_selected, " ${file.name}")
+                    binding.btnChooseFile.text = getString(R.string.change_file)
+                    savedPdfPath = item.filePath
+                }
             }
         }
     }
 
-    private fun isValidIndonesianLocalNumber(localNumber: String): Boolean {
-        // Cek panjang nomor lokal (9-13 digit setelah kode area/operator)
-        if (localNumber.length < 9 || localNumber.length > 13) {
-            return false
+    private fun openPdfPicker() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "application/pdf"
+            addCategory(Intent.CATEGORY_OPENABLE)
         }
-
-        // Validasi prefix operator Indonesia
-        val validPrefixes = listOf(
-            // Telkomsel
-            "811", "812", "813", "821", "822", "823", "851", "852", "853",
-            // Indosat
-            "814", "815", "816", "855", "856", "857", "858",
-            // XL
-            "817", "818", "819", "859", "877", "878",
-            // Tri (3)
-            "895", "896", "897", "898", "899",
-            // Smartfren
-            "881", "882", "883", "884", "885", "886", "887", "888", "889",
-            // Axis
-            "831", "832", "833", "838",
-            // Telkom (PSTN)
-            "21", "22", "24", "31", "341", "343", "361", "370", "380", "401", "411", "421", "431", "451", "471", "481", "511", "541", "561", "571", "601", "620", "651", "717", "721", "741", "751", "761", "771", "778"
-        )
-
-        return validPrefixes.any { prefix -> localNumber.startsWith(prefix) }
+        pdfPickerLauncher.launch(Intent.createChooser(intent, "Pilih File PDF"))
     }
 
-    private fun validateForm(formData: Quadruple<String, String, String, String>): Boolean {
-        val (layanan, namaLayanan, kontak, tujuan) = formData
+    private fun isFileSizeValid(uri: Uri): Boolean {
+        return try {
+            val inputStream = requireContext().contentResolver.openInputStream(uri)
+            val fileSize = inputStream?.available() ?: 0
+            inputStream?.close()
+
+            fileSize <= MAX_FILE_SIZE_BYTES
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun getFileName(uri: Uri): String {
+        var result: String? = null
+        if (uri.scheme == "content") {
+            val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (index >= 0) {
+                        result = it.getString(index)
+                    }
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.path
+            val cut = result?.lastIndexOf('/')
+            if (cut != -1) {
+                result = result?.substring(cut!! + 1)
+            }
+        }
+        return result ?: "unknown_file.pdf"
+    }
+
+    private fun savePdfLocally(uri: Uri) {
+        try {
+            val inputStream = requireContext().contentResolver.openInputStream(uri)
+            val fileName = getFileName(uri)
+            val file = File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
+
+            val outputStream = FileOutputStream(file)
+            inputStream?.copyTo(outputStream)
+            inputStream?.close()
+            outputStream.close()
+
+            savedPdfPath = file.absolutePath
+            Toast.makeText(requireContext(), "File berhasil disimpan", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Gagal menyimpan file: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun validateForm(formData: Triplet<String, String, String>): Boolean {
+        val (jumlah, kontak, tujuan) = formData
         var isValid = true
-        if (layanan.isEmpty()) {
-            Toast.makeText(requireContext(), "Harap pilih layanan yang diajukan", Toast.LENGTH_SHORT).show()
-            isValid = false
-        }
-
-        if (namaLayanan.isBlank()) {
-            binding.namaLayananLayout.error = "Nama Layanan tidak boleh kosong"
+        if (jumlah.isBlank()) {
+            binding.jumlahLayout.error = "Jumlah tidak boleh kosong"
             isValid = false
         } else {
-            binding.namaLayananLayout.error = null
+            binding.jumlahLayout.error = null
         }
 
         if (kontak.isBlank()) {
@@ -218,10 +248,21 @@ class FormPembuatanWebDllFragment : Fragment() {
         }
 
         if (tujuan.isBlank()) {
-            binding.tujuanPembuatanLayout.error = "Tujuan tidak boleh kosong"
+            binding.tujuanPeminjamanLayout.error = "Tujuan tidak boleh kosong"
             isValid = false
         } else {
-            binding.tujuanPembuatanLayout.error = null
+            binding.tujuanPeminjamanLayout.error = null
+        }
+
+        selectedPdfUri?.let { uri ->
+            if (!isFileSizeValid(uri)) {
+                Toast.makeText(
+                    requireContext(),
+                    "File yang dipilih terlalu besar! Maksimal ukuran file adalah 2MB.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return false
+            }
         }
 
         return isValid
@@ -237,7 +278,7 @@ class FormPembuatanWebDllFragment : Fragment() {
             binding.btnSubmit.text = getString(R.string.submit)
             return
         }
-        saveDataToFirestore(formData.first, formData.second, formData.third, formData.fourth)
+        saveDataToFirestore(formData.first, formData.second, formData.third)
     }
 
     private fun updateForm() {
@@ -252,7 +293,7 @@ class FormPembuatanWebDllFragment : Fragment() {
         }
         editingItem?.let { item ->
             if (item.documentId.isNotEmpty()) {
-                updateDataInFirestore(item.documentId, formData.first, formData.second, formData.third, formData.fourth)
+                updateDataInFirestore(item.documentId, formData.first, formData.second, formData.third)
             } else {
                 binding.btnSubmit.isEnabled = true
                 binding.btnSubmit.text = getString(R.string.update)
@@ -265,42 +306,36 @@ class FormPembuatanWebDllFragment : Fragment() {
         }
     }
 
-    private fun getFormData(): Quadruple<String, String, String, String> {
-        val selectedRadioButtonLayanan = binding.radioGroupServices.checkedRadioButtonId
-        val layanan = if (selectedRadioButtonLayanan == R.id.radioOther) {
-            binding.editTextOther.text.toString().trim()
-        } else if (selectedRadioButtonLayanan != -1) {
-            view?.findViewById<RadioButton>(selectedRadioButtonLayanan)?.text?.toString() ?: ""
-        } else ""
-        val namaLayanan = binding.namaLayananLayout.editText?.text.toString().trim()
+    private fun getFormData(): Triplet<String, String, String> {
+        val jumlah = binding.jumlahLayout.editText?.text.toString().trim()
         val kontak = binding.kontakLayout.editText?.text.toString().trim()
-        val tujuan = binding.tujuanPembuatanLayout.editText?.text.toString().trim()
+        val tujuan = binding.tujuanPeminjamanLayout.editText?.text.toString().trim()
 
-        return Quadruple(layanan, namaLayanan, kontak, tujuan)
+        return Triplet(jumlah, kontak, tujuan)
     }
 
-    private fun saveDataToFirestore(layanan: String, namaLayanan: String, kontak: String, tujuan: String) {
+    private fun saveDataToFirestore(jumlah: String, kontak: String, tujuan: String) {
         val userEmail = UserManager.getCurrentUserEmail()
         val currentTime = System.currentTimeMillis()
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         val formattedDate = dateFormat.format(Date(currentTime))
-        val pembuatanWebDll = hashMapOf(
+        val bantuanOperator = hashMapOf(
             "userEmail" to userEmail,
-            "judul" to "Form Pembuatan Web/DLL",
-            "layanan" to layanan,
-            "namaLayanan" to namaLayanan,
+            "judul" to "Bantuan Operator TIK",
+            "jumlah" to jumlah,
             "kontak" to kontak,
             "tujuan" to tujuan,
             "status" to "draft",
+            "filePath" to (savedPdfPath ?: ""),
             "timestamp" to formattedDate
         )
 
-        firestore.collection("form_pembuatan")
-            .add(pembuatanWebDll)
+        firestore.collection("form_bantuan")
+            .add(bantuanOperator)
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Pengaduan berhasil dikirim", Toast.LENGTH_SHORT).show()
                 clearForm()
-                findNavController().navigate(R.id.action_formPembuatanWebDllFragment_to_historyLayananFragment)
+                findNavController().navigate(R.id.action_formBantuanOperatorFragment_to_historyLayananFragment)
             }
             .addOnFailureListener {
                 Toast.makeText(requireContext(), "Gagal mengirim pengaduan", Toast.LENGTH_SHORT).show()
@@ -309,8 +344,7 @@ class FormPembuatanWebDllFragment : Fragment() {
 
     private fun updateDataInFirestore(
         documentId: String,
-        layanan: String,
-        namaLayanan: String,
+        jumlah: String,
         kontak: String,
         tujuan: String
     ) {
@@ -323,19 +357,18 @@ class FormPembuatanWebDllFragment : Fragment() {
         binding.btnSubmit.text = getString(R.string.updating)
 
         val updateData = hashMapOf<String, Any>(
-            "layanan" to layanan,
-            "namaLayanan" to namaLayanan,
+            "jumlah" to jumlah,
             "kontak" to kontak,
             "tujuan" to tujuan,
+            "filePath" to (savedPdfPath ?: editingItem?.filePath ?: ""),
             "lastUpdated" to SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
         )
 
-        firestore.collection("form_pembuatan")
+        firestore.collection("form_bantuan")
             .document(documentId)
             .update(updateData)
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Data berhasil diupdate", Toast.LENGTH_SHORT).show()
-                // Reset button state
                 binding.btnSubmit.isEnabled = true
                 binding.btnSubmit.text = getString(R.string.update)
 
@@ -343,8 +376,7 @@ class FormPembuatanWebDllFragment : Fragment() {
                 try {
                     findNavController().navigateUp()
                 } catch (e: Exception) {
-                    // Fallback navigation
-                    findNavController().navigate(R.id.action_formPembuatanWebDllFragment_to_historyLayananFragment)
+                    findNavController().navigate(R.id.action_formBantuanOperatorFragment_to_historyLayananFragment)
                 }
             }
             .addOnFailureListener { exception ->
@@ -355,12 +387,18 @@ class FormPembuatanWebDllFragment : Fragment() {
     }
 
     private fun clearForm() {
-        binding.radioGroupServices.clearCheck()
-        binding.textInputLayoutOther.visibility = View.GONE
-        binding.editTextOther.text?.clear()
-        binding.namaLayananLayout.editText?.text?.clear()
+        binding.jumlahLayout.editText?.text?.clear()
         binding.kontakLayout.editText?.text?.clear()
-        binding.tujuanPembuatanLayout.editText?.text?.clear()
+        binding.tujuanPeminjamanLayout.editText?.text?.clear()
+        binding.tvFileName.text = getString(R.string.no_file_selected)
+        binding.btnChooseFile.apply {
+            backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.white))
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+            text = getString(R.string.choose_file)
+            strokeWidth = 2
+            strokeColor = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+        }
+        selectedPdfUri = null
     }
 
     override fun onResume() {
@@ -378,5 +416,9 @@ class FormPembuatanWebDllFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private companion object {
+        private const val MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
     }
 }

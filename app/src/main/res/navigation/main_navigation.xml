@@ -57,7 +57,7 @@
         tools:layout="@layout/fragment_profile" />
     <fragment
         android:id="@+id/productListFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.ProductListFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.peminjamanFeature.ProductListFragment"
         android:label="fragment_product_list"
         tools:layout="@layout/fragment_product_list" >
         <action
@@ -66,7 +66,7 @@
     </fragment>
     <fragment
         android:id="@+id/boxFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.BoxFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.peminjamanFeature.BoxFragment"
         android:label="fragment_box"
         tools:layout="@layout/fragment_box" >
         <action
@@ -75,7 +75,7 @@
     </fragment>
     <fragment
         android:id="@+id/formPeminjamanFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.FormPeminjamanFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.peminjamanFeature.FormPeminjamanFragment"
         android:label="fragment_form_peminjaman"
         tools:layout="@layout/fragment_form_peminjaman" >
         <argument
@@ -88,7 +88,7 @@
     </fragment>
     <fragment
         android:id="@+id/formBantuanOperatorFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.FormBantuanOperatorFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.form.FormBantuanOperatorFragment"
         android:label="fragment_form_bantuan_operator"
         tools:layout="@layout/fragment_form_bantuan_operator" >
         <action
@@ -97,7 +97,7 @@
     </fragment>
     <fragment
         android:id="@+id/formLaporKerusakanFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.FormLaporKerusakanFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.reportFeature.FormLaporKerusakanFragment"
         android:label="fragment_form_lapor_kerusakan"
         tools:layout="@layout/fragment_form_lapor_kerusakan" >
         <action
@@ -106,7 +106,7 @@
     </fragment>
     <fragment
         android:id="@+id/formPemasanganPerangkatFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.FormPemasanganPerangkatFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.form.FormPemasanganPerangkatFragment"
         android:label="fragment_form_pemasangan_perangkat"
         tools:layout="@layout/fragment_form_pemasangan_perangkat" >
         <action
@@ -115,7 +115,7 @@
     </fragment>
     <fragment
         android:id="@+id/formPembuatanWebDllFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.FormPembuatanWebDllFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.form.FormPembuatanWebDllFragment"
         android:label="fragment_form_pembuatan_web_dll"
         tools:layout="@layout/fragment_form_pembuatan_web_dll" >
         <action
@@ -124,7 +124,7 @@
     </fragment>
     <fragment
         android:id="@+id/formPemeliharaanAkunFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.FormPemeliharaanAkunFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.form.FormPemeliharaanAkunFragment"
         android:label="fragment_form_pemeliharaan_akun"
         tools:layout="@layout/fragment_form_pemeliharaan_akun" >
         <action
@@ -133,7 +133,7 @@
     </fragment>
     <fragment
         android:id="@+id/formPengaduanLayananFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.FormPengaduanLayananFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.form.FormPengaduanLayananFragment"
         android:label="fragment_form_pengaduan_layanan"
         tools:layout="@layout/fragment_form_pengaduan_layanan" >
         <action
@@ -142,7 +142,7 @@
     </fragment>
     <fragment
         android:id="@+id/historyPeminjamanBarangFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.HistoryPeminjamanBarangFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.historyPeminjaman.HistoryPeminjamanBarangFragment"
         android:label="fragment_history_peminjaman_barang"
         tools:layout="@layout/fragment_history_peminjaman_barang" >
         <action
@@ -151,7 +151,7 @@
     </fragment>
     <fragment
         android:id="@+id/historyLayananFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.HistoryLayananFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.historyLayanan.HistoryLayananFragment"
         android:label="fragment_history_layanan"
         tools:layout="@layout/fragment_history_layanan" >
         <action
@@ -178,7 +178,7 @@
     </fragment>
     <fragment
         android:id="@+id/detailBarangFragment"
-        android:name="com.dicoding.pelayananupa_tik.fragment.DetailBarangFragment"
+        android:name="com.dicoding.pelayananupa_tik.fragment.reportFeature.DetailBarangFragment"
         android:label="fragment_detail_barang"
         tools:layout="@layout/fragment_detail_barang" >
 

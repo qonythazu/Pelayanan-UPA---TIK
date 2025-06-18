@@ -12,7 +12,7 @@ import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.platform.app.InstrumentationRegistry
-import com.dicoding.pelayananupa_tik.fragment.FormPengaduanLayananFragment
+import com.dicoding.pelayananupa_tik.fragment.form.FormPengaduanLayananFragment
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth

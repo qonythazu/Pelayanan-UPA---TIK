@@ -1,4 +1,4 @@
-package com.dicoding.pelayananupa_tik.fragment.layanan
+package com.dicoding.pelayananupa_tik.fragment.historyLayanan
 
 import android.os.Bundle
 import android.util.Log
@@ -15,7 +15,7 @@ import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 
-class InReviewServiceFragment : Fragment() {
+class AcceptedServiceFragment : Fragment() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: LayananAdapter
     private lateinit var emptyStateTextView: TextView
@@ -34,7 +34,7 @@ class InReviewServiceFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_in_review_service, container, false)
+        val view = inflater.inflate(R.layout.fragment_accepted_service, container, false)
         recyclerView = view.findViewById(R.id.recyclerView)
         emptyStateTextView = view.findViewById(R .id.emptyStateTextView)
 
@@ -60,7 +60,7 @@ class InReviewServiceFragment : Fragment() {
         for (collection in collections) {
             firestore.collection(collection)
                 .whereEqualTo("userEmail", userEmail)
-                .whereEqualTo("status", "in review")
+                .whereEqualTo("status", "diterima")
                 .get()
                 .addOnSuccessListener { documents ->
                     for (doc in documents) {
@@ -90,7 +90,7 @@ class InReviewServiceFragment : Fragment() {
         if (layananList.isEmpty()) {
             recyclerView.visibility = View.GONE
             emptyStateTextView.visibility = View.VISIBLE
-            emptyStateTextView.text = getString(R.string.belum_ada_layanan_yang_sedang_in_review)
+            emptyStateTextView.text = getString(R.string.belum_ada_layanan_yang_diterima)
         } else {
             recyclerView.visibility = View.VISIBLE
             emptyStateTextView.visibility = View.GONE

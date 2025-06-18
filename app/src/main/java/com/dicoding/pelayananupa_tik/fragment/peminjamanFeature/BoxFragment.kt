@@ -1,4 +1,4 @@
-package com.dicoding.pelayananupa_tik.fragment
+package com.dicoding.pelayananupa_tik.fragment.peminjamanFeature
 
 import android.os.Bundle
 import android.view.LayoutInflater

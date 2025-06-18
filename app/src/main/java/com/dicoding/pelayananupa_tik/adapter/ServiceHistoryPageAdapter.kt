@@ -4,13 +4,13 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.Lifecycle
 import androidx.viewpager2.adapter.FragmentStateAdapter
-import com.dicoding.pelayananupa_tik.fragment.layanan.AcceptedServiceFragment
-import com.dicoding.pelayananupa_tik.fragment.layanan.FinishedServiceFragment
-import com.dicoding.pelayananupa_tik.fragment.layanan.InReviewServiceFragment
-import com.dicoding.pelayananupa_tik.fragment.layanan.ProcessedServiceFragment
-import com.dicoding.pelayananupa_tik.fragment.layanan.RejectedServiceFragment
-import com.dicoding.pelayananupa_tik.fragment.layanan.SentServiceFragment
-import com.dicoding.pelayananupa_tik.fragment.layanan.DraftServiceFragment
+import com.dicoding.pelayananupa_tik.fragment.historyLayanan.AcceptedServiceFragment
+import com.dicoding.pelayananupa_tik.fragment.historyLayanan.FinishedServiceFragment
+import com.dicoding.pelayananupa_tik.fragment.historyLayanan.InReviewServiceFragment
+import com.dicoding.pelayananupa_tik.fragment.historyLayanan.ProcessedServiceFragment
+import com.dicoding.pelayananupa_tik.fragment.historyLayanan.RejectedServiceFragment
+import com.dicoding.pelayananupa_tik.fragment.historyLayanan.SentServiceFragment
+import com.dicoding.pelayananupa_tik.fragment.historyLayanan.DraftServiceFragment
 
 class ServiceHistoryPageAdapter(
     fragmentManager: FragmentManager,

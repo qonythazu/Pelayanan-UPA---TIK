@@ -1,4 +1,4 @@
-package com.dicoding.pelayananupa_tik.fragment.layanan
+package com.dicoding.pelayananupa_tik.fragment.historyLayanan
 
 import android.os.Bundle
 import android.util.Log
@@ -13,7 +13,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.adapter.LayananAdapter
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
-import com.dicoding.pelayananupa_tik.fragment.HistoryLayananFragment
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.QueryDocumentSnapshot
