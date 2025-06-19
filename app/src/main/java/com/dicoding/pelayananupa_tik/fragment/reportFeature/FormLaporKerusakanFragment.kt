@@ -20,7 +20,6 @@ import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormLaporKerusakanBinding
-import com.dicoding.pelayananupa_tik.helper.*
 import com.dicoding.pelayananupa_tik.utils.FormUtils
 import com.dicoding.pelayananupa_tik.utils.FormUtils.setupEditModeUI
 import com.dicoding.pelayananupa_tik.utils.FormUtils.setupToolbarNavigation
@@ -31,6 +30,28 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class FormLaporKerusakanFragment : Fragment() {
+
+    // ==================== BDD DATA CLASSES ====================
+    private data class FormScenarioContext(
+        var userIsAtFormPage: Boolean = false,
+        var formData: FormData = FormData(),
+        var isFormDataComplete: Boolean = false,
+        var submitResult: SubmitResult = SubmitResult.PENDING
+    )
+
+    private data class FormData(
+        var namaPerangkat: String = "",
+        var kontak: String = "",
+        var keterangan: String = "",
+        var imagePath: String = ""
+    )
+
+    private enum class SubmitResult {
+        PENDING, SUCCESS, FAILED_INCOMPLETE_DATA, FAILED_ERROR
+    }
+
+    // ==================== CLASS PROPERTIES ====================
+    private val scenarioContext = FormScenarioContext()
 
     private var _binding: FragmentFormLaporKerusakanBinding? = null
     private val binding get() = _binding!!
@@ -81,11 +102,251 @@ class FormLaporKerusakanFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
 
+        givenUserIsAtFormPage()
         checkEditMode()
         setupUI()
         loadUserPhoneNumber()
         setupClickListeners()
     }
+
+    // ==================== BDD METHODS ====================
+
+    /**
+     * GIVEN: User telah login dan berada di halaman formulir lapor kerusakan
+     */
+    private fun givenUserIsAtFormPage() {
+        scenarioContext.userIsAtFormPage = true
+        scenarioContext.submitResult = SubmitResult.PENDING
+        Log.d(TAG, "BDD - GIVEN: User is at form lapor kerusakan page")
+    }
+
+    /**
+     * WHEN: User mengisi semua data yang diminta di formulir dan menekan tombol submit (Skenario 1)
+     */
+    private fun whenUserFillsCompleteFormAndPressesSubmit() {
+        if (!scenarioContext.userIsAtFormPage) {
+            Log.e(TAG, "BDD - Precondition failed: User is not at form page")
+            return
+        }
+
+        Log.d(TAG, "BDD - WHEN: User fills complete form data and presses submit")
+
+        // Ambil data dari form
+        scenarioContext.formData = getFormDataForBDD()
+        scenarioContext.isFormDataComplete = validateCompleteFormData()
+
+        if (scenarioContext.isFormDataComplete) {
+            processFormSubmission()
+        }
+    }
+
+    /**
+     * WHEN: User mengisi formulir tanpa mengisi salah satu data yang wajib dan menekan tombol submit (Skenario 2)
+     */
+    private fun whenUserFillsIncompleteFormAndPressesSubmit() {
+        if (!scenarioContext.userIsAtFormPage) {
+            Log.e(TAG, "BDD - Precondition failed: User is not at form page")
+            return
+        }
+
+        Log.d(TAG, "BDD - WHEN: User fills incomplete form data and presses submit")
+
+        // Ambil data dari form
+        scenarioContext.formData = getFormDataForBDD()
+        scenarioContext.isFormDataComplete = validateCompleteFormData()
+
+        if (!scenarioContext.isFormDataComplete) {
+            handleIncompleteFormSubmission()
+        }
+    }
+
+    /**
+     * THEN: Berhasil terkirim dan user melihat pesan konfirmasi (Skenario 1)
+     */
+    private fun thenFormSubmittedSuccessfullyWithConfirmation() {
+        if (scenarioContext.isFormDataComplete) {
+            scenarioContext.submitResult = SubmitResult.SUCCESS
+            Log.d(TAG, "BDD - THEN: Form submitted successfully with confirmation message")
+
+            // Proses penyimpanan ke Firestore
+            executeSuccessfulFormSubmission()
+        }
+    }
+
+    /**
+     * THEN: Gagal terkirim dan user melihat pesan error "Harap lengkapi semua data yang wajib"
+     * dan user kembali ke halaman formulir kerusakan barang (Skenario 2)
+     */
+    private fun thenFormSubmissionFailsWithErrorMessage() {
+        if (!scenarioContext.isFormDataComplete) {
+            scenarioContext.submitResult = SubmitResult.FAILED_INCOMPLETE_DATA
+            Log.d(TAG, "BDD - THEN: Form submission fails with error message and user stays at form page")
+
+            showErrorMessageAndStayAtFormPage()
+        }
+    }
+
+    /**
+     * THEN: User mengalami error teknis saat submit
+     */
+    private fun thenUserExperiencesTechnicalError() {
+        scenarioContext.submitResult = SubmitResult.FAILED_ERROR
+        Log.d(TAG, "BDD - THEN: User experiences technical error during form submission")
+        FormUtils.resetButton(binding.btnSubmit, R.string.submit, requireContext())
+    }
+
+    // ==================== BDD HELPER METHODS ====================
+
+    private fun getFormDataForBDD(): FormData {
+        return FormData(
+            namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim(),
+            kontak = binding.kontakLayout.editText?.text.toString().trim(),
+            keterangan = binding.keteranganLayout.editText?.text.toString().trim(),
+            imagePath = savedImagePath ?: ""
+        )
+    }
+
+    private fun validateCompleteFormData(): Boolean {
+        val data = scenarioContext.formData
+        val isNamaPerangkatValid = data.namaPerangkat.isNotEmpty()
+        val isKontakValid = data.kontak.isNotEmpty() && isValidPhone(data.kontak)
+        val isKeteranganValid = data.keterangan.isNotEmpty()
+
+        Log.d(TAG, "BDD - Form validation: namaPerangkat=$isNamaPerangkatValid, kontak=$isKontakValid, keterangan=$isKeteranganValid")
+
+        return isNamaPerangkatValid && isKontakValid && isKeteranganValid
+    }
+
+    private fun isValidPhone(phone: String): Boolean {
+        // Implementasi validasi nomor telepon sederhana
+        return phone.matches(Regex("^[+]?[0-9]{10,15}$"))
+    }
+
+    private fun processFormSubmission() {
+        Log.d(TAG, "BDD - Processing form submission with complete data")
+        thenFormSubmittedSuccessfullyWithConfirmation()
+    }
+
+    private fun handleIncompleteFormSubmission() {
+        Log.d(TAG, "BDD - Handling incomplete form submission")
+        thenFormSubmissionFailsWithErrorMessage()
+    }
+
+    private fun executeSuccessfulFormSubmission() {
+        val dataToSave = mapOf(
+            "judul" to "Laporan Kerusakan",
+            "namaPerangkat" to scenarioContext.formData.namaPerangkat,
+            "serialNumber" to serialNumber,
+            "kontak" to scenarioContext.formData.kontak,
+            "keterangan" to scenarioContext.formData.keterangan,
+            "imagePath" to scenarioContext.formData.imagePath
+        )
+
+        if (isEditMode) {
+            executeUpdateForm(dataToSave)
+        } else {
+            executeNewFormSubmission(dataToSave)
+        }
+    }
+
+    private fun executeNewFormSubmission(dataToSave: Map<String, String>) {
+        FormUtils.saveFormToFirestore(
+            firestore = firestore,
+            collectionName = "form_lapor_kerusakan",
+            formData = dataToSave,
+            context = requireContext(),
+            onSuccess = {
+                Log.d(TAG, "BDD - SUCCESS: Form submitted successfully")
+                showSuccessMessage("Laporan kerusakan berhasil dikirim!")
+                clearForm()
+                findNavController().navigate(R.id.action_formLaporKerusakanFragment_to_historyLayananFragment)
+            },
+            onFailure = {
+                Log.e(TAG, "BDD - ERROR: Form submission failed")
+                thenUserExperiencesTechnicalError()
+            }
+        )
+    }
+
+    private fun executeUpdateForm(dataToSave: Map<String, String>) {
+        editingItem?.documentId?.let { documentId ->
+            FormUtils.updateFormInFirestore(
+                firestore = firestore,
+                collectionName = "form_lapor_kerusakan",
+                documentId = documentId,
+                updateData = dataToSave,
+                context = requireContext(),
+                onSuccess = {
+                    Log.d(TAG, "BDD - SUCCESS: Form updated successfully")
+                    showSuccessMessage("Laporan kerusakan berhasil diperbarui!")
+                    FormUtils.resetButton(binding.btnSubmit, R.string.update, requireContext())
+                    FormUtils.handleUpdateNavigation(
+                        findNavController(),
+                        R.id.action_formLaporKerusakanFragment_to_historyLayananFragment
+                    )
+                },
+                onFailure = {
+                    Log.e(TAG, "BDD - ERROR: Form update failed")
+                    thenUserExperiencesTechnicalError()
+                }
+            )
+        }
+    }
+
+    private fun showErrorMessageAndStayAtFormPage() {
+        // Tampilkan pesan error spesifik berdasarkan field yang kosong
+        val errorMessage = buildString {
+            append("Harap lengkapi semua data yang wajib:\n")
+            if (scenarioContext.formData.namaPerangkat.isEmpty()) append("• Nama perangkat tidak boleh kosong\n")
+            if (scenarioContext.formData.kontak.isEmpty()) append("• Kontak tidak boleh kosong\n")
+            else if (!isValidPhone(scenarioContext.formData.kontak)) append("• Format kontak tidak valid\n")
+            if (scenarioContext.formData.keterangan.isEmpty()) append("• Keterangan kerusakan tidak boleh kosong\n")
+        }.trimEnd()
+
+        Toast.makeText(
+            requireContext(),
+            errorMessage,
+            Toast.LENGTH_LONG
+        ).show()
+
+        // Highlight field yang error
+        highlightErrorFields()
+
+        // Reset button
+        FormUtils.resetButton(binding.btnSubmit, R.string.submit, requireContext())
+    }
+
+    private fun highlightErrorFields() {
+        if (scenarioContext.formData.namaPerangkat.isEmpty()) {
+            binding.namaPerangkatLayout.error = "Nama perangkat tidak boleh kosong"
+        } else {
+            binding.namaPerangkatLayout.error = null
+        }
+
+        if (scenarioContext.formData.kontak.isEmpty()) {
+            binding.kontakLayout.error = "Kontak tidak boleh kosong"
+        } else if (!isValidPhone(scenarioContext.formData.kontak)) {
+            binding.kontakLayout.error = "Format kontak tidak valid"
+        } else {
+            binding.kontakLayout.error = null
+        }
+
+        if (scenarioContext.formData.keterangan.isEmpty()) {
+            binding.keteranganLayout.error = "Keterangan kerusakan tidak boleh kosong"
+        } else {
+            binding.keteranganLayout.error = null
+        }
+    }
+
+    private fun showSuccessMessage(message: String) {
+        Toast.makeText(
+            requireContext(),
+            message,
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    // ==================== ORIGINAL IMPLEMENTATION METHODS ====================
 
     private fun setupUI() {
         setupToolbarNavigation(R.id.toolbar)
@@ -112,93 +373,22 @@ class FormLaporKerusakanFragment : Fragment() {
         }
 
         binding.btnSubmit.setOnClickListener {
-            handleFormSubmission()
+            // BDD: WHEN - User menekan tombol submit
+            handleFormSubmissionWithBDD()
         }
     }
 
-    private fun handleFormSubmission() {
-        val formData = getFormData()
-        val validationRules = buildValidation {
-            required(formData.first, binding.namaPerangkatLayout, "Nama perangkat tidak boleh kosong")
-            phone(formData.second, binding.kontakLayout)
-            required(formData.third, binding.keteranganLayout, "Keterangan kerusakan tidak boleh kosong")
-        }
+    private fun handleFormSubmissionWithBDD() {
+        // Update context dengan data terbaru
+        scenarioContext.formData = getFormDataForBDD()
+        scenarioContext.isFormDataComplete = validateCompleteFormData()
 
-        FormUtils.handleFormSubmission(
-            isEditMode = isEditMode,
-            submitButton = binding.btnSubmit,
-            context = requireContext(),
-            formData = mapOf(
-                "namaPerangkat" to formData.first,
-                "kontak" to formData.second,
-                "keterangan" to formData.third,
-                "serialNumber" to serialNumber,
-                "imagePath" to (savedImagePath ?: "")
-            ),
-            validationResult = ValidationHelper.validateFormWithRules(
-                requireContext(),
-                validationRules
-            ).isValid,
-            onSubmit = { submitNewForm(formData) },
-            onUpdate = { updateExistingForm(formData) }
-        )
-    }
-
-    private fun submitNewForm(formData: Triple<String, String, String>) {
-        val dataToSave = mapOf(
-            "judul" to "Laporan Kerusakan",
-            "namaPerangkat" to formData.first,
-            "serialNumber" to serialNumber,
-            "kontak" to formData.second,
-            "keterangan" to formData.third,
-            "imagePath" to (savedImagePath ?: "")
-        )
-
-        FormUtils.saveFormToFirestore(
-            firestore = firestore,
-            collectionName = "form_lapor_kerusakan",
-            formData = dataToSave,
-            context = requireContext(),
-            onSuccess = {
-                clearForm()
-                findNavController().navigate(R.id.action_formLaporKerusakanFragment_to_historyLayananFragment)
-            },
-            onFailure = {
-                FormUtils.resetButton(binding.btnSubmit, R.string.submit, requireContext())
-            }
-        )
-    }
-
-    private fun updateExistingForm(formData: Triple<String, String, String>) {
-        FormUtils.handleEditModeError(
-            editingItem = editingItem,
-            submitButton = binding.btnSubmit,
-            context = requireContext()
-        ) { documentId ->
-            val updateData = mapOf(
-                "namaPerangkat" to formData.first,
-                "kontak" to formData.second,
-                "keterangan" to formData.third,
-                "imagePath" to (savedImagePath ?: editingItem?.imagePath ?: "")
-            )
-
-            FormUtils.updateFormInFirestore(
-                firestore = firestore,
-                collectionName = "form_lapor_kerusakan",
-                documentId = documentId,
-                updateData = updateData,
-                context = requireContext(),
-                onSuccess = {
-                    FormUtils.resetButton(binding.btnSubmit, R.string.update, requireContext())
-                    FormUtils.handleUpdateNavigation(
-                        findNavController(),
-                        R.id.action_formLaporKerusakanFragment_to_historyLayananFragment
-                    )
-                },
-                onFailure = {
-                    FormUtils.resetButton(binding.btnSubmit, R.string.update, requireContext())
-                }
-            )
+        if (scenarioContext.isFormDataComplete) {
+            // BDD: WHEN - Skenario 1: User mengisi form lengkap
+            whenUserFillsCompleteFormAndPressesSubmit()
+        } else {
+            // BDD: WHEN - Skenario 2: User mengisi form tidak lengkap
+            whenUserFillsIncompleteFormAndPressesSubmit()
         }
     }
 
@@ -346,19 +536,15 @@ class FormLaporKerusakanFragment : Fragment() {
         }
     }
 
-    private fun getFormData(): Triple<String, String, String> {
-        return Triple(
-            binding.namaPerangkatLayout.editText?.text.toString().trim(),
-            binding.kontakLayout.editText?.text.toString().trim(),
-            binding.keteranganLayout.editText?.text.toString().trim()
-        )
-    }
-
     private fun clearForm() {
         binding.namaPerangkatLayout.editText?.text?.clear()
         binding.kontakLayout.editText?.text?.clear()
         binding.keteranganLayout.editText?.text?.clear()
         resetImageSelection()
+
+        // Clear BDD context
+        scenarioContext.formData = FormData()
+        scenarioContext.isFormDataComplete = false
     }
 
     private fun resetImageSelection() {

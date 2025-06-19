@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -19,7 +20,6 @@ import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.viewmodel.BoxViewModel
 import com.dicoding.pelayananupa_tik.backend.model.Barang
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPeminjamanBinding
-import com.dicoding.pelayananupa_tik.helper.*
 import com.dicoding.pelayananupa_tik.utils.FormUtils
 import com.dicoding.pelayananupa_tik.utils.FormUtils.getFileName
 import com.dicoding.pelayananupa_tik.utils.FormUtils.isFileValid
@@ -32,6 +32,22 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class FormPeminjamanFragment : Fragment() {
+
+    // ==================== BDD DATA CLASSES ====================
+    private data class PeminjamanScenarioContext(
+        var userIsAtFormPage: Boolean = false,
+        var formData: PeminjamanFormData = PeminjamanFormData("", "", "", "", ""),
+        var isFormDataComplete: Boolean = false,
+        var submitResult: SubmitResult = SubmitResult.PENDING,
+        var validationErrors: List<String> = emptyList()
+    )
+
+    private enum class SubmitResult {
+        PENDING, SUCCESS, FAILED_INCOMPLETE_DATA, FAILED_ERROR
+    }
+
+    // ==================== CLASS PROPERTIES ====================
+    private val scenarioContext = PeminjamanScenarioContext()
 
     private var _binding: FragmentFormPeminjamanBinding? = null
     private val binding get() = _binding!!
@@ -70,11 +86,272 @@ class FormPeminjamanFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         firestore = FirebaseFirestore.getInstance()
 
+        givenUserIsAtFormPage()
         setupUI()
         loadUserPhoneNumber()
         setupClickListeners()
         populateSelectedItems()
     }
+
+    // ==================== BDD METHODS ====================
+
+    /**
+     * GIVEN: User telah login dan berada di halaman formulir peminjaman barang
+     */
+    private fun givenUserIsAtFormPage() {
+        scenarioContext.userIsAtFormPage = true
+        scenarioContext.submitResult = SubmitResult.PENDING
+        scenarioContext.validationErrors = emptyList()
+        Log.d(TAG, "BDD - GIVEN: User is at form peminjaman barang page")
+    }
+
+    /**
+     * WHEN: User mengisi semua data yang diminta di formulir dan menekan tombol submit (Skenario 1)
+     */
+    private fun whenUserFillsCompleteFormAndPressesSubmit() {
+        if (!scenarioContext.userIsAtFormPage) {
+            Log.e(TAG, "BDD - Precondition failed: User is not at form page")
+            return
+        }
+
+        Log.d(TAG, "BDD - WHEN: User fills complete form data and presses submit")
+
+        // Ambil data dari form
+        scenarioContext.formData = getFormDataForBDD()
+        val validationResult = validateCompleteFormData()
+        scenarioContext.isFormDataComplete = validationResult.isValid
+        scenarioContext.validationErrors = validationResult.errors
+
+        if (scenarioContext.isFormDataComplete) {
+            processFormSubmission()
+        }
+    }
+
+    /**
+     * WHEN: User mengisi formulir tanpa mengisi salah satu data yang wajib dan menekan tombol submit (Skenario 2)
+     */
+    private fun whenUserFillsIncompleteFormAndPressesSubmit() {
+        if (!scenarioContext.userIsAtFormPage) {
+            Log.e(TAG, "BDD - Precondition failed: User is not at form page")
+            return
+        }
+
+        Log.d(TAG, "BDD - WHEN: User fills incomplete form data and presses submit")
+
+        // Ambil data dari form
+        scenarioContext.formData = getFormDataForBDD()
+        val validationResult = validateCompleteFormData()
+        scenarioContext.isFormDataComplete = validationResult.isValid
+        scenarioContext.validationErrors = validationResult.errors
+
+        if (!scenarioContext.isFormDataComplete) {
+            handleIncompleteFormSubmission()
+        }
+    }
+
+    /**
+     * THEN: Berhasil terkirim dan user melihat pesan konfirmasi (Skenario 1)
+     */
+    private fun thenFormSubmittedSuccessfullyWithConfirmation() {
+        if (scenarioContext.isFormDataComplete) {
+            scenarioContext.submitResult = SubmitResult.SUCCESS
+            Log.d(TAG, "BDD - THEN: Form submitted successfully with confirmation message")
+
+            // Proses penyimpanan ke Firestore
+            executeSuccessfulFormSubmission()
+        }
+    }
+
+    /**
+     * THEN: Gagal terkirim dan user melihat pesan error dan kembali ke halaman formulir (Skenario 2)
+     */
+    private fun thenFormSubmissionFailsWithErrorMessage() {
+        if (!scenarioContext.isFormDataComplete) {
+            scenarioContext.submitResult = SubmitResult.FAILED_INCOMPLETE_DATA
+            Log.d(TAG, "BDD - THEN: Form submission fails with error message and user stays at form page")
+
+            showErrorMessageAndStayAtFormPage()
+        }
+    }
+
+    /**
+     * THEN: User mengalami error teknis saat submit
+     */
+    private fun thenUserExperiencesTechnicalError() {
+        scenarioContext.submitResult = SubmitResult.FAILED_ERROR
+        Log.d(TAG, "BDD - THEN: User experiences technical error during form submission")
+        FormUtils.resetButton(binding.btnSubmit, R.string.submit_button, requireContext())
+    }
+
+    // ==================== BDD HELPER METHODS ====================
+
+    private fun getFormDataForBDD(): PeminjamanFormData {
+        return PeminjamanFormData(
+            namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim(),
+            tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim(),
+            harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim(),
+            namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim(),
+            kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
+        )
+    }
+
+    private data class ValidationResult(
+        val isValid: Boolean,
+        val errors: List<String>
+    )
+
+    private fun validateCompleteFormData(): ValidationResult {
+        val errors = mutableListOf<String>()
+        val data = scenarioContext.formData
+
+        // Validasi field wajib
+        if (data.namaPerangkat.isEmpty()) {
+            errors.add("Nama perangkat tidak boleh kosong")
+        }
+
+        if (data.tujuanPeminjaman.isEmpty()) {
+            errors.add("Tujuan peminjaman tidak boleh kosong")
+        }
+
+        if (startDate == null) {
+            errors.add("Tanggal mulai tidak boleh kosong")
+        }
+
+        if (endDate == null) {
+            errors.add("Tanggal selesai tidak boleh kosong")
+        }
+
+        if (data.harapanAnda.isEmpty()) {
+            errors.add("Harapan tidak boleh kosong")
+        }
+
+        if (data.namaPJ.isEmpty()) {
+            errors.add("Nama penanggung jawab tidak boleh kosong")
+        }
+
+        if (data.kontakPJ.isEmpty()) {
+            errors.add("Kontak penanggung jawab tidak boleh kosong")
+        } else if (!isValidPhone(data.kontakPJ)) {
+            errors.add("Format kontak tidak valid")
+        }
+
+        // Validasi tanggal
+        if (startDate != null && endDate != null) {
+            val today = Date()
+            if (startDate!!.before(today)) {
+                errors.add("Tanggal mulai tidak boleh di masa lalu")
+            }
+            if (endDate!!.before(startDate)) {
+                errors.add("Tanggal selesai tidak boleh sebelum tanggal mulai")
+            }
+        }
+
+        Log.d(TAG, "BDD - Form validation errors: $errors")
+
+        return ValidationResult(
+            isValid = errors.isEmpty(),
+            errors = errors
+        )
+    }
+
+    private fun isValidPhone(phone: String): Boolean {
+        return phone.matches(Regex("^[+]?[0-9]{10,15}$"))
+    }
+
+    private fun processFormSubmission() {
+        Log.d(TAG, "BDD - Processing form submission with complete data")
+        thenFormSubmittedSuccessfullyWithConfirmation()
+    }
+
+    private fun handleIncompleteFormSubmission() {
+        Log.d(TAG, "BDD - Handling incomplete form submission")
+        thenFormSubmissionFailsWithErrorMessage()
+    }
+
+    private fun executeSuccessfulFormSubmission() {
+        val selectedBarang = boxViewModel.getSelectedItems()
+        val grupId = UUID.randomUUID().toString()
+        var successCount = 0
+        val totalItems = selectedBarang.size
+
+        selectedBarang.forEach { barang ->
+            val peminjamanData = createPeminjamanData(
+                formData = scenarioContext.formData,
+                barang = barang,
+                grupId = grupId,
+                totalItems = totalItems
+            )
+
+            // Use FormUtils for consistent submission handling
+            FormUtils.saveFormToFirestore(
+                firestore = firestore,
+                collectionName = "form_peminjaman",
+                formData = peminjamanData,
+                context = requireContext(),
+                onSuccess = {
+                    clearForm()
+                    successCount++
+                    if (successCount == totalItems) {
+                        handleSubmissionSuccess(totalItems)
+                    }
+                },
+                onFailure = {
+                    Log.e(TAG, "BDD - ERROR: Form submission failed for ${getBarangName(barang)}")
+                    thenUserExperiencesTechnicalError()
+                    handleSubmissionFailure(getBarangName(barang))
+                }
+            )
+        }
+    }
+
+    private fun showErrorMessageAndStayAtFormPage() {
+        // Tampilkan pesan error "Harap lengkapi semua data yang wajib"
+        val errorMessage = "Harap lengkapi semua data yang wajib"
+
+        Toast.makeText(
+            requireContext(),
+            errorMessage,
+            Toast.LENGTH_LONG
+        ).show()
+
+        // Highlight field yang error
+        highlightErrorFields()
+
+        // Reset button
+        FormUtils.resetButton(binding.btnSubmit, R.string.submit_button, requireContext())
+
+        Log.d(TAG, "BDD - Error message shown: $errorMessage")
+    }
+
+    private fun highlightErrorFields() {
+        scenarioContext.validationErrors.forEach { error ->
+            when {
+                error.contains("Nama perangkat") -> {
+                    binding.namaPerangkatLayout.error = error
+                }
+                error.contains("Tujuan peminjaman") -> {
+                    binding.tujuanPeminjamanLayout.error = error
+                }
+                error.contains("Tanggal mulai") -> {
+                    binding.tanggalMulaiLayout.error = error
+                }
+                error.contains("Tanggal selesai") -> {
+                    binding.tanggalSelesaiLayout.error = error
+                }
+                error.contains("Harapan") -> {
+                    binding.harapanAndaLayout.error = error
+                }
+                error.contains("Nama penanggung jawab") -> {
+                    binding.namaPenanggungJawabLayout.error = error
+                }
+                error.contains("Kontak") -> {
+                    binding.kontakPenanggungJawabLayout.error = error
+                }
+            }
+        }
+    }
+
+    // ==================== ORIGINAL IMPLEMENTATION METHODS ====================
 
     private fun setupUI() {
         setupToolbarNavigation(R.id.toolbar)
@@ -172,7 +449,24 @@ class FormPeminjamanFragment : Fragment() {
         }
 
         binding.btnSubmit.setOnClickListener {
-            handleFormSubmission()
+            // BDD: WHEN - User menekan tombol submit
+            handleFormSubmissionWithBDD()
+        }
+    }
+
+    private fun handleFormSubmissionWithBDD() {
+        // Update context dengan data terbaru
+        scenarioContext.formData = getFormDataForBDD()
+        val validationResult = validateCompleteFormData()
+        scenarioContext.isFormDataComplete = validationResult.isValid
+        scenarioContext.validationErrors = validationResult.errors
+
+        if (scenarioContext.isFormDataComplete) {
+            // BDD: WHEN - Skenario 1: User mengisi form lengkap
+            whenUserFillsCompleteFormAndPressesSubmit()
+        } else {
+            // BDD: WHEN - Skenario 2: User mengisi form tidak lengkap
+            whenUserFillsIncompleteFormAndPressesSubmit()
         }
     }
 
@@ -207,107 +501,6 @@ class FormPeminjamanFragment : Fragment() {
         }
 
         savedPdfPath = savePdfLocally(requireContext(), uri)
-    }
-
-    private fun handleFormSubmission() {
-        val formData = getFormData()
-        val validationRules = buildValidation {
-            required(formData.namaPerangkat, binding.namaPerangkatLayout, "Nama perangkat tidak boleh kosong")
-            required(formData.tujuanPeminjaman, binding.tujuanPeminjamanLayout, "Tujuan peminjaman tidak boleh kosong")
-            dateValidation()
-            required(formData.harapanAnda, binding.harapanAndaLayout, "Harapan tidak boleh kosong")
-            required(formData.namaPJ, binding.namaPenanggungJawabLayout, "Nama penanggung jawab tidak boleh kosong")
-            phone(formData.kontakPJ, binding.kontakPenanggungJawabLayout)
-            fileValidation()
-        }
-
-        FormUtils.handleFormSubmission(
-            isEditMode = false,
-            submitButton = binding.btnSubmit,
-            context = requireContext(),
-            formData = mapOf(
-                "namaPerangkat" to formData.namaPerangkat,
-                "tujuanPeminjaman" to formData.tujuanPeminjaman,
-                "tanggalMulai" to (startDate?.let { dateFormat.format(it) } ?: ""),
-                "tanggalSelesai" to (endDate?.let { dateFormat.format(it) } ?: ""),
-                "harapanAnda" to formData.harapanAnda,
-                "namaPJ" to formData.namaPJ,
-                "kontakPJ" to formData.kontakPJ,
-                "filePath" to (savedPdfPath ?: "")
-            ),
-            validationResult = ValidationHelper.validateFormWithRules(
-                requireContext(),
-                validationRules
-            ).isValid,
-            onSubmit = { submitNewForm(formData) },
-            onUpdate = { /* Not used in peminjaman form */ }
-        )
-    }
-
-    private fun fileValidation(): Boolean {
-        return selectedPdfUri?.let { isFileValid(requireContext(), it) } ?: true
-    }
-
-    private fun dateValidation(): Boolean {
-        val today = Date()
-
-        return when {
-            startDate == null -> {
-                binding.tanggalMulaiLayout.error = "Tanggal mulai tidak boleh kosong"
-                false
-            }
-            endDate == null -> {
-                binding.tanggalSelesaiLayout.error = "Tanggal selesai tidak boleh kosong"
-                false
-            }
-            startDate!!.before(today) -> {
-                binding.tanggalMulaiLayout.error = "Tanggal mulai tidak boleh di masa lalu"
-                false
-            }
-            endDate!!.before(startDate) -> {
-                binding.tanggalSelesaiLayout.error = "Tanggal selesai tidak boleh sebelum tanggal mulai"
-                false
-            }
-            else -> {
-                binding.tanggalMulaiLayout.error = null
-                binding.tanggalSelesaiLayout.error = null
-                true
-            }
-        }
-    }
-
-    private fun submitNewForm(formData: PeminjamanFormData) {
-        val selectedBarang = boxViewModel.getSelectedItems()
-        val grupId = UUID.randomUUID().toString()
-        var successCount = 0
-        val totalItems = selectedBarang.size
-
-        selectedBarang.forEach { barang ->
-            val peminjamanData = createPeminjamanData(
-                formData = formData,
-                barang = barang,
-                grupId = grupId,
-                totalItems = totalItems
-            )
-
-            // Use FormUtils for consistent submission handling
-            FormUtils.saveFormToFirestore(
-                firestore = firestore,
-                collectionName = "form_peminjaman",
-                formData = peminjamanData,
-                context = requireContext(),
-                onSuccess = {
-                    clearForm()
-                    successCount++
-                    if (successCount == totalItems) {
-                        handleSubmissionSuccess(totalItems)
-                    }
-                },
-                onFailure = {
-                    handleSubmissionFailure(getBarangName(barang))
-                }
-            )
-        }
     }
 
     private fun getBarangName(barang: Any): String {
@@ -370,11 +563,15 @@ class FormPeminjamanFragment : Fragment() {
         FormUtils.resetButton(binding.btnSubmit, R.string.submit_button, requireContext())
 
         lifecycleScope.launch {
+            // BDD: THEN - Pesan konfirmasi berhasil
+            val successMessage = "Peminjaman $totalItems barang berhasil diajukan! Menunggu persetujuan admin."
             Toast.makeText(
                 requireContext(),
-                "Peminjaman $totalItems barang berhasil diajukan! Menunggu persetujuan admin.",
+                successMessage,
                 Toast.LENGTH_LONG
             ).show()
+
+            Log.d(TAG, "BDD - SUCCESS: $successMessage")
             findNavController().navigate(R.id.action_formPeminjamanFragment_to_historyPeminjamanBarangFragment)
         }
     }
@@ -388,16 +585,6 @@ class FormPeminjamanFragment : Fragment() {
         ).show()
     }
 
-    private fun getFormData(): PeminjamanFormData {
-        return PeminjamanFormData(
-            namaPerangkat = binding.namaPerangkatLayout.editText?.text.toString().trim(),
-            tujuanPeminjaman = binding.tujuanPeminjamanLayout.editText?.text.toString().trim(),
-            harapanAnda = binding.harapanAndaLayout.editText?.text.toString().trim(),
-            namaPJ = binding.namaPenanggungJawabLayout.editText?.text.toString().trim(),
-            kontakPJ = binding.kontakPenanggungJawabLayout.editText?.text.toString().trim()
-        )
-    }
-
     private fun clearForm() {
         binding.namaPerangkatLayout.editText?.text?.clear()
         binding.tujuanPeminjamanLayout.editText?.text?.clear()
@@ -409,6 +596,11 @@ class FormPeminjamanFragment : Fragment() {
         resetFileSelection()
         startDate = null
         endDate = null
+
+        // Clear BDD context
+        scenarioContext.formData = PeminjamanFormData("", "", "", "", "")
+        scenarioContext.isFormDataComplete = false
+        scenarioContext.validationErrors = emptyList()
     }
 
     private fun resetFileSelection() {
@@ -452,4 +644,8 @@ class FormPeminjamanFragment : Fragment() {
         val namaPJ: String,
         val kontakPJ: String
     )
+
+    companion object {
+        private const val TAG = "FormPeminjamanFragment"
+    }
 }
