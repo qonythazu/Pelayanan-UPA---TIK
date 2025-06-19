@@ -18,14 +18,19 @@ import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPemeliharaanAkunBinding
-import com.dicoding.pelayananupa_tik.utils.FormUtils
+import com.dicoding.pelayananupa_tik.helper.*
 import com.dicoding.pelayananupa_tik.utils.FormUtils.getFileName
+import com.dicoding.pelayananupa_tik.utils.FormUtils.handleEditModeError
+import com.dicoding.pelayananupa_tik.utils.FormUtils.handleFormSubmission
+import com.dicoding.pelayananupa_tik.utils.FormUtils.handleUpdateNavigation
 import com.dicoding.pelayananupa_tik.utils.FormUtils.isFileValid
 import com.dicoding.pelayananupa_tik.utils.FormUtils.openPdfPicker
+import com.dicoding.pelayananupa_tik.utils.FormUtils.resetButton
 import com.dicoding.pelayananupa_tik.utils.FormUtils.saveFormToFirestore
 import com.dicoding.pelayananupa_tik.utils.FormUtils.savePdfLocally
 import com.dicoding.pelayananupa_tik.utils.FormUtils.setupEditModeUI
 import com.dicoding.pelayananupa_tik.utils.FormUtils.setupToolbarNavigation
+import com.dicoding.pelayananupa_tik.utils.FormUtils.updateFormInFirestore
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 
@@ -35,7 +40,7 @@ class FormPemeliharaanAkunFragment : Fragment() {
     private data class FormScenarioContext(
         var userIsAtFormPage: Boolean = false,
         var formData: PemeliharaanFormData = PemeliharaanFormData(),
-        var isFormDataComplete: Boolean = false,
+        var validationResult: ValidationResult = ValidationResult(false),
         var submitResult: SubmitResult = SubmitResult.PENDING
     )
 
@@ -48,7 +53,7 @@ class FormPemeliharaanAkunFragment : Fragment() {
     )
 
     private enum class SubmitResult {
-        PENDING, SUCCESS, FAILED_INCOMPLETE_DATA, FAILED_ERROR
+        PENDING, SUCCESS, FAILED_VALIDATION_ERROR, FAILED_TECHNICAL_ERROR
     }
 
     // ==================== CLASS PROPERTIES ====================
@@ -74,7 +79,8 @@ class FormPemeliharaanAkunFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentFormPemeliharaanAkunBinding.inflate(inflater, container, false)
+        _binding = FragmentFormPemeliharaanAkunBinding.inflate(
+            inflater, container, false)
         return binding.root
     }
 
@@ -100,7 +106,8 @@ class FormPemeliharaanAkunFragment : Fragment() {
     }
 
     /**
-     * WHEN: User mengisi semua data yang diminta di formulir dan menekan tombol submit (Skenario 1)
+     * WHEN: User mengisi semua data yang diminta di formulir
+     * dan menekan tombol submit (Skenario 1)
      */
     private fun whenUserFillsCompleteFormAndPressesSubmit() {
         if (!scenarioContext.userIsAtFormPage) {
@@ -110,17 +117,17 @@ class FormPemeliharaanAkunFragment : Fragment() {
 
         Log.d(TAG, "BDD - WHEN: User fills complete form data and presses submit")
 
-        // Ambil data dari form
         scenarioContext.formData = getFormDataForBDD()
-        scenarioContext.isFormDataComplete = validateCompleteFormData()
+        scenarioContext.validationResult = validateFormUsingHelper()
 
-        if (scenarioContext.isFormDataComplete) {
+        if (scenarioContext.validationResult.isValid) {
             processFormSubmission()
         }
     }
 
     /**
-     * WHEN: User mengisi formulir tanpa mengisi salah satu data yang wajib dan menekan tombol submit (Skenario 2)
+     * WHEN: User mengisi formulir tanpa mengisi salah satu data yang wajib
+     * dan menekan tombol submit (Skenario 2)
      */
     private fun whenUserFillsIncompleteFormAndPressesSubmit() {
         if (!scenarioContext.userIsAtFormPage) {
@@ -130,11 +137,10 @@ class FormPemeliharaanAkunFragment : Fragment() {
 
         Log.d(TAG, "BDD - WHEN: User fills incomplete form data and presses submit")
 
-        // Ambil data dari form
         scenarioContext.formData = getFormDataForBDD()
-        scenarioContext.isFormDataComplete = validateCompleteFormData()
+        scenarioContext.validationResult = validateFormUsingHelper()
 
-        if (!scenarioContext.isFormDataComplete) {
+        if (!scenarioContext.validationResult.isValid) {
             handleIncompleteFormSubmission()
         }
     }
@@ -143,11 +149,10 @@ class FormPemeliharaanAkunFragment : Fragment() {
      * THEN: Berhasil terkirim dan user melihat pesan konfirmasi (Skenario 1)
      */
     private fun thenFormSubmittedSuccessfullyWithConfirmation() {
-        if (scenarioContext.isFormDataComplete) {
+        if (scenarioContext.validationResult.isValid) {
             scenarioContext.submitResult = SubmitResult.SUCCESS
             Log.d(TAG, "BDD - THEN: Form submitted successfully with confirmation message")
 
-            // Proses penyimpanan ke Firestore
             executeSuccessfulFormSubmission()
         }
     }
@@ -155,12 +160,12 @@ class FormPemeliharaanAkunFragment : Fragment() {
     /**
      * THEN: Gagal terkirim dan user melihat pesan error dan kembali ke halaman formulir (Skenario 2)
      */
-    private fun thenFormSubmissionFailsWithErrorMessage() {
-        if (!scenarioContext.isFormDataComplete) {
-            scenarioContext.submitResult = SubmitResult.FAILED_INCOMPLETE_DATA
-            Log.d(TAG, "BDD - THEN: Form submission fails with error message and user stays at form page")
+    private fun thenFormSubmissionFailsWithValidationError() {
+        if (!scenarioContext.validationResult.isValid) {
+            scenarioContext.submitResult = SubmitResult.FAILED_VALIDATION_ERROR
+            Log.d(TAG, "BDD - THEN: Form submission fails with validation error and user stays at form page")
 
-            showErrorMessageAndStayAtFormPage()
+            showValidationErrorsAndStayAtFormPage()
         }
     }
 
@@ -168,9 +173,9 @@ class FormPemeliharaanAkunFragment : Fragment() {
      * THEN: User mengalami error teknis saat submit
      */
     private fun thenUserExperiencesTechnicalError() {
-        scenarioContext.submitResult = SubmitResult.FAILED_ERROR
+        scenarioContext.submitResult = SubmitResult.FAILED_TECHNICAL_ERROR
         Log.d(TAG, "BDD - THEN: User experiences technical error during form submission")
-        FormUtils.resetButton(binding.btnSubmit, R.string.submit, requireContext())
+        resetButton(binding.btnSubmit, if (isEditMode) R.string.update else R.string.submit, requireContext())
     }
 
     // ==================== BDD HELPER METHODS ====================
@@ -185,17 +190,44 @@ class FormPemeliharaanAkunFragment : Fragment() {
         )
     }
 
-    private fun validateCompleteFormData(): Boolean {
-        val data = scenarioContext.formData
-        val isLayananValid = data.layanan.isNotEmpty()
-        val isJenisValid = data.jenis.isNotEmpty()
-        val isAkunValid = data.akun.isNotEmpty()
-        val isAlasanValid = data.alasan.isNotEmpty()
-        val isFileValid = selectedPdfUri != null
+    private fun validateFormUsingHelper(): ValidationResult {
+        val validationRules = buildValidation {
+            required(
+                field = scenarioContext.formData.akun,
+                layout = binding.namaAkunLayout,
+                errorMessage = "Nama akun layanan tidak boleh kosong"
+            )
 
-        Log.d(TAG, "BDD - Form validation: layanan=$isLayananValid, jenis=$isJenisValid, akun=$isAkunValid, alasan=$isAlasanValid, file=$isFileValid")
+            required(
+                field = scenarioContext.formData.alasan,
+                layout = binding.alasanLayout,
+                errorMessage = "Alasan pemeliharaan tidak boleh kosong"
+            )
 
-        return isLayananValid && isJenisValid && isAkunValid && isAlasanValid && isFileValid
+            radioButton(
+                field = scenarioContext.formData.layanan,
+                errorMessage = "Harap pilih layanan"
+            )
+
+            radioButton(
+                field = scenarioContext.formData.jenis,
+                errorMessage = "Harap pilih jenis pemeliharaan"
+            )
+
+            file(
+                uri = selectedPdfUri,
+                context = requireContext(),
+                errorMessage = "Harap pilih file"
+            )
+        }
+
+        val result = ValidationHelper.validateFormWithRules(requireContext(), validationRules)
+        Log.d(
+            TAG,
+            "BDD - Form validation result: isValid=${result.isValid}," +
+                    " errors=${result.errors}")
+
+        return result
     }
 
     private fun processFormSubmission() {
@@ -205,7 +237,7 @@ class FormPemeliharaanAkunFragment : Fragment() {
 
     private fun handleIncompleteFormSubmission() {
         Log.d(TAG, "BDD - Handling incomplete form submission")
-        thenFormSubmissionFailsWithErrorMessage()
+        thenFormSubmissionFailsWithValidationError()
     }
 
     private fun executeSuccessfulFormSubmission() {
@@ -218,14 +250,18 @@ class FormPemeliharaanAkunFragment : Fragment() {
             "filePath" to scenarioContext.formData.filePath
         )
 
-        if (isEditMode) {
-            executeUpdateForm(dataToSave)
-        } else {
-            executeNewFormSubmission(dataToSave)
-        }
+        handleFormSubmission(
+            isEditMode = isEditMode,
+            submitButton = binding.btnSubmit,
+            context = requireContext(),
+            formData = dataToSave,
+            validationResult = scenarioContext.validationResult.isValid,
+            onSubmit = { executeNewFormSubmission(dataToSave) },
+            onUpdate = { executeUpdateForm(dataToSave) }
+        )
     }
 
-    private fun executeNewFormSubmission(dataToSave: Map<String, String>) {
+    private fun executeNewFormSubmission(dataToSave: Map<String, Any>) {
         saveFormToFirestore(
             firestore = firestore,
             collectionName = "form_pemeliharaan",
@@ -233,7 +269,6 @@ class FormPemeliharaanAkunFragment : Fragment() {
             context = requireContext(),
             onSuccess = {
                 Log.d(TAG, "BDD - SUCCESS: Pemeliharaan form submitted successfully")
-                showSuccessMessage("Formulir pemeliharaan akun berhasil dikirim!")
                 clearForm()
                 findNavController().navigate(R.id.action_formPemeliharaanAkunFragment_to_historyLayananFragment)
             },
@@ -244,9 +279,13 @@ class FormPemeliharaanAkunFragment : Fragment() {
         )
     }
 
-    private fun executeUpdateForm(dataToSave: Map<String, String>) {
-        editingItem?.documentId?.let { documentId ->
-            FormUtils.updateFormInFirestore(
+    private fun executeUpdateForm(dataToSave: Map<String, Any>) {
+        handleEditModeError(
+            editingItem = editingItem,
+            submitButton = binding.btnSubmit,
+            context = requireContext()
+        ) { documentId ->
+            updateFormInFirestore(
                 firestore = firestore,
                 collectionName = "form_pemeliharaan",
                 documentId = documentId,
@@ -254,94 +293,35 @@ class FormPemeliharaanAkunFragment : Fragment() {
                 context = requireContext(),
                 onSuccess = {
                     Log.d(TAG, "BDD - SUCCESS: Pemeliharaan form updated successfully")
-                    showSuccessMessage("Formulir pemeliharaan akun berhasil diperbarui!")
-                    FormUtils.resetButton(binding.btnSubmit, R.string.update, requireContext())
-                    FormUtils.handleUpdateNavigation(
+                    resetButton(binding.btnSubmit, R.string.update, requireContext())
+                    handleUpdateNavigation(
                         findNavController(),
                         R.id.action_formPemeliharaanAkunFragment_to_historyLayananFragment
                     )
                 },
-                onFailure = {
-                    Log.e(TAG, "BDD - ERROR: Pemeliharaan form update failed")
+                onFailure = { errorMsg ->
+                    Log.e(TAG, "BDD - ERROR: Pemeliharaan form update failed: $errorMsg")
                     thenUserExperiencesTechnicalError()
                 }
             )
         }
     }
 
-    private fun showErrorMessageAndStayAtFormPage() {
-        // Tampilkan pesan error spesifik berdasarkan field yang kosong
-        val errorMessage = buildString {
-            append("Harap lengkapi semua data yang wajib:\n")
-            if (scenarioContext.formData.layanan.isEmpty()) append("• Layanan harus dipilih\n")
-            if (scenarioContext.formData.jenis.isEmpty()) append("• Jenis pemeliharaan harus dipilih\n")
-            if (scenarioContext.formData.akun.isEmpty()) append("• Nama akun layanan tidak boleh kosong\n")
-            if (scenarioContext.formData.alasan.isEmpty()) append("• Alasan pemeliharaan tidak boleh kosong\n")
-            if (selectedPdfUri == null) append("• File harus dipilih\n")
-        }.trimEnd()
-
-        android.widget.Toast.makeText(
-            requireContext(),
-            errorMessage,
-            android.widget.Toast.LENGTH_LONG
-        ).show()
-
-        // Highlight field yang error
-        highlightErrorFields()
-
-        // Reset button
-        FormUtils.resetButton(binding.btnSubmit, R.string.submit, requireContext())
-    }
-
-    private fun highlightErrorFields() {
-        // Highlight radio button errors by changing background color temporarily
-        if (scenarioContext.formData.layanan.isEmpty()) {
-            // Visual feedback for radio group layanan
-            binding.radioGroupLayanan.setBackgroundColor(
-                ContextCompat.getColor(requireContext(), R.color.red)
-            )
-        } else {
-            binding.radioGroupLayanan.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+    private fun showValidationErrorsAndStayAtFormPage() {
+        if (scenarioContext.validationResult.errors.isNotEmpty()) {
+            val errorMessage = scenarioContext.validationResult.errors.joinToString("\n")
+            android.widget.Toast.makeText(
+                requireContext(),
+                errorMessage,
+                android.widget.Toast.LENGTH_LONG
+            ).show()
         }
 
-        if (scenarioContext.formData.jenis.isEmpty()) {
-            // Visual feedback for radio group jenis
-            binding.radioGroupJenis.setBackgroundColor(
-                ContextCompat.getColor(requireContext(), R.color.red)
-            )
-        } else {
-            binding.radioGroupJenis.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-        }
-
-        if (scenarioContext.formData.akun.isEmpty()) {
-            binding.namaAkunLayout.error = "Nama akun layanan tidak boleh kosong"
-        } else {
-            binding.namaAkunLayout.error = null
-        }
-
-        if (scenarioContext.formData.alasan.isEmpty()) {
-            binding.alasanLayout.error = "Alasan pemeliharaan tidak boleh kosong"
-        } else {
-            binding.alasanLayout.error = null
-        }
-
-        if (selectedPdfUri == null) {
-            binding.tvFileName.setTextColor(
-                ContextCompat.getColor(requireContext(), R.color.red)
-            )
-        } else {
-            binding.tvFileName.setTextColor(
-                ContextCompat.getColor(requireContext(), R.color.black)
-            )
-        }
-    }
-
-    private fun showSuccessMessage(message: String) {
-        android.widget.Toast.makeText(
-            requireContext(),
-            message,
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
+        resetButton(
+            binding.btnSubmit,
+            if (isEditMode) R.string.update else R.string.submit,
+            requireContext()
+        )
     }
 
     // ==================== ORIGINAL IMPLEMENTATION METHODS ====================
@@ -353,14 +333,21 @@ class FormPemeliharaanAkunFragment : Fragment() {
     }
 
     private fun setupRadioGroupListeners() {
-        binding.radioGroupLayanan.setOnCheckedChangeListener { _, _ -> }
+        binding.radioGroupLayanan.setOnCheckedChangeListener { _, _ ->
+            clearRadioGroupErrorState(binding.radioGroupLayanan)
+        }
         binding.radioGroupJenis.setOnCheckedChangeListener { _, checkedId ->
+            clearRadioGroupErrorState(binding.radioGroupJenis)
             binding.textInputLayoutOther.visibility = if (checkedId == R.id.radioOther) {
                 View.VISIBLE
             } else {
                 View.GONE
             }
         }
+    }
+
+    private fun clearRadioGroupErrorState(radioGroup: RadioGroup) {
+        radioGroup.setBackgroundColor(android.graphics.Color.TRANSPARENT)
     }
 
     private fun setupClickListeners() {
@@ -372,11 +359,10 @@ class FormPemeliharaanAkunFragment : Fragment() {
     }
 
     private fun handleFormSubmissionWithBDD() {
-        // Update context dengan data terbaru
         scenarioContext.formData = getFormDataForBDD()
-        scenarioContext.isFormDataComplete = validateCompleteFormData()
+        scenarioContext.validationResult = validateFormUsingHelper()
 
-        if (scenarioContext.isFormDataComplete) {
+        if (scenarioContext.validationResult.isValid) {
             // BDD: WHEN - Skenario 1: User mengisi form lengkap
             whenUserFillsCompleteFormAndPressesSubmit()
         } else {
@@ -392,6 +378,9 @@ class FormPemeliharaanAkunFragment : Fragment() {
                 val fileName = getFileName(requireContext(), it)
                 updateFileUI(fileName)
                 savedPdfPath = savePdfLocally(requireContext(), it)
+                binding.tvFileName.setTextColor(
+                    ContextCompat.getColor(requireContext(), R.color.black)
+                )
             }
         }
     }
@@ -471,6 +460,7 @@ class FormPemeliharaanAkunFragment : Fragment() {
             if (file.exists()) {
                 updateFileUI(file.name)
                 savedPdfPath = filePath
+                selectedPdfUri = Uri.fromFile(file)
             }
         }
     }
@@ -497,17 +487,22 @@ class FormPemeliharaanAkunFragment : Fragment() {
         binding.editTextOther.text?.clear()
         binding.namaAkunLayout.editText?.text?.clear()
         binding.alasanLayout.editText?.text?.clear()
+        binding.namaAkunLayout.error = null
+        binding.alasanLayout.error = null
+        clearRadioGroupErrorState(binding.radioGroupLayanan)
+        clearRadioGroupErrorState(binding.radioGroupJenis)
+
         resetFileUI()
         selectedPdfUri = null
         savedPdfPath = null
 
-        // Clear BDD context
         scenarioContext.formData = PemeliharaanFormData()
-        scenarioContext.isFormDataComplete = false
+        scenarioContext.validationResult = ValidationResult(false)
     }
 
     private fun resetFileUI() {
         binding.tvFileName.text = getString(R.string.no_file_selected)
+        binding.tvFileName.setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
         binding.btnChooseFile.apply {
             backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.white))
             setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))

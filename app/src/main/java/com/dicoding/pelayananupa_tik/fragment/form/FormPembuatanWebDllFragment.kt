@@ -6,16 +6,23 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.RadioButton
+import android.widget.RadioGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPembuatanWebDllBinding
-import com.dicoding.pelayananupa_tik.utils.FormUtils
+import com.dicoding.pelayananupa_tik.helper.*
+import com.dicoding.pelayananupa_tik.utils.FormUtils.handleEditModeError
+import com.dicoding.pelayananupa_tik.utils.FormUtils.handleFormSubmission
+import com.dicoding.pelayananupa_tik.utils.FormUtils.handleUpdateNavigation
+import com.dicoding.pelayananupa_tik.utils.FormUtils.loadUserPhoneNumber
+import com.dicoding.pelayananupa_tik.utils.FormUtils.resetButton
 import com.dicoding.pelayananupa_tik.utils.FormUtils.saveFormToFirestore
 import com.dicoding.pelayananupa_tik.utils.FormUtils.setupEditModeUI
 import com.dicoding.pelayananupa_tik.utils.FormUtils.setupToolbarNavigation
+import com.dicoding.pelayananupa_tik.utils.FormUtils.updateFormInFirestore
 import com.google.firebase.firestore.FirebaseFirestore
 
 class FormPembuatanWebDllFragment : Fragment() {
@@ -23,12 +30,12 @@ class FormPembuatanWebDllFragment : Fragment() {
     // ==================== BDD DATA CLASSES ====================
     private data class FormScenarioContext(
         var userIsAtFormPage: Boolean = false,
-        var formData: FormData = FormData(),
-        var isFormDataComplete: Boolean = false,
+        var formData: PembuatanFormData = PembuatanFormData(),
+        var validationResult: ValidationResult = ValidationResult(false),
         var submitResult: SubmitResult = SubmitResult.PENDING
     )
 
-    private data class FormData(
+    private data class PembuatanFormData(
         var layanan: String = "",
         var namaLayanan: String = "",
         var kontak: String = "",
@@ -36,7 +43,7 @@ class FormPembuatanWebDllFragment : Fragment() {
     )
 
     private enum class SubmitResult {
-        PENDING, SUCCESS, FAILED_INCOMPLETE_DATA, FAILED_ERROR
+        PENDING, SUCCESS, FAILED_VALIDATION_ERROR, FAILED_TECHNICAL_ERROR
     }
 
     // ==================== CLASS PROPERTIES ====================
@@ -89,11 +96,10 @@ class FormPembuatanWebDllFragment : Fragment() {
 
         Log.d(TAG, "BDD - WHEN: User fills complete form data and presses submit")
 
-        // Ambil data dari form
         scenarioContext.formData = getFormDataForBDD()
-        scenarioContext.isFormDataComplete = validateCompleteFormData()
+        scenarioContext.validationResult = validateFormUsingHelper()
 
-        if (scenarioContext.isFormDataComplete) {
+        if (scenarioContext.validationResult.isValid) {
             processFormSubmission()
         }
     }
@@ -109,11 +115,10 @@ class FormPembuatanWebDllFragment : Fragment() {
 
         Log.d(TAG, "BDD - WHEN: User fills incomplete form data and presses submit")
 
-        // Ambil data dari form
         scenarioContext.formData = getFormDataForBDD()
-        scenarioContext.isFormDataComplete = validateCompleteFormData()
+        scenarioContext.validationResult = validateFormUsingHelper()
 
-        if (!scenarioContext.isFormDataComplete) {
+        if (!scenarioContext.validationResult.isValid) {
             handleIncompleteFormSubmission()
         }
     }
@@ -122,25 +127,23 @@ class FormPembuatanWebDllFragment : Fragment() {
      * THEN: Berhasil terkirim dan user melihat pesan konfirmasi (Skenario 1)
      */
     private fun thenFormSubmittedSuccessfullyWithConfirmation() {
-        if (scenarioContext.isFormDataComplete) {
+        if (scenarioContext.validationResult.isValid) {
             scenarioContext.submitResult = SubmitResult.SUCCESS
             Log.d(TAG, "BDD - THEN: Form submitted successfully with confirmation message")
 
-            // Proses penyimpanan ke Firestore
             executeSuccessfulFormSubmission()
         }
     }
 
     /**
-     * THEN: Gagal terkirim dan user melihat pesan error "Harap lengkapi semua data yang wajib"
-     * dan user kembali ke halaman formulir (Skenario 2)
+     * THEN: Gagal terkirim dan user melihat pesan error dan kembali ke halaman formulir (Skenario 2)
      */
-    private fun thenFormSubmissionFailsWithErrorMessage() {
-        if (!scenarioContext.isFormDataComplete) {
-            scenarioContext.submitResult = SubmitResult.FAILED_INCOMPLETE_DATA
-            Log.d(TAG, "BDD - THEN: Form submission fails with error message and user stays at form page")
+    private fun thenFormSubmissionFailsWithValidationError() {
+        if (!scenarioContext.validationResult.isValid) {
+            scenarioContext.submitResult = SubmitResult.FAILED_VALIDATION_ERROR
+            Log.d(TAG, "BDD - THEN: Form submission fails with validation error and user stays at form page")
 
-            showErrorMessageAndStayAtFormPage()
+            showValidationErrorsAndStayAtFormPage()
         }
     }
 
@@ -148,14 +151,14 @@ class FormPembuatanWebDllFragment : Fragment() {
      * THEN: User mengalami error teknis saat submit
      */
     private fun thenUserExperiencesTechnicalError() {
-        scenarioContext.submitResult = SubmitResult.FAILED_ERROR
+        scenarioContext.submitResult = SubmitResult.FAILED_TECHNICAL_ERROR
         Log.d(TAG, "BDD - THEN: User experiences technical error during form submission")
-        FormUtils.resetButton(binding.btnSubmit, R.string.submit, requireContext())
+        resetButton(binding.btnSubmit, if (isEditMode) R.string.update else R.string.submit, requireContext())
     }
 
     // ==================== BDD HELPER METHODS ====================
 
-    private fun getFormDataForBDD(): FormData {
+    private fun getFormDataForBDD(): PembuatanFormData {
         val selectedRadioButtonLayanan = binding.radioGroupServices.checkedRadioButtonId
 
         val layanan = when {
@@ -164,7 +167,7 @@ class FormPembuatanWebDllFragment : Fragment() {
             else -> ""
         }
 
-        return FormData(
+        return PembuatanFormData(
             layanan = layanan,
             namaLayanan = binding.namaLayananLayout.editText?.text.toString().trim(),
             kontak = binding.kontakLayout.editText?.text.toString().trim(),
@@ -172,21 +175,36 @@ class FormPembuatanWebDllFragment : Fragment() {
         )
     }
 
-    private fun validateCompleteFormData(): Boolean {
-        val data = scenarioContext.formData
-        val isLayananValid = data.layanan.isNotEmpty()
-        val isNamaLayananValid = data.namaLayanan.isNotEmpty()
-        val isKontakValid = data.kontak.isNotEmpty() && isValidPhone(data.kontak)
-        val isTujuanValid = data.tujuan.isNotEmpty()
+    private fun validateFormUsingHelper(): ValidationResult {
+        val validationRules = buildValidation {
+            required(
+                field = scenarioContext.formData.namaLayanan,
+                layout = binding.namaLayananLayout,
+                errorMessage = "Nama Layanan tidak boleh kosong"
+            )
 
-        Log.d(TAG, "BDD - Form validation: layanan=$isLayananValid, namaLayanan=$isNamaLayananValid, kontak=$isKontakValid, tujuan=$isTujuanValid")
+            required(
+                field = scenarioContext.formData.tujuan,
+                layout = binding.tujuanPembuatanLayout,
+                errorMessage = "Tujuan tidak boleh kosong"
+            )
 
-        return isLayananValid && isNamaLayananValid && isKontakValid && isTujuanValid
-    }
+            phone(
+                field = scenarioContext.formData.kontak,
+                layout = binding.kontakLayout,
+                errorMessage = "Format kontak tidak valid"
+            )
 
-    private fun isValidPhone(phone: String): Boolean {
-        // Implementasi validasi nomor telepon sederhana
-        return phone.matches(Regex("^[+]?[0-9]{10,15}$"))
+            radioButton(
+                field = scenarioContext.formData.layanan,
+                errorMessage = "Harap pilih layanan"
+            )
+        }
+
+        val result = ValidationHelper.validateFormWithRules(requireContext(), validationRules)
+
+        Log.d(TAG, "BDD - Form validation result: isValid=${result.isValid}, errors=${result.errors}")
+        return result
     }
 
     private fun processFormSubmission() {
@@ -196,7 +214,7 @@ class FormPembuatanWebDllFragment : Fragment() {
 
     private fun handleIncompleteFormSubmission() {
         Log.d(TAG, "BDD - Handling incomplete form submission")
-        thenFormSubmissionFailsWithErrorMessage()
+        thenFormSubmissionFailsWithValidationError()
     }
 
     private fun executeSuccessfulFormSubmission() {
@@ -208,14 +226,18 @@ class FormPembuatanWebDllFragment : Fragment() {
             "tujuan" to scenarioContext.formData.tujuan
         )
 
-        if (isEditMode) {
-            executeUpdateForm(dataToSave)
-        } else {
-            executeNewFormSubmission(dataToSave)
-        }
+        handleFormSubmission(
+            isEditMode = isEditMode,
+            submitButton = binding.btnSubmit,
+            context = requireContext(),
+            formData = dataToSave,
+            validationResult = scenarioContext.validationResult.isValid,
+            onSubmit = { executeNewFormSubmission(dataToSave) },
+            onUpdate = { executeUpdateForm(dataToSave) }
+        )
     }
 
-    private fun executeNewFormSubmission(dataToSave: Map<String, String>) {
+    private fun executeNewFormSubmission(dataToSave: Map<String, Any>) {
         saveFormToFirestore(
             firestore = firestore,
             collectionName = "form_pembuatan",
@@ -223,7 +245,7 @@ class FormPembuatanWebDllFragment : Fragment() {
             context = requireContext(),
             onSuccess = {
                 Log.d(TAG, "BDD - SUCCESS: Form submitted successfully")
-                showSuccessMessage("Formulir berhasil dikirim!")
+                android.widget.Toast.makeText(requireContext(), "Formulir berhasil dikirim!", android.widget.Toast.LENGTH_SHORT).show()
                 clearForm()
                 findNavController().navigate(R.id.action_formPembuatanWebDllFragment_to_historyLayananFragment)
             },
@@ -234,9 +256,13 @@ class FormPembuatanWebDllFragment : Fragment() {
         )
     }
 
-    private fun executeUpdateForm(dataToSave: Map<String, String>) {
-        editingItem?.documentId?.let { documentId ->
-            FormUtils.updateFormInFirestore(
+    private fun executeUpdateForm(dataToSave: Map<String, Any>) {
+        handleEditModeError(
+            editingItem = editingItem,
+            submitButton = binding.btnSubmit,
+            context = requireContext()
+        ) { documentId ->
+            updateFormInFirestore(
                 firestore = firestore,
                 collectionName = "form_pembuatan",
                 documentId = documentId,
@@ -244,78 +270,36 @@ class FormPembuatanWebDllFragment : Fragment() {
                 context = requireContext(),
                 onSuccess = {
                     Log.d(TAG, "BDD - SUCCESS: Form updated successfully")
-                    showSuccessMessage("Formulir berhasil diperbarui!")
-                    FormUtils.resetButton(binding.btnSubmit, R.string.update, requireContext())
-                    FormUtils.handleUpdateNavigation(
+                    android.widget.Toast.makeText(requireContext(), "Formulir berhasil diperbarui!", android.widget.Toast.LENGTH_SHORT).show()
+                    resetButton(binding.btnSubmit, R.string.update, requireContext())
+                    handleUpdateNavigation(
                         findNavController(),
                         R.id.action_formPembuatanWebDllFragment_to_historyLayananFragment
                     )
                 },
-                onFailure = {
-                    Log.e(TAG, "BDD - ERROR: Form update failed")
+                onFailure = { errorMsg ->
+                    Log.e(TAG, "BDD - ERROR: Form update failed: $errorMsg")
                     thenUserExperiencesTechnicalError()
                 }
             )
         }
     }
 
-    private fun showErrorMessageAndStayAtFormPage() {
-        // Tampilkan pesan error spesifik berdasarkan field yang kosong
-        val errorMessage = buildString {
-            append("Harap lengkapi semua data yang wajib:\n")
-            if (scenarioContext.formData.layanan.isEmpty()) append("• Layanan harus dipilih\n")
-            if (scenarioContext.formData.namaLayanan.isEmpty()) append("• Nama Layanan tidak boleh kosong\n")
-            if (scenarioContext.formData.kontak.isEmpty()) append("• Kontak tidak boleh kosong\n")
-            else if (!isValidPhone(scenarioContext.formData.kontak)) append("• Format kontak tidak valid\n")
-            if (scenarioContext.formData.tujuan.isEmpty()) append("• Tujuan tidak boleh kosong\n")
-        }.trimEnd()
-
-        android.widget.Toast.makeText(
-            requireContext(),
-            errorMessage,
-            android.widget.Toast.LENGTH_LONG
-        ).show()
-
-        // Highlight field yang error
-        highlightErrorFields()
-
-        // Reset button
-        FormUtils.resetButton(binding.btnSubmit, R.string.submit, requireContext())
-    }
-
-    private fun highlightErrorFields() {
-        if (scenarioContext.formData.layanan.isEmpty()) {
-            // Untuk radio button, kita bisa menampilkan toast atau highlight UI lainnya
-            Log.w(TAG, "BDD - Radio button layanan not selected")
+    private fun showValidationErrorsAndStayAtFormPage() {
+        if (scenarioContext.validationResult.errors.isNotEmpty()) {
+            val errorMessage = scenarioContext.validationResult.errors.joinToString("\n")
+            android.widget.Toast.makeText(
+                requireContext(),
+                errorMessage,
+                android.widget.Toast.LENGTH_LONG
+            ).show()
         }
 
-        if (scenarioContext.formData.namaLayanan.isEmpty()) {
-            binding.namaLayananLayout.error = "Nama Layanan tidak boleh kosong"
-        } else {
-            binding.namaLayananLayout.error = null
-        }
-
-        if (scenarioContext.formData.kontak.isEmpty()) {
-            binding.kontakLayout.error = "Kontak tidak boleh kosong"
-        } else if (!isValidPhone(scenarioContext.formData.kontak)) {
-            binding.kontakLayout.error = "Format kontak tidak valid"
-        } else {
-            binding.kontakLayout.error = null
-        }
-
-        if (scenarioContext.formData.tujuan.isEmpty()) {
-            binding.tujuanPembuatanLayout.error = "Tujuan tidak boleh kosong"
-        } else {
-            binding.tujuanPembuatanLayout.error = null
-        }
-    }
-
-    private fun showSuccessMessage(message: String) {
-        android.widget.Toast.makeText(
-            requireContext(),
-            message,
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
+        resetButton(
+            binding.btnSubmit,
+            if (isEditMode) R.string.update else R.string.submit,
+            requireContext()
+        )
     }
 
     // ==================== ORIGINAL IMPLEMENTATION METHODS ====================
@@ -328,6 +312,8 @@ class FormPembuatanWebDllFragment : Fragment() {
 
     private fun setupRadioGroupListener() {
         binding.radioGroupServices.setOnCheckedChangeListener { _, checkedId ->
+            clearRadioGroupErrorState(binding.radioGroupServices)
+
             binding.textInputLayoutOther.visibility = if (checkedId == R.id.radioOther) {
                 View.VISIBLE
             } else {
@@ -336,8 +322,12 @@ class FormPembuatanWebDllFragment : Fragment() {
         }
     }
 
+    private fun clearRadioGroupErrorState(radioGroup: RadioGroup) {
+        radioGroup.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+    }
+
     private fun loadUserPhoneNumber() {
-        FormUtils.loadUserPhoneNumber(
+        loadUserPhoneNumber(
             firestore = firestore,
             isEditMode = isEditMode,
             currentContactText = binding.kontakLayout.editText?.text.toString()
@@ -354,11 +344,10 @@ class FormPembuatanWebDllFragment : Fragment() {
     }
 
     private fun handleFormSubmissionWithBDD() {
-        // Update context dengan data terbaru
         scenarioContext.formData = getFormDataForBDD()
-        scenarioContext.isFormDataComplete = validateCompleteFormData()
+        scenarioContext.validationResult = validateFormUsingHelper()
 
-        if (scenarioContext.isFormDataComplete) {
+        if (scenarioContext.validationResult.isValid) {
             // BDD: WHEN - Skenario 1: User mengisi form lengkap
             whenUserFillsCompleteFormAndPressesSubmit()
         } else {
@@ -418,10 +407,13 @@ class FormPembuatanWebDllFragment : Fragment() {
         binding.namaLayananLayout.editText?.text?.clear()
         binding.kontakLayout.editText?.text?.clear()
         binding.tujuanPembuatanLayout.editText?.text?.clear()
+        binding.namaLayananLayout.error = null
+        binding.kontakLayout.error = null
+        binding.tujuanPembuatanLayout.error = null
+        clearRadioGroupErrorState(binding.radioGroupServices)
 
-        // Clear BDD context
-        scenarioContext.formData = FormData()
-        scenarioContext.isFormDataComplete = false
+        scenarioContext.formData = PembuatanFormData()
+        scenarioContext.validationResult = ValidationResult(false)
     }
 
     override fun onResume() {

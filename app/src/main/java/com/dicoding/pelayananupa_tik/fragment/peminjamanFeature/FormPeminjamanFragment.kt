@@ -20,6 +20,9 @@ import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.backend.viewmodel.BoxViewModel
 import com.dicoding.pelayananupa_tik.backend.model.Barang
 import com.dicoding.pelayananupa_tik.databinding.FragmentFormPeminjamanBinding
+import com.dicoding.pelayananupa_tik.helper.ValidationHelper
+import com.dicoding.pelayananupa_tik.helper.ValidationResult
+import com.dicoding.pelayananupa_tik.helper.buildValidation
 import com.dicoding.pelayananupa_tik.utils.FormUtils
 import com.dicoding.pelayananupa_tik.utils.FormUtils.getFileName
 import com.dicoding.pelayananupa_tik.utils.FormUtils.isFileValid
@@ -36,10 +39,15 @@ class FormPeminjamanFragment : Fragment() {
     // ==================== BDD DATA CLASSES ====================
     private data class PeminjamanScenarioContext(
         var userIsAtFormPage: Boolean = false,
-        var formData: PeminjamanFormData = PeminjamanFormData("", "", "", "", ""),
+        var formData: PeminjamanFormData = PeminjamanFormData(
+            "",
+            "",
+            "",
+            "",
+            ""),
         var isFormDataComplete: Boolean = false,
         var submitResult: SubmitResult = SubmitResult.PENDING,
-        var validationErrors: List<String> = emptyList()
+        var validationResult: ValidationResult = ValidationResult(false, emptyList())
     )
 
     private enum class SubmitResult {
@@ -101,7 +109,7 @@ class FormPeminjamanFragment : Fragment() {
     private fun givenUserIsAtFormPage() {
         scenarioContext.userIsAtFormPage = true
         scenarioContext.submitResult = SubmitResult.PENDING
-        scenarioContext.validationErrors = emptyList()
+        scenarioContext.validationResult = ValidationResult(false, emptyList())
         Log.d(TAG, "BDD - GIVEN: User is at form peminjaman barang page")
     }
 
@@ -116,11 +124,9 @@ class FormPeminjamanFragment : Fragment() {
 
         Log.d(TAG, "BDD - WHEN: User fills complete form data and presses submit")
 
-        // Ambil data dari form
         scenarioContext.formData = getFormDataForBDD()
-        val validationResult = validateCompleteFormData()
-        scenarioContext.isFormDataComplete = validationResult.isValid
-        scenarioContext.validationErrors = validationResult.errors
+        scenarioContext.validationResult = validateFormDataUsingHelper()
+        scenarioContext.isFormDataComplete = scenarioContext.validationResult.isValid
 
         if (scenarioContext.isFormDataComplete) {
             processFormSubmission()
@@ -138,11 +144,9 @@ class FormPeminjamanFragment : Fragment() {
 
         Log.d(TAG, "BDD - WHEN: User fills incomplete form data and presses submit")
 
-        // Ambil data dari form
         scenarioContext.formData = getFormDataForBDD()
-        val validationResult = validateCompleteFormData()
-        scenarioContext.isFormDataComplete = validationResult.isValid
-        scenarioContext.validationErrors = validationResult.errors
+        scenarioContext.validationResult = validateFormDataUsingHelper()
+        scenarioContext.isFormDataComplete = scenarioContext.validationResult.isValid
 
         if (!scenarioContext.isFormDataComplete) {
             handleIncompleteFormSubmission()
@@ -157,7 +161,6 @@ class FormPeminjamanFragment : Fragment() {
             scenarioContext.submitResult = SubmitResult.SUCCESS
             Log.d(TAG, "BDD - THEN: Form submitted successfully with confirmation message")
 
-            // Proses penyimpanan ke Firestore
             executeSuccessfulFormSubmission()
         }
     }
@@ -195,67 +198,63 @@ class FormPeminjamanFragment : Fragment() {
         )
     }
 
-    private data class ValidationResult(
-        val isValid: Boolean,
-        val errors: List<String>
-    )
-
-    private fun validateCompleteFormData(): ValidationResult {
-        val errors = mutableListOf<String>()
+    private fun validateFormDataUsingHelper(): ValidationResult {
         val data = scenarioContext.formData
 
-        // Validasi field wajib
-        if (data.namaPerangkat.isEmpty()) {
-            errors.add("Nama perangkat tidak boleh kosong")
+        val validationRules = buildValidation {
+            required(data.namaPerangkat, binding.namaPerangkatLayout, "Nama perangkat tidak boleh kosong")
+            required(data.tujuanPeminjaman, binding.tujuanPeminjamanLayout, "Tujuan peminjaman tidak boleh kosong")
+            required(data.harapanAnda, binding.harapanAndaLayout, "Harapan tidak boleh kosong")
+            required(data.namaPJ, binding.namaPenanggungJawabLayout, "Nama penanggung jawab tidak boleh kosong")
+            phone(data.kontakPJ, binding.kontakPenanggungJawabLayout, "Format nomor telepon tidak valid")
         }
 
-        if (data.tujuanPeminjaman.isEmpty()) {
-            errors.add("Tujuan peminjaman tidak boleh kosong")
+        val dateErrors = validateDates()
+        val validationResult = ValidationHelper.validateFormWithRules(requireContext(), validationRules)
+        val allErrors = if (dateErrors.isNotEmpty()) {
+            validationResult.errors + dateErrors
+        } else {
+            validationResult.errors
         }
+
+        Log.d(TAG, "BDD - Form validation errors: $allErrors")
+
+        return ValidationResult(
+            isValid = validationResult.isValid && dateErrors.isEmpty(),
+            errors = allErrors
+        )
+    }
+
+    private fun validateDates(): List<String> {
+        val errors = mutableListOf<String>()
 
         if (startDate == null) {
             errors.add("Tanggal mulai tidak boleh kosong")
+            binding.tanggalMulaiLayout.error = "Tanggal mulai tidak boleh kosong"
+        } else {
+            binding.tanggalMulaiLayout.error = null
         }
 
         if (endDate == null) {
             errors.add("Tanggal selesai tidak boleh kosong")
+            binding.tanggalSelesaiLayout.error = "Tanggal selesai tidak boleh kosong"
+        } else {
+            binding.tanggalSelesaiLayout.error = null
         }
 
-        if (data.harapanAnda.isEmpty()) {
-            errors.add("Harapan tidak boleh kosong")
-        }
-
-        if (data.namaPJ.isEmpty()) {
-            errors.add("Nama penanggung jawab tidak boleh kosong")
-        }
-
-        if (data.kontakPJ.isEmpty()) {
-            errors.add("Kontak penanggung jawab tidak boleh kosong")
-        } else if (!isValidPhone(data.kontakPJ)) {
-            errors.add("Format kontak tidak valid")
-        }
-
-        // Validasi tanggal
         if (startDate != null && endDate != null) {
             val today = Date()
             if (startDate!!.before(today)) {
                 errors.add("Tanggal mulai tidak boleh di masa lalu")
+                binding.tanggalMulaiLayout.error = "Tanggal mulai tidak boleh di masa lalu"
             }
             if (endDate!!.before(startDate)) {
                 errors.add("Tanggal selesai tidak boleh sebelum tanggal mulai")
+                binding.tanggalSelesaiLayout.error = "Tanggal selesai tidak boleh sebelum tanggal mulai"
             }
         }
 
-        Log.d(TAG, "BDD - Form validation errors: $errors")
-
-        return ValidationResult(
-            isValid = errors.isEmpty(),
-            errors = errors
-        )
-    }
-
-    private fun isValidPhone(phone: String): Boolean {
-        return phone.matches(Regex("^[+]?[0-9]{10,15}$"))
+        return errors
     }
 
     private fun processFormSubmission() {
@@ -282,7 +281,6 @@ class FormPeminjamanFragment : Fragment() {
                 totalItems = totalItems
             )
 
-            // Use FormUtils for consistent submission handling
             FormUtils.saveFormToFirestore(
                 firestore = firestore,
                 collectionName = "form_peminjaman",
@@ -296,7 +294,9 @@ class FormPeminjamanFragment : Fragment() {
                     }
                 },
                 onFailure = {
-                    Log.e(TAG, "BDD - ERROR: Form submission failed for ${getBarangName(barang)}")
+                    Log.e(
+                        TAG,
+                        "BDD - ERROR: Form submission failed for ${getBarangName(barang)}")
                     thenUserExperiencesTechnicalError()
                     handleSubmissionFailure(getBarangName(barang))
                 }
@@ -305,8 +305,11 @@ class FormPeminjamanFragment : Fragment() {
     }
 
     private fun showErrorMessageAndStayAtFormPage() {
-        // Tampilkan pesan error "Harap lengkapi semua data yang wajib"
-        val errorMessage = "Harap lengkapi semua data yang wajib"
+        val errorMessage = if (scenarioContext.validationResult.errors.isNotEmpty()) {
+            scenarioContext.validationResult.errors.first()
+        } else {
+            "Harap lengkapi semua data yang wajib"
+        }
 
         Toast.makeText(
             requireContext(),
@@ -314,41 +317,9 @@ class FormPeminjamanFragment : Fragment() {
             Toast.LENGTH_LONG
         ).show()
 
-        // Highlight field yang error
-        highlightErrorFields()
-
-        // Reset button
         FormUtils.resetButton(binding.btnSubmit, R.string.submit_button, requireContext())
 
         Log.d(TAG, "BDD - Error message shown: $errorMessage")
-    }
-
-    private fun highlightErrorFields() {
-        scenarioContext.validationErrors.forEach { error ->
-            when {
-                error.contains("Nama perangkat") -> {
-                    binding.namaPerangkatLayout.error = error
-                }
-                error.contains("Tujuan peminjaman") -> {
-                    binding.tujuanPeminjamanLayout.error = error
-                }
-                error.contains("Tanggal mulai") -> {
-                    binding.tanggalMulaiLayout.error = error
-                }
-                error.contains("Tanggal selesai") -> {
-                    binding.tanggalSelesaiLayout.error = error
-                }
-                error.contains("Harapan") -> {
-                    binding.harapanAndaLayout.error = error
-                }
-                error.contains("Nama penanggung jawab") -> {
-                    binding.namaPenanggungJawabLayout.error = error
-                }
-                error.contains("Kontak") -> {
-                    binding.kontakPenanggungJawabLayout.error = error
-                }
-            }
-        }
     }
 
     // ==================== ORIGINAL IMPLEMENTATION METHODS ====================
@@ -359,7 +330,6 @@ class FormPeminjamanFragment : Fragment() {
     }
 
     private fun setupDateFields() {
-        // Setup tanggal mulai
         binding.tanggalMulaiLayout.editText?.apply {
             isFocusable = false
             isClickable = true
@@ -368,7 +338,6 @@ class FormPeminjamanFragment : Fragment() {
             setOnClickListener { showDatePicker(true) }
         }
 
-        // Setup tanggal selesai
         binding.tanggalSelesaiLayout.editText?.apply {
             isFocusable = false
             isClickable = true
@@ -382,7 +351,6 @@ class FormPeminjamanFragment : Fragment() {
         val calendar = Calendar.getInstance()
         val today = Calendar.getInstance()
 
-        // Set initial date
         if (isStartDate && startDate != null) {
             calendar.time = startDate!!
         } else if (!isStartDate && endDate != null) {
@@ -399,13 +367,11 @@ class FormPeminjamanFragment : Fragment() {
                 binding.tanggalMulaiLayout.editText?.setText(dateFormat.format(selectedDate))
                 binding.tanggalMulaiLayout.error = null
 
-                // Reset end date if it's before start date
                 if (endDate != null && endDate!!.before(selectedDate)) {
                     endDate = null
                     binding.tanggalSelesaiLayout.editText?.text?.clear()
                 }
             } else {
-                // Validate end date is not before start date
                 if (startDate != null && selectedDate.before(startDate)) {
                     binding.tanggalSelesaiLayout.error = "Tanggal selesai tidak boleh sebelum tanggal mulai"
                     return@OnDateSetListener
@@ -455,19 +421,27 @@ class FormPeminjamanFragment : Fragment() {
     }
 
     private fun handleFormSubmissionWithBDD() {
-        // Update context dengan data terbaru
-        scenarioContext.formData = getFormDataForBDD()
-        val validationResult = validateCompleteFormData()
-        scenarioContext.isFormDataComplete = validationResult.isValid
-        scenarioContext.validationErrors = validationResult.errors
+        FormUtils.handleFormSubmission(
+            isEditMode = false,
+            submitButton = binding.btnSubmit,
+            context = requireContext(),
+            formData = mapOf(),
+            validationResult = true,
+            onSubmit = {
+                scenarioContext.formData = getFormDataForBDD()
+                scenarioContext.validationResult = validateFormDataUsingHelper()
+                scenarioContext.isFormDataComplete = scenarioContext.validationResult.isValid
 
-        if (scenarioContext.isFormDataComplete) {
-            // BDD: WHEN - Skenario 1: User mengisi form lengkap
-            whenUserFillsCompleteFormAndPressesSubmit()
-        } else {
-            // BDD: WHEN - Skenario 2: User mengisi form tidak lengkap
-            whenUserFillsIncompleteFormAndPressesSubmit()
-        }
+                if (scenarioContext.isFormDataComplete) {
+                    // BDD: WHEN - Skenario 1: User mengisi form lengkap
+                    whenUserFillsCompleteFormAndPressesSubmit()
+                } else {
+                    // BDD: WHEN - Skenario 2: User mengisi form tidak lengkap
+                    whenUserFillsIncompleteFormAndPressesSubmit()
+                }
+            },
+            onUpdate = { }
+        )
     }
 
     private fun populateSelectedItems() {
@@ -516,11 +490,9 @@ class FormPeminjamanFragment : Fragment() {
         grupId: String,
         totalItems: Int
     ): Map<String, Any> {
-        // Extract proper data from barang object
         val (namaBarang, jenisBarang, photoUrl) = when (barang) {
             is Barang -> Triple(barang.namaBarang, barang.jenis, barang.photoUrl)
             else -> {
-                // Fallback for other types - try to extract from string representation
                 val barangStr = barang.toString()
                 Triple(
                     extractValueFromString(barangStr, "namaBarang") ?: "Unknown Item",
@@ -597,10 +569,9 @@ class FormPeminjamanFragment : Fragment() {
         startDate = null
         endDate = null
 
-        // Clear BDD context
         scenarioContext.formData = PeminjamanFormData("", "", "", "", "")
         scenarioContext.isFormDataComplete = false
-        scenarioContext.validationErrors = emptyList()
+        scenarioContext.validationResult = ValidationResult(false, emptyList())
     }
 
     private fun resetFileSelection() {
