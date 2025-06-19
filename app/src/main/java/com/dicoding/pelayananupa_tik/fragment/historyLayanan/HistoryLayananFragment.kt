@@ -20,6 +20,25 @@ import android.util.Log
 
 class HistoryLayananFragment : Fragment() {
 
+    // ==================== BDD CONTEXT ====================
+    private data class HistoryScenarioContext(
+        var userIsAtHistoryPage: Boolean = false,
+        var selectedHistoryType: HistoryType = HistoryType.NONE,
+        var hasServiceHistory: Boolean = false,
+        var historyViewResult: HistoryViewResult = HistoryViewResult.PENDING
+    )
+
+    private enum class HistoryType {
+        NONE, SERVICE, ITEM_BORROWING
+    }
+
+    private enum class HistoryViewResult {
+        PENDING, SUCCESS_WITH_DATA, SUCCESS_EMPTY_STATE
+    }
+
+    private val scenarioContext = HistoryScenarioContext()
+
+    // ==================== ORIGINAL PROPERTIES ====================
     private var _binding: FragmentHistoryLayananBinding? = null
     private val binding get() = _binding!!
     private lateinit var adapter: ServiceHistoryPageAdapter
@@ -35,12 +54,85 @@ class HistoryLayananFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // BDD: GIVEN - User berada di halaman riwayat layanan
+        givenUserIsAtServiceHistoryPage()
+
         setupToolbar()
         setupTabLayout()
         setupViewPager()
         setupTabBehavior()
         setupFragmentCommunication()
+
+        // BDD: WHEN - User membuka halaman riwayat layanan
+        whenUserOpensServiceHistoryPage()
     }
+
+    // ==================== BDD METHODS ====================
+
+    /**
+     * GIVEN: User berada di halaman riwayat layanan
+     */
+    private fun givenUserIsAtServiceHistoryPage() {
+        scenarioContext.userIsAtHistoryPage = true
+        scenarioContext.selectedHistoryType = HistoryType.SERVICE
+        scenarioContext.historyViewResult = HistoryViewResult.PENDING
+        Log.d(TAG, "BDD - GIVEN: User is at service history page")
+    }
+
+    /**
+     * WHEN: User membuka halaman riwayat layanan
+     */
+    private fun whenUserOpensServiceHistoryPage() {
+        if (!scenarioContext.userIsAtHistoryPage) {
+            Log.e(TAG, "BDD - Precondition failed: User is not at history page")
+            return
+        }
+
+        Log.d(TAG, "BDD - WHEN: User opens service history page")
+        checkUserServiceHistory()
+    }
+
+    /**
+     * THEN: User melihat status terkini dari layanan (Skenario 1)
+     */
+    private fun thenUserSeesCurrentServiceStatus() {
+        if (scenarioContext.hasServiceHistory) {
+            scenarioContext.historyViewResult = HistoryViewResult.SUCCESS_WITH_DATA
+            Log.d(TAG, "BDD - THEN: User sees current service status with data")
+        }
+    }
+
+    /**
+     * THEN: User melihat pesan "Belum ada riwayat layanan" (Skenario 2)
+     */
+    private fun thenUserSeesNoServiceHistoryMessage() {
+        if (!scenarioContext.hasServiceHistory) {
+            scenarioContext.historyViewResult = HistoryViewResult.SUCCESS_EMPTY_STATE
+            Log.d(TAG, "BDD - THEN: User sees 'no service history' message")
+        }
+    }
+
+    // ==================== IMPLEMENTATION METHODS ====================
+
+    private fun checkUserServiceHistory() {
+        scenarioContext.hasServiceHistory = hasAnyServiceHistory()
+
+        if (scenarioContext.hasServiceHistory) {
+            thenUserSeesCurrentServiceStatus()
+        } else {
+            thenUserSeesNoServiceHistoryMessage()
+        }
+    }
+
+    private fun hasAnyServiceHistory(): Boolean {
+        // TODO: Implement actual check to repository/database
+        // For now, returning true to show tabs with data
+        // In real implementation:
+        // return serviceRepository.hasUserServiceHistory()
+        return true
+    }
+
+    // ==================== ORIGINAL METHODS (UNCHANGED) ====================
 
     private fun setupToolbar() {
         binding.toolbar.apply {
@@ -109,19 +201,19 @@ class HistoryLayananFragment : Fragment() {
             if (draftFragment != null) {
                 draftFragment.setOnDataChangedListener(object : DraftServiceFragment.OnDataChangedListener {
                     override fun onDataChanged() {
-                        Log.d("HistoryLayanan", "Data changed notification received")
+                        Log.d(TAG, "Data changed notification received")
                         refreshSentServiceFragment()
                     }
                 })
-                Log.d("HistoryLayanan", "Successfully setup communication with DraftServiceFragment")
+                Log.d(TAG, "Successfully setup communication with DraftServiceFragment")
             } else {
-                Log.w("HistoryLayanan", "DraftServiceFragment not found, retrying...")
+                Log.w(TAG, "DraftServiceFragment not found, retrying...")
                 binding.viewPager2.postDelayed({
                     setupDraftToSentCommunication()
                 }, 500)
             }
         } catch (e: Exception) {
-            Log.e("HistoryLayanan", "Error setting up fragment communication", e)
+            Log.e(TAG, "Error setting up fragment communication", e)
         }
     }
 
@@ -131,20 +223,20 @@ class HistoryLayananFragment : Fragment() {
 
             if (sentFragment != null) {
                 sentFragment.refreshData()
-                Log.d("HistoryLayanan", "Successfully refreshed SentServiceFragment")
+                Log.d(TAG, "Successfully refreshed SentServiceFragment")
             } else {
-                Log.w("HistoryLayanan", "SentServiceFragment not found")
+                Log.w(TAG, "SentServiceFragment not found")
                 val fragments = childFragmentManager.fragments
                 for (fragment in fragments) {
                     if (fragment is SentServiceFragment) {
                         fragment.refreshData()
-                        Log.d("HistoryLayanan", "Found and refreshed SentServiceFragment via iteration")
+                        Log.d(TAG, "Found and refreshed SentServiceFragment via iteration")
                         break
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e("HistoryLayanan", "Error refreshing SentServiceFragment", e)
+            Log.e(TAG, "Error refreshing SentServiceFragment", e)
         }
     }
 
@@ -222,5 +314,9 @@ class HistoryLayananFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    companion object {
+        private const val TAG = "HistoryLayananFragment"
     }
 }

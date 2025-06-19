@@ -1,5 +1,6 @@
 package com.dicoding.pelayananupa_tik.fragment.historyPeminjaman
 
+import android.content.ContentValues.TAG
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -16,8 +17,29 @@ import com.dicoding.pelayananupa_tik.activity.MainActivity
 import com.dicoding.pelayananupa_tik.adapter.ItemHistoryPageAdapter
 import com.dicoding.pelayananupa_tik.databinding.FragmentHistoryPeminjamanBarangBinding
 import com.google.android.material.tabs.TabLayout
+import android.util.Log
 
 class HistoryPeminjamanBarangFragment : Fragment() {
+
+    // ==================== BDD CONTEXT ====================
+    private data class HistoryScenarioContext(
+        var userIsAtHistoryPage: Boolean = false,
+        var selectedHistoryType: HistoryType = HistoryType.NONE,
+        var hasPeminjamanHistory: Boolean = false,
+        var historyViewResult: HistoryViewResult = HistoryViewResult.PENDING
+    )
+
+    private enum class HistoryType {
+        NONE, PEMINJAMAN, ITEM_BORROWING
+    }
+
+    private enum class HistoryViewResult {
+        PENDING, SUCCESS_WITH_DATA, SUCCESS_EMPTY_STATE
+    }
+
+    private val scenarioContext = HistoryScenarioContext()
+
+    // ==================== ORIGINAL PROPERTIES ====================
     private var _binding: FragmentHistoryPeminjamanBarangBinding? = null
     private val binding get() = _binding!!
     private lateinit var adapter: ItemHistoryPageAdapter
@@ -33,11 +55,85 @@ class HistoryPeminjamanBarangFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // BDD: GIVEN - User berada di halaman riwayat peminjaman
+        givenUserIsAtPeminjamanHistoryPage()
+
         setupToolbar()
         setupTabLayout()
         setupViewPager()
         setupTabBehavior()
+
+        // BDD: WHEN - User membuka halaman riwayat peminjaman
+        whenUserOpensPeminjamanHistoryPage()
     }
+
+
+    // ==================== BDD METHODS ====================
+
+    /**
+     * GIVEN: User berada di halaman riwayat layanan
+     */
+    private fun givenUserIsAtPeminjamanHistoryPage() {
+        scenarioContext.userIsAtHistoryPage = true
+        scenarioContext.selectedHistoryType = HistoryType.PEMINJAMAN
+        scenarioContext.historyViewResult = HistoryViewResult.PENDING
+        Log.d(TAG, "BDD - GIVEN: User is at peminjaman history page")
+    }
+
+    /**
+     * WHEN: User membuka halaman riwayat layanan
+     */
+    private fun whenUserOpensPeminjamanHistoryPage() {
+        if (!scenarioContext.userIsAtHistoryPage) {
+            Log.e(TAG, "BDD - Precondition failed: User is not at history page")
+            return
+        }
+
+        Log.d(TAG, "BDD - WHEN: User opens peminjaman history page")
+        checkUserPeminjamanHistory()
+    }
+
+    /**
+     * THEN: User melihat status terkini dari layanan (Skenario 1)
+     */
+    private fun thenUserSeesCurrentPeminjamanStatus() {
+        if (scenarioContext.hasPeminjamanHistory) {
+            scenarioContext.historyViewResult = HistoryViewResult.SUCCESS_WITH_DATA
+            Log.d(TAG, "BDD - THEN: User sees current peminjaman status with data")
+        }
+    }
+
+    /**
+     * THEN: User melihat pesan "Belum ada riwayat layanan" (Skenario 2)
+     */
+    private fun thenUserSeesNoPeminjamanHistoryMessage() {
+        if (!scenarioContext.hasPeminjamanHistory) {
+            scenarioContext.historyViewResult = HistoryViewResult.SUCCESS_EMPTY_STATE
+            Log.d(TAG, "BDD - THEN: User sees 'no peminjaman history' message")
+        }
+    }
+
+    // ==================== IMPLEMENTATION METHODS ====================
+
+    private fun checkUserPeminjamanHistory() {
+        scenarioContext.hasPeminjamanHistory = hasAnyPeminjamanHistory()
+
+        if (scenarioContext.hasPeminjamanHistory) {
+            thenUserSeesCurrentPeminjamanStatus()
+        } else {
+            thenUserSeesNoPeminjamanHistoryMessage()
+        }
+    }
+
+    private fun hasAnyPeminjamanHistory(): Boolean {
+        // TODO: Implement actual check to repository/database
+        // For now, returning true to show tabs with data
+        // In real implementation:
+        // return peminjamanRepository.hasUserPeminjamanHistory()
+        return true
+    }
+
+    // ==================== ORIGINAL METHODS (UNCHANGED) ====================
 
     private fun setupToolbar() {
         binding.toolbar.apply {
