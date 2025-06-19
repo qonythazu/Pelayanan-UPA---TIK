@@ -14,6 +14,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.databinding.FragmentProfileBinding
+import com.dicoding.pelayananupa_tik.helper.isValidPhoneNumber
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.dicoding.pelayananupa_tik.utils.UserData
 import kotlinx.coroutines.launch
@@ -22,6 +23,27 @@ class ProfileFragment : Fragment() {
 
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
+
+    // ==================== BDD CONTEXT ====================
+
+    private data class EditPhoneScenarioContext(
+        var userIsLoggedIn: Boolean = false,
+        var userIsInProfilePage: Boolean = false,
+        var userSelectedEditPhone: Boolean = false,
+        var phoneInput: String = "",
+        var validationResult: PhoneValidationResult = PhoneValidationResult.PENDING,
+        var updateResult: PhoneUpdateResult = PhoneUpdateResult.PENDING
+    )
+
+    private enum class PhoneValidationResult {
+        PENDING, VALID, INVALID
+    }
+
+    private enum class PhoneUpdateResult {
+        PENDING, SUCCESS, FAILED
+    }
+
+    private val editPhoneScenarioContext = EditPhoneScenarioContext()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -45,9 +67,123 @@ class ProfileFragment : Fragment() {
 
     private fun setupPhoneEditButton() {
         binding.nomorTeleponLayout.setEndIconOnClickListener {
-            showEditPhoneDialog()
+            // BDD: GIVEN - Pastikan user sudah login dan berada di halaman profile
+            givenUserIsLoggedInAndInProfilePage()
+
+            // BDD: WHEN - User memilih edit nomor telepon
+            whenUserSelectsEditPhone()
         }
     }
+
+    // ==================== BDD SKENARIO 1: USER BERHASIL MENGUBAH NOMOR TELEPON ====================
+
+    /**
+     * GIVEN: User telah login dan berada di halaman profile
+     */
+    private fun givenUserIsLoggedInAndInProfilePage() {
+        editPhoneScenarioContext.userIsLoggedIn = UserManager.isUserLoggedIn()
+        editPhoneScenarioContext.userIsInProfilePage = true
+        editPhoneScenarioContext.validationResult = PhoneValidationResult.PENDING
+        editPhoneScenarioContext.updateResult = PhoneUpdateResult.PENDING
+
+        Log.d(TAG, "BDD - GIVEN: User is logged in: ${editPhoneScenarioContext.userIsLoggedIn}")
+        Log.d(TAG, "BDD - GIVEN: User is in profile page: ${editPhoneScenarioContext.userIsInProfilePage}")
+    }
+
+    /**
+     * WHEN: User memilih edit nomor telepon
+     */
+    private fun whenUserSelectsEditPhone() {
+        if (!editPhoneScenarioContext.userIsLoggedIn || !editPhoneScenarioContext.userIsInProfilePage) {
+            Log.e(TAG, "BDD - Precondition failed: User not logged in or not in profile page")
+            return
+        }
+
+        editPhoneScenarioContext.userSelectedEditPhone = true
+        Log.d(TAG, "BDD - WHEN: User selects edit phone")
+
+        // Tampilkan dialog edit phone
+        showEditPhoneDialog()
+    }
+
+    /**
+     * WHEN: User mengisi minimal 10 angka dan mengirimkan perubahan
+     */
+    private fun whenUserEntersValidPhoneAndSubmits(phoneInput: String) {
+        editPhoneScenarioContext.phoneInput = phoneInput
+        Log.d(TAG, "BDD - WHEN: User enters phone input: $phoneInput")
+
+        // Validasi nomor telepon
+        if (isValidPhoneNumber(phoneInput)) {
+            editPhoneScenarioContext.validationResult = PhoneValidationResult.VALID
+            Log.d(TAG, "BDD - Phone validation: VALID")
+
+            // Lakukan update nomor telepon
+            performPhoneUpdate(phoneInput)
+        } else {
+            editPhoneScenarioContext.validationResult = PhoneValidationResult.INVALID
+            Log.d(TAG, "BDD - Phone validation: INVALID")
+
+            // BDD: THEN - Skenario 2 (gagal karena validasi)
+            thenUserSeesValidationErrorAndStaysInDialog()
+        }
+    }
+
+    /**
+     * THEN: User melihat pesan konfirmasi "Nomor telepon berhasil diperbarui" dan melihat perubahan pada profil
+     */
+    private fun thenUserSeesSuccessMessageAndUpdatedProfile(newPhone: String) {
+        editPhoneScenarioContext.updateResult = PhoneUpdateResult.SUCCESS
+
+        Log.d(TAG, "BDD - THEN: User sees success message and updated profile")
+
+        // Update UI dengan nomor telepon baru
+        binding.nomorTeleponLayout.editText?.setText(newPhone)
+
+        // Tampilkan pesan sukses
+        Toast.makeText(requireContext(), "Nomor telepon berhasil diperbarui", Toast.LENGTH_SHORT).show()
+
+        Log.d(TAG, "Phone number updated to: $newPhone")
+    }
+
+    // ==================== BDD SKENARIO 2: USER GAGAL MENGUBAH NOMOR TELEPON ====================
+
+    /**
+     * WHEN: User mengisi kurang dari 10 angka dan mengirimkan perubahan
+     */
+    private fun whenUserEntersInvalidPhoneAndSubmits(phoneInput: String) {
+        editPhoneScenarioContext.phoneInput = phoneInput
+        editPhoneScenarioContext.validationResult = PhoneValidationResult.INVALID
+
+        Log.d(TAG, "BDD - WHEN: User enters invalid phone input: $phoneInput")
+
+        // BDD: THEN - Langsung ke hasil gagal
+        thenUserSeesValidationErrorAndStaysInDialog()
+    }
+
+    /**
+     * THEN: Gagal diperbarui dan user melihat pesan error dan user kembali ke halaman profil
+     */
+    private fun thenUserSeesValidationErrorAndStaysInDialog() {
+        Log.d(TAG, "BDD - THEN: User sees validation error and stays in dialog")
+
+        // Error message akan ditampilkan dalam dialog (tidak menutup dialog)
+        // Implementasi ada di showEditPhoneDialog()
+    }
+
+    /**
+     * THEN: User melihat pesan error karena gagal update ke server
+     */
+    private fun thenUserSeesUpdateFailureAndReturnsToProfile() {
+        editPhoneScenarioContext.updateResult = PhoneUpdateResult.FAILED
+
+        Log.d(TAG, "BDD - THEN: User sees update failure and returns to profile")
+
+        Toast.makeText(requireContext(), "Gagal memperbarui nomor telepon", Toast.LENGTH_SHORT).show()
+        Log.e(TAG, "Failed to update phone number")
+    }
+
+    // ==================== IMPLEMENTATION METHODS ====================
 
     private fun showEditPhoneDialog() {
         val editText = EditText(requireContext()).apply {
@@ -87,10 +223,14 @@ class ProfileFragment : Fragment() {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             positiveButton.setOnClickListener {
                 val newPhone = editText.text.toString().trim()
+
+                // BDD: WHEN - User mengisi dan mengirimkan perubahan
                 if (isValidPhoneNumber(newPhone)) {
-                    updatePhoneNumber(newPhone)
+                    whenUserEntersValidPhoneAndSubmits(newPhone)
                     dialog.dismiss() // Tutup dialog hanya jika valid
                 } else {
+                    whenUserEntersInvalidPhoneAndSubmits(newPhone)
+                    // Tampilkan error dalam dialog
                     errorText.text = getString(R.string.nomor_telepon_harus_minimal_10_digit_dan_format_valid)
                     errorText.visibility = View.VISIBLE
                     // Dialog tetap terbuka karena tidak ada dismiss()
@@ -101,76 +241,20 @@ class ProfileFragment : Fragment() {
         dialog.show()
     }
 
-    private fun updatePhoneNumber(newPhone: String) {
+    private fun performPhoneUpdate(newPhone: String) {
         showLoading(true)
         UserManager.updatePhoneNumber(newPhone) { success ->
             activity?.runOnUiThread {
                 showLoading(false)
                 if (success) {
-                    binding.nomorTeleponLayout.editText?.setText(newPhone)
-                    Toast.makeText(requireContext(), "Nomor telepon berhasil diperbarui", Toast.LENGTH_SHORT).show()
-                    Log.d(TAG, "Phone number updated to: $newPhone")
+                    // BDD: THEN - Update berhasil
+                    thenUserSeesSuccessMessageAndUpdatedProfile(newPhone)
                 } else {
-                    Toast.makeText(requireContext(), "Gagal memperbarui nomor telepon", Toast.LENGTH_SHORT).show()
-                    Log.e(TAG, "Failed to update phone number")
+                    // BDD: THEN - Update gagal
+                    thenUserSeesUpdateFailureAndReturnsToProfile()
                 }
             }
         }
-    }
-
-    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
-        // Hapus semua karakter non-digit
-        val digitsOnly = phoneNumber.replace(Regex("[^0-9]"), "")
-
-        // Cek panjang minimal dan maksimal
-        if (digitsOnly.length < 10 || digitsOnly.length > 15) {
-            return false
-        }
-
-        // Validasi format nomor Indonesia
-        return when {
-            // Format +62 (kode negara Indonesia)
-            digitsOnly.startsWith("62") -> {
-                val localNumber = digitsOnly.substring(2)
-                isValidIndonesianLocalNumber(localNumber)
-            }
-            // Format 0 (format lokal Indonesia)
-            digitsOnly.startsWith("0") -> {
-                val localNumber = digitsOnly.substring(1)
-                isValidIndonesianLocalNumber(localNumber)
-            }
-            // Format tanpa awalan (langsung nomor operator)
-            else -> {
-                isValidIndonesianLocalNumber(digitsOnly)
-            }
-        }
-    }
-
-    private fun isValidIndonesianLocalNumber(localNumber: String): Boolean {
-        // Cek panjang nomor lokal (9-13 digit setelah kode area/operator)
-        if (localNumber.length < 9 || localNumber.length > 13) {
-            return false
-        }
-
-        // Validasi prefix operator Indonesia
-        val validPrefixes = listOf(
-            // Telkomsel
-            "811", "812", "813", "821", "822", "823", "851", "852", "853",
-            // Indosat
-            "814", "815", "816", "855", "856", "857", "858",
-            // XL
-            "817", "818", "819", "859", "877", "878",
-            // Tri (3)
-            "895", "896", "897", "898", "899",
-            // Smartfren
-            "881", "882", "883", "884", "885", "886", "887", "888", "889",
-            // Axis
-            "831", "832", "833", "838",
-            // Telkom (PSTN)
-            "21", "22", "24", "31", "341", "343", "361", "370", "380", "401", "411", "421", "431", "451", "471", "481", "511", "541", "561", "571", "601", "620", "651", "717", "721", "741", "751", "761", "771", "778"
-        )
-
-        return validPrefixes.any { prefix -> localNumber.startsWith(prefix) }
     }
 
     private fun loadUserProfile() {
