@@ -53,6 +53,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private data class LogoutScenarioContext(
+        var userIsLoggedIn: Boolean = false,
+        var userPressedLogoutButton: Boolean = false,
+        var logoutResult: LogoutResult = LogoutResult.PENDING
+    )
+
+    private enum class LogoutResult {
+        PENDING, SUCCESS, FAILED
+    }
+
+    private val logoutScenarioContext = LogoutScenarioContext()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
@@ -65,8 +77,6 @@ class MainActivity : AppCompatActivity() {
                 UserManager.initializeUserData { success: Boolean, userData: UserData? ->
                     if (success) {
                         Log.d(TAG, "User data ready for: ${userData?.email}")
-
-                        // Start notification listener setelah user data ready
                         startNotificationListener()
                     } else {
                         Log.e(TAG, "Failed to initialize user data")
@@ -90,6 +100,127 @@ class MainActivity : AppCompatActivity() {
         setupNavigation()
         setupLogoutButton()
         loadUserInfo()
+    }
+
+    // ==================== BDD LOGOUT METHODS ====================
+
+    /**
+     * GIVEN: User telah login
+     */
+    private fun givenUserIsLoggedIn() {
+        logoutScenarioContext.userIsLoggedIn = UserManager.isUserLoggedIn()
+        logoutScenarioContext.logoutResult = LogoutResult.PENDING
+        Log.d(TAG, "BDD - GIVEN: User is logged in: ${logoutScenarioContext.userIsLoggedIn}")
+    }
+
+    /**
+     * WHEN: User menekan tombol logout
+     */
+    private fun whenUserPressesLogoutButton() {
+        if (!logoutScenarioContext.userIsLoggedIn) {
+            Log.e(TAG, "BDD - Precondition failed: User is not logged in")
+            return
+        }
+
+        logoutScenarioContext.userPressedLogoutButton = true
+        Log.d(TAG, "BDD - WHEN: User presses logout button")
+
+        // Tampilkan konfirmasi dialog
+        showLogoutConfirmationDialog()
+    }
+
+    /**
+     * WHEN: User mengkonfirmasi logout
+     */
+    private fun whenUserConfirmsLogout() {
+        Log.d(TAG, "BDD - WHEN: User confirms logout")
+        performLogout()
+    }
+
+    /**
+     * THEN: User keluar dari akun dan berpindah ke halaman login dengan pesan success
+     */
+    private fun thenUserSuccessfullyLogsOutAndNavigatesToLoginWithMessage() {
+        logoutScenarioContext.logoutResult = LogoutResult.SUCCESS
+        logoutScenarioContext.userIsLoggedIn = false
+
+        Log.d(TAG, "BDD - THEN: User successfully logs out and navigates to login with success message")
+
+        // Tampilkan pesan success
+        Toast.makeText(this@MainActivity, "Anda berhasil logout", Toast.LENGTH_SHORT).show()
+
+        // Navigate ke login page
+        redirectToLogin()
+    }
+
+    /**
+     * THEN: User gagal logout dan tetap di halaman utama
+     */
+    private fun thenUserFailsToLogoutAndStaysAtMainPage() {
+        logoutScenarioContext.logoutResult = LogoutResult.FAILED
+
+        Log.d(TAG, "BDD - THEN: User fails to logout and stays at main page")
+
+        Toast.makeText(this@MainActivity, "Terjadi kesalahan saat logout", Toast.LENGTH_SHORT).show()
+    }
+
+// ==================== IMPLEMENTATION METHODS ====================
+
+    private fun setupLogoutButton() {
+        val btnLogout = findViewById<ImageView>(R.id.btn_logout)
+        btnLogout.setOnClickListener {
+            // BDD: GIVEN - Pastikan user sudah login
+            givenUserIsLoggedIn()
+
+            // BDD: WHEN - User menekan tombol logout
+            whenUserPressesLogoutButton()
+        }
+    }
+
+    private fun showLogoutConfirmationDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Konfirmasi Logout")
+            .setMessage("Apakah Anda yakin ingin keluar dari aplikasi?")
+            .setPositiveButton("Ya") { dialog, _ ->
+                // BDD: WHEN - User mengkonfirmasi logout
+                whenUserConfirmsLogout()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Batal") { dialog, _ ->
+                Log.d(TAG, "BDD - User cancelled logout")
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun performLogout() {
+        lifecycleScope.launch {
+            try {
+                val currentEmail = UserManager.getCurrentUserEmail()
+                Log.d(TAG, "Performing logout for user: $currentEmail")
+
+                // Stop notification listener sebelum logout
+                if (::notificationListener.isInitialized) {
+                    notificationListener.stopListening()
+                }
+
+                UserManager.signOut()
+
+                // BDD: THEN - Logout berhasil
+                runOnUiThread {
+                    thenUserSuccessfullyLogsOutAndNavigatesToLoginWithMessage()
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during logout", e)
+
+                // BDD: THEN - Logout gagal
+                runOnUiThread {
+                    thenUserFailsToLogoutAndStaysAtMainPage()
+                }
+            }
+        }
     }
 
     private fun startNotificationListener() {
@@ -121,20 +252,16 @@ class MainActivity : AppCompatActivity() {
                     this,
                     Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED -> {
-                    // Permission sudah granted
                     fcmManager.initializeFCM()
                 }
                 shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
-                    // Show rationale dialog
                     showNotificationPermissionRationale()
                 }
                 else -> {
-                    // Request permission
                     fcmManager.requestNotificationPermission(notificationPermissionLauncher)
                 }
             }
         } else {
-            // Android < 13, langsung initialize
             fcmManager.initializeFCM()
         }
     }
@@ -215,51 +342,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupLogoutButton() {
-        val btnLogout = findViewById<ImageView>(R.id.btn_logout)
-        btnLogout.setOnClickListener {
-            showLogoutConfirmationDialog()
-        }
-    }
-
-    private fun showLogoutConfirmationDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Konfirmasi Logout")
-            .setMessage("Apakah Anda yakin ingin keluar dari aplikasi?")
-            .setPositiveButton("Ya") { dialog, _ ->
-                logout()
-                dialog.dismiss()
-            }
-            .setNegativeButton("Batal") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .setCancelable(false)
-            .show()
-    }
-
-    private fun logout() {
-        lifecycleScope.launch {
-            try {
-                val currentEmail = UserManager.getCurrentUserEmail()
-                Log.d(TAG, "Logging out user: $currentEmail")
-
-                // Stop notification listener sebelum logout
-                if (::notificationListener.isInitialized) {
-                    notificationListener.stopListening()
-                }
-
-                UserManager.signOut()
-
-                Toast.makeText(this@MainActivity, "Anda berhasil logout", Toast.LENGTH_SHORT).show()
-                redirectToLogin()
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Error during logout", e)
-                Toast.makeText(this@MainActivity, "Terjadi kesalahan saat logout", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
     private fun redirectToLogin() {
         val intent = Intent(this, LoginActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -276,7 +358,6 @@ class MainActivity : AppCompatActivity() {
             Log.w(TAG, "User session expired, redirecting to login")
             redirectToLogin()
         } else {
-            // Restart listener jika user masih login
             if (::notificationListener.isInitialized) {
                 notificationListener.startListening()
             } else {
@@ -288,8 +369,6 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         feedbackHelper.stopFeedbackMonitoring()
-
-        // Stop listener ketika app di background untuk hemat battery
         if (::notificationListener.isInitialized) {
             notificationListener.stopListening()
         }
@@ -297,8 +376,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-
-        // Stop listener
         if (::notificationListener.isInitialized) {
             notificationListener.stopListening()
         }
