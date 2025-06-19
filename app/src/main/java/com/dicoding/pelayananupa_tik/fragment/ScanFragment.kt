@@ -39,6 +39,32 @@ import java.util.concurrent.Executors
 
 class ScanFragment : BottomSheetDialogFragment() {
 
+    // ==================== BDD CONTEXT ====================
+    private data class ScanScenarioContext(
+        var userIsAtScanPage: Boolean = false,
+        var cameraIsActive: Boolean = false,
+        var qrCodeDetected: String? = null,
+        var isValidQRCode: Boolean = false,
+        var scanResult: ScanResult = ScanResult.PENDING,
+        var itemData: ItemData? = null
+    )
+
+    private enum class ScanResult {
+        PENDING, SUCCESS, FAILED_NOT_FOUND, FAILED_ERROR
+    }
+
+    private data class ItemData(
+        val nama: String,
+        val tanggalMasuk: String,
+        val jenisBarang: String,
+        val pemilikBarang: String,
+        val letakBarang: String,
+        val serialNumber: String
+    )
+
+    private val scenarioContext = ScanScenarioContext()
+
+    // ==================== EXISTING PROPERTIES ====================
     private lateinit var viewfinder: androidx.camera.view.PreviewView
     private lateinit var overlay: View
     private lateinit var scanLine: View
@@ -47,9 +73,10 @@ class ScanFragment : BottomSheetDialogFragment() {
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var barcodeScanner: BarcodeScanner
     private var isScanning = false
-    private var isProcessingResult = false // Flag tambahan untuk mencegah multiple processing
-    private var isCameraSetup = false // Flag untuk tracking camera setup
+    private var isProcessingResult = false
+    private var isCameraSetup = false
     private val firestore = FirebaseFirestore.getInstance()
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -88,6 +115,9 @@ class ScanFragment : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // BDD: GIVEN - User telah login dan berada di halaman scan
+        givenUserIsLoggedInAndAtScanPage()
+
         viewfinder = view.findViewById(R.id.viewfinder)
         overlay = view.findViewById(R.id.overlay_viewfinder)
         scanLine = view.findViewById(R.id.scan_line)
@@ -114,6 +144,89 @@ class ScanFragment : BottomSheetDialogFragment() {
             Log.e(TAG, "Error checking Google Play Services", e)
         }
     }
+
+    // ==================== BDD METHODS ====================
+
+    /**
+     * GIVEN: User telah login dan berada di halaman scan
+     */
+    private fun givenUserIsLoggedInAndAtScanPage() {
+        scenarioContext.userIsAtScanPage = true
+        scenarioContext.scanResult = ScanResult.PENDING
+        Log.d(TAG, "BDD - GIVEN: User is logged in and at scan page")
+    }
+
+    /**
+     * WHEN: User mengarahkan kamera dan melakukan scan terhadap QR code barang
+     */
+    private fun whenUserPointsCameraAndScansQRCode(qrCodeValue: String) {
+        if (!scenarioContext.userIsAtScanPage || !scenarioContext.cameraIsActive) {
+            Log.e(TAG, "BDD - Precondition failed: User is not at scan page or camera is not active")
+            return
+        }
+
+        scenarioContext.qrCodeDetected = qrCodeValue
+        Log.d(TAG, "BDD - WHEN: User points camera and scans QR code: $qrCodeValue")
+
+        // Fetch data dari Firestore untuk validasi
+        fetchDataFromFirestoreForValidation(qrCodeValue)
+    }
+
+    /**
+     * WHEN: User mengarahkan kamera dan melakukan scan terhadap QR code yang tidak valid
+     */
+    private fun whenUserScansInvalidQRCode(qrCodeValue: String) {
+        if (!scenarioContext.userIsAtScanPage || !scenarioContext.cameraIsActive) {
+            Log.e(TAG, "BDD - Precondition failed: User is not at scan page or camera is not active")
+            return
+        }
+
+        scenarioContext.qrCodeDetected = qrCodeValue
+        scenarioContext.isValidQRCode = false
+        Log.d(TAG, "BDD - WHEN: User scans invalid QR code: $qrCodeValue")
+
+        // Langsung set sebagai tidak valid dan fetch data
+        fetchDataFromFirestoreForValidation(qrCodeValue)
+    }
+
+    /**
+     * THEN: Detail dari barang akan ditampilkan (Skenario 1)
+     */
+    private fun thenItemDetailsAreDisplayed(itemData: ItemData) {
+        if (scenarioContext.isValidQRCode) {
+            scenarioContext.scanResult = ScanResult.SUCCESS
+            scenarioContext.itemData = itemData
+
+            Log.d(TAG, "BDD - THEN: Item details are displayed for ${itemData.nama}")
+
+            displayItemDetailsAndNavigate(itemData)
+        }
+    }
+
+    /**
+     * THEN: User melihat pesan error "Barang tidak ditemukan" dan kembali ke home (Skenario 2)
+     */
+    private fun thenUserSeesErrorMessageAndReturnsToHome() {
+        if (!scenarioContext.isValidQRCode) {
+            scenarioContext.scanResult = ScanResult.FAILED_NOT_FOUND
+
+            Log.d(TAG, "BDD - THEN: User sees error message and returns to home")
+
+            showItemNotFoundMessageAndNavigateToHome()
+        }
+    }
+
+    /**
+     * THEN: User mengalami error teknis saat scan
+     */
+    private fun thenUserExperiencesTechnicalError(errorMessage: String? = null) {
+        scenarioContext.scanResult = ScanResult.FAILED_ERROR
+        Log.d(TAG, "BDD - THEN: User experiences technical error during scan")
+
+        showTechnicalErrorMessage(errorMessage)
+    }
+
+    // ==================== IMPLEMENTATION METHODS ====================
 
     private fun checkCameraPermission() {
         when {
@@ -156,14 +269,11 @@ class ScanFragment : BottomSheetDialogFragment() {
                 val cameraProvider = cameraProviderFuture.get()
                 bindCameraUseCases(cameraProvider)
                 isCameraSetup = true
+                scenarioContext.cameraIsActive = true // BDD: Camera is now active
                 Log.d(TAG, "Camera provider initialized")
             } catch (e: Exception) {
                 Log.e(TAG, "Camera provider setup failed", e)
-                Toast.makeText(
-                    requireContext(),
-                    "Gagal memulai kamera: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                thenUserExperiencesTechnicalError("Gagal memulai kamera: ${e.message}")
             }
         }, ContextCompat.getMainExecutor(requireContext()))
     }
@@ -174,7 +284,6 @@ class ScanFragment : BottomSheetDialogFragment() {
             return
         }
 
-        // Pastikan viewfinder dan display tersedia
         if (viewfinder.display == null) {
             Log.w(TAG, "Viewfinder display is null, cannot bind camera")
             return
@@ -200,6 +309,7 @@ class ScanFragment : BottomSheetDialogFragment() {
                 preview,
                 imageAnalysis
             )
+
             try {
                 val cameraControl = camera.cameraControl
                 val cameraInfo = camera.cameraInfo
@@ -237,12 +347,13 @@ class ScanFragment : BottomSheetDialogFragment() {
                                 Log.d(TAG, "Raw barcode value: $rawValue")
                                 if (!rawValue.isNullOrEmpty() && !isProcessingResult) {
                                     Log.d(TAG, "Barcode detected: $rawValue")
-                                    isProcessingResult = true // Set flag untuk mencegah processing berulang
+                                    isProcessingResult = true
 
                                     val activity = activity
                                     if (activity != null && !activity.isFinishing && isAdded) {
                                         activity.runOnUiThread {
-                                            fetchDataFromFirestore(rawValue.trim())
+                                            // BDD: WHEN - User melakukan scan terhadap QR code
+                                            whenUserPointsCameraAndScansQRCode(rawValue.trim())
                                         }
                                     }
                                     break
@@ -253,6 +364,7 @@ class ScanFragment : BottomSheetDialogFragment() {
                         .addOnFailureListener { e ->
                             Log.e(TAG, "Barcode scanning failed", e)
                             isScanning = false
+                            thenUserExperiencesTechnicalError("Gagal memindai barcode: ${e.message}")
                         }
                         .addOnCompleteListener {
                             imageProxy.close()
@@ -264,12 +376,12 @@ class ScanFragment : BottomSheetDialogFragment() {
 
         } catch (exc: Exception) {
             Log.e(TAG, "Use case binding failed", exc)
-            Toast.makeText(requireContext(), "Gagal mengikat kamera: ${exc.message}", Toast.LENGTH_SHORT).show()
+            thenUserExperiencesTechnicalError("Gagal mengikat kamera: ${exc.message}")
         }
     }
 
-    private fun fetchDataFromFirestore(serialNumber: String) {
-        Log.d(TAG, "Fetching data for serial: $serialNumber")
+    private fun fetchDataFromFirestoreForValidation(serialNumber: String) {
+        Log.d(TAG, "BDD - Fetching data for validation: $serialNumber")
 
         if (!isAdded || isProcessingResult.not()) {
             Log.d(TAG, "Fragment not attached or already processing, skipping Firestore fetch")
@@ -288,7 +400,7 @@ class ScanFragment : BottomSheetDialogFragment() {
                 if (!querySnapshot.isEmpty) {
                     val document = querySnapshot.documents[0]
                     Log.d(TAG, "Document found via query: ${document.data}")
-                    processDocumentData(document.data, serialNumber)
+                    processValidationResult(document.data, serialNumber, true)
                 } else {
                     // Fallback: coba dengan document ID
                     firestore.collection("daftar_barang")
@@ -299,16 +411,16 @@ class ScanFragment : BottomSheetDialogFragment() {
 
                             if (document.exists()) {
                                 Log.d(TAG, "Document found via ID: ${document.data}")
-                                processDocumentData(document.data, serialNumber)
+                                processValidationResult(document.data, serialNumber, true)
                             } else {
                                 Log.d(TAG, "No document found with serial: $serialNumber")
-                                showNotFoundMessage()
+                                processValidationResult(null, serialNumber, false)
                             }
                         }
                         .addOnFailureListener fallbackFailure@{ e ->
                             if (!isAdded || isProcessingResult.not()) return@fallbackFailure
                             Log.e(TAG, "Firestore document query failed", e)
-                            showErrorMessage(e.message)
+                            thenUserExperiencesTechnicalError("Gagal mengambil data: ${e.message}")
                         }
                 }
             }
@@ -316,15 +428,26 @@ class ScanFragment : BottomSheetDialogFragment() {
                 if (!isAdded || isProcessingResult.not()) return@addOnFailureListener
 
                 Log.e(TAG, "Firestore collection query failed", e)
-                showErrorMessage(e.message)
+                thenUserExperiencesTechnicalError("Gagal mengambil data: ${e.message}")
             }
     }
 
-    private fun processDocumentData(data: Map<String, Any>?, serialNumber: String) {
-        if (data == null) {
-            showNotFoundMessage()
-            return
+    private fun processValidationResult(data: Map<String, Any>?, serialNumber: String, isValid: Boolean) {
+        scenarioContext.isValidQRCode = isValid
+
+        if (isValid && data != null) {
+            // Parse data menjadi ItemData
+            val itemData = parseFirestoreDataToItemData(data, serialNumber)
+
+            // BDD: THEN - Skenario 1: Item details are displayed
+            thenItemDetailsAreDisplayed(itemData)
+        } else {
+            // BDD: THEN - Skenario 2: Error message and return to home
+            thenUserSeesErrorMessageAndReturnsToHome()
         }
+    }
+
+    private fun parseFirestoreDataToItemData(data: Map<String, Any>, serialNumber: String): ItemData {
         val nama = data["nama_barang"] as? String
             ?: data["nama"] as? String
             ?: data["namaBarang"] as? String
@@ -367,39 +490,48 @@ class ScanFragment : BottomSheetDialogFragment() {
             ?: data["serialNumber"] as? String
             ?: serialNumber
 
+        return ItemData(nama, tanggalMasuk, jenis, pemilik, letakBarang, serialNum)
+    }
+
+    private fun displayItemDetailsAndNavigate(itemData: ItemData) {
         try {
             scanResultListener?.onScanResult(
-                nama, tanggalMasuk, jenis, pemilik, letakBarang, serialNum
+                itemData.nama,
+                itemData.tanggalMasuk,
+                itemData.jenisBarang,
+                itemData.pemilikBarang,
+                itemData.letakBarang,
+                itemData.serialNumber
             )
             dismiss()
+
             val bundle = Bundle().apply {
-                putString("arg_nama_barang", nama)
-                putString("arg_tanggal_masuk", tanggalMasuk)
-                putString("arg_jenis_barang", jenis)
-                putString("arg_pemilik_barang", pemilik)
-                putString("arg_letak_barang", letakBarang)
-                putString("arg_serial_number", serialNum)
+                putString("arg_nama_barang", itemData.nama)
+                putString("arg_tanggal_masuk", itemData.tanggalMasuk)
+                putString("arg_jenis_barang", itemData.jenisBarang)
+                putString("arg_pemilik_barang", itemData.pemilikBarang)
+                putString("arg_letak_barang", itemData.letakBarang)
+                putString("arg_serial_number", itemData.serialNumber)
             }
+
             val navController = requireActivity().findNavController(R.id.nav_home_fragment)
             navController.navigate(R.id.detailBarangFragment, bundle)
+
+            Log.d(TAG, "BDD - Successfully navigated to item details for: ${itemData.nama}")
+
         } catch (e: Exception) {
             Log.e(TAG, "Error navigating to DetailBarangFragment", e)
-            Toast.makeText(
-                requireContext(),
-                "Gagal membuka detail: ${e.message}",
-                Toast.LENGTH_SHORT
-            ).show()
-            // Reset flag jika navigasi gagal
+            thenUserExperiencesTechnicalError("Gagal membuka detail: ${e.message}")
+            // Reset flags jika navigasi gagal
             isProcessingResult = false
             isScanning = false
         }
     }
 
-    private fun showNotFoundMessage() {
+    private fun showItemNotFoundMessageAndNavigateToHome() {
         if (!isAdded) return
 
         activity?.runOnUiThread {
-            // Stop scanning completely
             isProcessingResult = true
 
             val snackbar = Snackbar.make(
@@ -418,43 +550,40 @@ class ScanFragment : BottomSheetDialogFragment() {
         }
     }
 
+    private fun showTechnicalErrorMessage(message: String?) {
+        isProcessingResult = true
+
+        Toast.makeText(
+            requireContext(),
+            "Gagal melakukan scan: ${message ?: "Unknown error"}",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            navigateToHome()
+        }, 2000)
+    }
+
     private fun navigateToHome() {
         if (!isAdded) return
 
         try {
             findNavController().navigate(R.id.action_scanFragment_to_homeFragment)
+            Log.d(TAG, "BDD - Successfully navigated back to home")
         } catch (e: Exception) {
             Log.e(TAG, "Navigation failed", e)
             activity?.onBackPressedDispatcher?.onBackPressed()
         }
     }
 
-    private fun showErrorMessage(message: String?) {
-        // Stop scanning completely when showing error
-        isProcessingResult = true
-
-        Toast.makeText(
-            requireContext(),
-            "Gagal mengambil data: ${message ?: "Unknown error"}",
-            Toast.LENGTH_SHORT
-        ).show()
-
-        // Navigate to home after showing error
-        Handler(Looper.getMainLooper()).postDelayed({
-            navigateToHome()
-        }, 2000)
-    }
-
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "Fragment resumed")
 
-        // Jangan rebind camera jika sudah di-setup atau sedang processing result
         if (!isCameraSetup && !isProcessingResult && isAdded &&
             ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED) {
 
-            // Pastikan viewfinder sudah siap
             viewfinder.post {
                 if (viewfinder.display != null) {
                     setupCamera()
@@ -467,6 +596,7 @@ class ScanFragment : BottomSheetDialogFragment() {
         super.onPause()
         Log.d(TAG, "Fragment paused")
         isScanning = false
+        scenarioContext.cameraIsActive = false // BDD: Camera is no longer active
     }
 
     override fun onDestroyView() {
@@ -479,10 +609,12 @@ class ScanFragment : BottomSheetDialogFragment() {
                 Log.e(TAG, "Error unbinding camera", e)
             }
         }
-        // Reset flags
+        // Reset flags and BDD context
         isProcessingResult = false
         isCameraSetup = false
         isScanning = false
+        scenarioContext.cameraIsActive = false
+        scenarioContext.userIsAtScanPage = false
     }
 
     override fun onDestroy() {
