@@ -19,6 +19,7 @@ import com.dicoding.pelayananupa_tik.adapter.ProductAdapter
 import com.dicoding.pelayananupa_tik.backend.model.Barang
 import com.dicoding.pelayananupa_tik.backend.viewmodel.BoxViewModel
 import com.dicoding.pelayananupa_tik.databinding.FragmentProductListBinding
+import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 
 class ProductListFragment : Fragment() {
@@ -30,6 +31,33 @@ class ProductListFragment : Fragment() {
     private var fullList = mutableListOf<Barang>()
     private var availableList = mutableListOf<Barang>()
     private var badgeTextView: TextView? = null
+
+    // ==================== BDD CONTEXT ====================
+    private data class ViewItemsScenarioContext(
+        var userIsLoggedIn: Boolean = false,
+        var userIsOnPeminjamanPage: Boolean = false,
+        var itemsLoadResult: ItemsLoadResult = ItemsLoadResult.PENDING,
+        var availableItemsCount: Int = 0
+    )
+
+    private data class AddToCartScenarioContext(
+        var userIsLoggedIn: Boolean = false,
+        var userIsOnPeminjamanPage: Boolean = false,
+        var userClickedAddButton: Boolean = false,
+        var selectedItem: Barang? = null,
+        var addToCartResult: AddToCartResult = AddToCartResult.PENDING
+    )
+
+    private enum class ItemsLoadResult {
+        PENDING, SUCCESS, FAILED, EMPTY
+    }
+
+    private enum class AddToCartResult {
+        PENDING, SUCCESS, ALREADY_EXISTS, FAILED
+    }
+
+    private val viewItemsScenarioContext = ViewItemsScenarioContext()
+    private val addToCartScenarioContext = AddToCartScenarioContext()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -45,12 +73,158 @@ class ProductListFragment : Fragment() {
 
         boxViewModel = ViewModelProvider(requireActivity())[BoxViewModel::class.java]
 
+        // BDD: GIVEN - Setup initial conditions
+        givenUserIsLoggedInAndOnPeminjamanPage()
+
         setupToolbar()
         setupRecyclerView()
-        getBarangDariFirestore()
+
+        // BDD: Load items to display available items for borrowing
+        loadAvailableItemsForViewing()
+
         setupSearch()
         observeBoxCount()
         observeRefreshNeeded()
+    }
+
+    // ==================== BDD VIEWING ITEMS SCENARIO METHODS ====================
+
+    /**
+     * GIVEN: User telah login dan berada di halaman peminjaman barang
+     */
+    private fun givenUserIsLoggedInAndOnPeminjamanPage() {
+        viewItemsScenarioContext.userIsLoggedIn = UserManager.isUserLoggedIn()
+        viewItemsScenarioContext.userIsOnPeminjamanPage = true
+        viewItemsScenarioContext.itemsLoadResult = ItemsLoadResult.PENDING
+
+        // For add to cart scenario
+        addToCartScenarioContext.userIsLoggedIn = viewItemsScenarioContext.userIsLoggedIn
+        addToCartScenarioContext.userIsOnPeminjamanPage = true
+        addToCartScenarioContext.addToCartResult = AddToCartResult.PENDING
+
+        Log.d(TAG, "BDD - GIVEN: User is logged in (${viewItemsScenarioContext.userIsLoggedIn}) and on peminjaman page")
+    }
+
+    /**
+     * THEN: User melihat semua barang yang tersedia untuk dipinjam
+     */
+    private fun thenUserSeesAllAvailableItemsForBorrowing() {
+        viewItemsScenarioContext.itemsLoadResult = ItemsLoadResult.SUCCESS
+        viewItemsScenarioContext.availableItemsCount = availableList.size
+
+        Log.d(TAG, "BDD - THEN: User sees ${viewItemsScenarioContext.availableItemsCount} available items for borrowing")
+
+        // Update UI to show items
+        adapter.updateList(availableList)
+
+        // Optional: Show success message if needed
+        if (availableList.isNotEmpty()) {
+            Log.d(TAG, "Successfully displaying ${availableList.size} available items")
+        }
+    }
+
+    /**
+     * THEN: User melihat pesan bahwa tidak ada barang tersedia
+     */
+    private fun thenUserSeesNoAvailableItemsMessage() {
+        viewItemsScenarioContext.itemsLoadResult = ItemsLoadResult.EMPTY
+        viewItemsScenarioContext.availableItemsCount = 0
+
+        Log.d(TAG, "BDD - THEN: User sees no available items message")
+
+        // Update UI to show empty state
+        adapter.updateList(emptyList())
+        showInfoToast("Tidak ada barang yang tersedia saat ini")
+    }
+
+    /**
+     * THEN: User melihat pesan error saat gagal memuat barang
+     */
+    private fun thenUserSeesErrorLoadingItems() {
+        viewItemsScenarioContext.itemsLoadResult = ItemsLoadResult.FAILED
+
+        Log.d(TAG, "BDD - THEN: User sees error loading items")
+        showErrorToast("Gagal memuat daftar barang")
+    }
+
+    // ==================== BDD ADD TO CART SCENARIO METHODS ====================
+
+    /**
+     * WHEN: User menekan tombol add pada barang untuk dimasukkan ke dalam keranjang
+     */
+    private fun whenUserClicksAddButtonForItem(barang: Barang) {
+        if (!addToCartScenarioContext.userIsLoggedIn || !addToCartScenarioContext.userIsOnPeminjamanPage) {
+            Log.e(TAG, "BDD - Precondition failed: User not logged in or not on peminjaman page")
+            return
+        }
+
+        addToCartScenarioContext.userClickedAddButton = true
+        addToCartScenarioContext.selectedItem = barang
+
+        Log.d(TAG, "BDD - WHEN: User clicks add button for item: ${barang.namaBarang}")
+
+        // Perform add to cart operation
+        performAddToCart(barang)
+    }
+
+    /**
+     * THEN: Barang ditambahkan ke keranjang peminjaman dan user melihat pesan konfirmasi
+     */
+    private fun thenItemAddedToCartWithConfirmationMessage(barang: Barang) {
+        addToCartScenarioContext.addToCartResult = AddToCartResult.SUCCESS
+
+        Log.d(TAG, "BDD - THEN: Item '${barang.namaBarang}' added to cart with confirmation message")
+
+        // Show success message
+        showSuccessToast("${barang.namaBarang} ditambahkan ke keranjang")
+    }
+
+    /**
+     * THEN: User melihat pesan bahwa barang sudah ada di keranjang
+     */
+    private fun thenUserSeesItemAlreadyInCartMessage(barang: Barang) {
+        addToCartScenarioContext.addToCartResult = AddToCartResult.ALREADY_EXISTS
+
+        Log.d(TAG, "BDD - THEN: User sees item '${barang.namaBarang}' already in cart message")
+
+        // Show info message
+        showInfoToast("${barang.namaBarang} sudah ada di keranjang")
+    }
+
+    /**
+     * THEN: User melihat pesan error saat gagal menambahkan ke keranjang
+     */
+    private fun thenUserSeesAddToCartErrorMessage(barang: Barang) {
+        addToCartScenarioContext.addToCartResult = AddToCartResult.FAILED
+
+        Log.d(TAG, "BDD - THEN: User sees add to cart error for item: ${barang.namaBarang}")
+
+        // Show error message
+        showErrorToast("Gagal menambahkan ${barang.namaBarang} ke keranjang")
+    }
+
+    // ==================== IMPLEMENTATION METHODS ====================
+
+    private fun loadAvailableItemsForViewing() {
+        Log.d(TAG, "Loading available items for viewing...")
+        getBarangDariFirestore()
+    }
+
+    private fun performAddToCart(barang: Barang) {
+        try {
+            if (boxViewModel.isItemInBox(barang)) {
+                // BDD: THEN - Item already in cart
+                thenUserSeesItemAlreadyInCartMessage(barang)
+            } else {
+                boxViewModel.addToBox(barang)
+                // BDD: THEN - Item successfully added to cart
+                thenItemAddedToCartWithConfirmationMessage(barang)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error adding item to cart: ${e.message}")
+            // BDD: THEN - Failed to add to cart
+            thenUserSeesAddToCartErrorMessage(barang)
+        }
     }
 
     private fun observeRefreshNeeded() {
@@ -115,7 +289,7 @@ class ProductListFragment : Fragment() {
 
             updateBadge()
         } else {
-            Log.w("ProductListFragment", "Menu item R.id.menu_box not found")
+            Log.w(TAG, "Menu item R.id.menu_box not found")
         }
     }
 
@@ -131,12 +305,13 @@ class ProductListFragment : Fragment() {
             }
         }
 
-        Log.d("ProductListFragment", "Badge updated: $boxCount items")
+        Log.d(TAG, "Badge updated: $boxCount items")
     }
 
     private fun setupRecyclerView() {
         adapter = ProductAdapter(availableList, { barang ->
-            addToBox(barang)
+            // BDD: WHEN - User clicks add button for item
+            whenUserClicksAddButtonForItem(barang)
         }, true)
 
         binding.recyclerView.apply {
@@ -172,7 +347,13 @@ class ProductListFragment : Fragment() {
                     }
 
                     Log.d("FirestoreFetch", "Total data: ${fullList.size}, Tersedia: ${availableList.size}")
-                    adapter.updateList(availableList)
+
+                    // BDD: THEN - Handle the result based on items found
+                    if (availableList.isNotEmpty()) {
+                        thenUserSeesAllAvailableItemsForBorrowing()
+                    } else {
+                        thenUserSeesNoAvailableItemsMessage()
+                    }
 
                     // Clear search if there's an active query
                     if (!binding.searchView.query.isNullOrEmpty()) {
@@ -181,12 +362,12 @@ class ProductListFragment : Fragment() {
                     }
                 } catch (e: Exception) {
                     Log.e("FirestoreFetch", "Error processing Firestore data: ${e.message}")
-                    showErrorToast("Error memproses data")
+                    thenUserSeesErrorLoadingItems()
                 }
             }
             .addOnFailureListener { e ->
                 Log.e("FirestoreFetch", "Gagal ambil data: ${e.message}", e)
-                showErrorToast("Gagal mengambil data")
+                thenUserSeesErrorLoadingItems()
             }
     }
 
@@ -216,29 +397,15 @@ class ProductListFragment : Fragment() {
         }
     }
 
-    private fun addToBox(barang: Barang) {
-        try {
-            if (boxViewModel.isItemInBox(barang)) {
-                showInfoToast("${barang.namaBarang} sudah ada di box")
-            } else {
-                boxViewModel.addToBox(barang)
-                showSuccessToast("${barang.namaBarang} ditambahkan ke box")
-            }
-        } catch (e: Exception) {
-            Log.e("ProductListFragment", "Error adding item to box: ${e.message}")
-            showErrorToast("Gagal menambahkan item ke box")
-        }
-    }
-
     private fun observeBoxCount() {
         boxViewModel.boxCount.observe(viewLifecycleOwner) { count ->
             updateBadge()
-            Log.d("ProductListFragment", "Box count changed: $count")
+            Log.d(TAG, "Box count changed: $count")
         }
     }
 
     private fun refreshBarangData() {
-        Log.d("ProductListFragment", "Refreshing barang data...")
+        Log.d(TAG, "Refreshing barang data...")
         getBarangDariFirestore()
     }
 
@@ -264,7 +431,7 @@ class ProductListFragment : Fragment() {
             refreshBarangData()
             updateBadge()
         } catch (e: Exception) {
-            Log.e("ProductListFragment", "Error in onResume: ${e.message}")
+            Log.e(TAG, "Error in onResume: ${e.message}")
         }
     }
 
@@ -276,7 +443,7 @@ class ProductListFragment : Fragment() {
                 mainActivity.showToolbar()
             }
         } catch (e: Exception) {
-            Log.e("ProductListFragment", "Error in onPause: ${e.message}")
+            Log.e(TAG, "Error in onPause: ${e.message}")
         }
     }
 
@@ -284,5 +451,9 @@ class ProductListFragment : Fragment() {
         super.onDestroyView()
         _binding = null
         badgeTextView = null
+    }
+
+    companion object {
+        private const val TAG = "ProductListFragment"
     }
 }
