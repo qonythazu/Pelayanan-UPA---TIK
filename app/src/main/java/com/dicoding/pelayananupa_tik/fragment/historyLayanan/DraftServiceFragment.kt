@@ -330,7 +330,7 @@ class DraftServiceFragment : Fragment() {
                 .whereEqualTo("userEmail", userEmail)
                 .whereEqualTo("judul", layananItem.judul)
                 .whereEqualTo("timestamp", layananItem.tanggal)
-                .whereEqualTo("status", "Draft")
+                .whereEqualTo("status", "draft")
                 .get()
                 .addOnSuccessListener { documents ->
                     if (documents.size() > 0 && !deleteSuccess) {

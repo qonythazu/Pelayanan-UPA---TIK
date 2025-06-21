@@ -15,6 +15,7 @@ import com.dicoding.pelayananupa_tik.adapter.LayananAdapter
 import com.dicoding.pelayananupa_tik.backend.model.LayananItem
 import com.dicoding.pelayananupa_tik.utils.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.QueryDocumentSnapshot
 
 class SentServiceFragment : Fragment() {
     private lateinit var recyclerView: RecyclerView
@@ -36,8 +37,19 @@ class SentServiceFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_sent_service, container, false)
+        setupViews(view)
+        setupAdapter()
+        fetchAllLayanan()
+        return view
+    }
+
+    private fun setupViews(view: View) {
         recyclerView = view.findViewById(R.id.recyclerView)
         emptyStateTextView = view.findViewById(R.id.emptyStateTextView)
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+    }
+
+    private fun setupAdapter() {
         adapter = LayananAdapter(
             layananList = layananList,
             onEditItem = { layananItem, position ->
@@ -50,66 +62,162 @@ class SentServiceFragment : Fragment() {
                 deleteFromFirestore(layananItem) { success ->
                     if (success) {
                         Toast.makeText(requireContext(), "Layanan berhasil dibatalkan", Toast.LENGTH_SHORT).show()
-                        updateUI()
+                        refreshData() // Refresh seluruh data setelah delete
                     } else {
                         Toast.makeText(requireContext(), "Gagal membatalkan layanan", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
         )
-
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
-
-        fetchAllLayanan()
-        return view
     }
 
     private fun fetchAllLayanan() {
-        layananList.clear()
-
+        layananList.clear() // Clear list sebelum fetch
         val userEmail = UserManager.getCurrentUserEmail()
 
         if (userEmail.isNullOrEmpty()) {
             Log.w("ServiceHistory", "User email is null or empty")
+            updateUI()
             return
         }
 
-        var counter = 0
+        fetchDataFromCollections(userEmail)
+    }
+
+    private fun fetchDataFromCollections(userEmail: String) {
+        var completedCollections = 0
+        val tempList = mutableListOf<LayananItem>() // Temporary list untuk menghindari duplikasi
+
         for (collection in collections) {
             firestore.collection(collection)
                 .whereEqualTo("userEmail", userEmail)
                 .whereEqualTo("status", "terkirim")
                 .get()
                 .addOnSuccessListener { documents ->
-                    for (doc in documents) {
-                        val judul = doc.getString("judul") ?: "Tidak ada judul"
-                        val tanggal = doc.getString("timestamp") ?: "Tidak ada tanggal"
-                        val status = doc.getString("status") ?: "Tidak ada status"
-                        val documentId = doc.id
-                        val layananItem = LayananItem(
-                            judul = judul,
-                            tanggal = tanggal,
-                            status = status,
-                            documentId = documentId,
-                            formType = getFormTypeFromCollection(collection)
-                        )
+                    // Process documents dari collection ini
+                    processDocuments(documents, collection, tempList)
 
-                        layananList.add(layananItem)
-                    }
-                    counter++
-                    if (counter == collections.size) {
+                    completedCollections++
+                    if (completedCollections == collections.size) {
+                        // Semua collection sudah diproses, update UI
+                        layananList.clear()
+                        layananList.addAll(tempList)
+
+                        // Sort berdasarkan timestamp (terbaru dulu)
+                        layananList.sortByDescending { it.tanggal }
+
                         updateUI()
+                        Log.d("SentService", "Total layanan terkirim: ${layananList.size}")
                     }
                 }
                 .addOnFailureListener { e ->
                     Log.w("FirestoreError", "Error getting documents from $collection", e)
-                    counter++
-                    if (counter == collections.size) {
+                    completedCollections++
+                    if (completedCollections == collections.size) {
+                        layananList.clear()
+                        layananList.addAll(tempList)
+                        layananList.sortByDescending { it.tanggal }
                         updateUI()
                     }
                 }
         }
+    }
+
+    private fun processDocuments(documents: com.google.firebase.firestore.QuerySnapshot, collection: String, tempList: MutableList<LayananItem>) {
+        for (doc in documents) {
+            val layananItem = createLayananItem(doc, collection)
+
+            // Check duplikasi berdasarkan documentId dan formType
+            val isDuplicate = tempList.any {
+                it.documentId == layananItem.documentId && it.formType == layananItem.formType
+            }
+
+            if (!isDuplicate) {
+                tempList.add(layananItem)
+                Log.d("SentService", "Added: ${layananItem.judul} from $collection")
+            } else {
+                Log.w("SentService", "Duplicate found for: ${layananItem.judul}")
+            }
+        }
+    }
+
+    private fun createLayananItem(doc: QueryDocumentSnapshot, collection: String): LayananItem {
+        val formType = getFormTypeFromCollection(collection)
+
+        return LayananItem(
+            documentId = doc.id,
+            judul = doc.getString("judul") ?: "Tidak ada judul",
+            tanggal = doc.getString("timestamp") ?: "Tidak ada tanggal",
+            status = doc.getString("status") ?: "terkirim",
+            formType = formType,
+
+            // Fields sesuai dengan DraftServiceFragment
+            kontak = when (formType) {
+                "bantuan", "pemasangan", "pengaduan", "pembuatan", "lapor_kerusakan" -> doc.getString("kontak") ?: ""
+                else -> ""
+            },
+
+            layanan = when (formType) {
+                "pemeliharaan", "pengaduan", "pembuatan" -> doc.getString("layanan") ?: ""
+                else -> ""
+            },
+
+            jenis = when (formType) {
+                "pemeliharaan", "pemasangan" -> doc.getString("jenis") ?: ""
+                else -> ""
+            },
+
+            akun = when (formType) {
+                "pemeliharaan" -> doc.getString("akun") ?: ""
+                else -> ""
+            },
+
+            alasan = when (formType) {
+                "pemeliharaan" -> doc.getString("alasan") ?: ""
+                else -> ""
+            },
+
+            keluhan = when (formType) {
+                "pengaduan" -> doc.getString("keluhan") ?: ""
+                else -> ""
+            },
+
+            filePath = when (formType) {
+                "pemeliharaan", "bantuan", "pengaduan" -> doc.getString("filePath") ?: ""
+                else -> ""
+            },
+
+            jumlah = when (formType) {
+                "bantuan" -> doc.getString("jumlah") ?: ""
+                else -> ""
+            },
+
+            tujuan = when (formType) {
+                "bantuan", "pemasangan", "pembuatan" -> doc.getString("tujuan") ?: ""
+                else -> ""
+            },
+
+            namaPerangkat = when (formType) {
+                "lapor_kerusakan" -> doc.getString("namaPerangkat") ?: ""
+                else -> ""
+            },
+
+            keterangan = when (formType) {
+                "lapor_kerusakan" -> doc.getString("keterangan") ?: ""
+                else -> ""
+            },
+
+            imagePath = when (formType) {
+                "lapor_kerusakan" -> doc.getString("imagePath") ?: ""
+                else -> ""
+            },
+
+            namaLayanan = when (formType) {
+                "pembuatan" -> doc.getString("namaLayanan") ?: ""
+                else -> ""
+            }
+        )
     }
 
     private fun getFormTypeFromCollection(collection: String): String {
@@ -173,6 +281,8 @@ class SentServiceFragment : Fragment() {
             .delete()
             .addOnSuccessListener {
                 Log.d("SentService", "Document successfully deleted from Firestore")
+                // Remove dari local list juga
+                layananList.remove(layananItem)
                 callback(true)
             }
             .addOnFailureListener { e ->
@@ -194,6 +304,7 @@ class SentServiceFragment : Fragment() {
     }
 
     fun refreshData() {
+        Log.d("SentService", "Refreshing sent service data...")
         fetchAllLayanan()
     }
 }
