@@ -29,13 +29,16 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import com.google.firebase.auth.FirebaseAuth
 import android.Manifest
+import androidx.navigation.NavController
 import com.dicoding.pelayananupa_tik.fcm.FirestoreNotificationListener
+import com.dicoding.pelayananupa_tik.fcm.NotificationFragment
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var feedbackHelper: FeedbackHelper
     private lateinit var fcmManager: FCMManager
     private lateinit var notificationListener: FirestoreNotificationListener
+    private lateinit var navController: NavController
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -98,6 +101,7 @@ class MainActivity : AppCompatActivity() {
         debugFCMToken()
 
         setupNavigation()
+        setupNotificationButton()
         setupLogoutButton()
         loadUserInfo()
     }
@@ -309,6 +313,41 @@ class MainActivity : AppCompatActivity() {
         val navController = navHostFragment.navController
 
         navView.setupWithNavController(navController)
+    }
+
+    private fun setupNotificationButton() {
+        val btnNotification = findViewById<ImageView>(R.id.btn_notification)
+        btnNotification.setOnClickListener {
+            navigateToNotificationFragment()
+        }
+    }
+
+    private fun navigateToNotificationFragment() {
+        try {
+            // Cek apakah NotificationFragment sudah ada di navigation graph
+            // Jika belum, kita akan replace fragment secara manual
+
+            val currentFragment = supportFragmentManager.findFragmentById(R.id.nav_home_fragment)
+                ?.childFragmentManager?.primaryNavigationFragment
+
+            if (currentFragment !is NotificationFragment) {
+                // Hide bottom navigation saat masuk ke notification
+                hideBottomNavigation()
+
+                // Replace fragment
+                val notificationFragment = NotificationFragment.newInstance()
+
+                supportFragmentManager.beginTransaction()
+                    .replace(R.id.nav_home_fragment, notificationFragment)
+                    .addToBackStack("notification")
+                    .commit()
+
+                Log.d(TAG, "Navigated to NotificationFragment")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error navigating to notification fragment", e)
+            Toast.makeText(this, "Gagal membuka notifikasi", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun loadUserInfo() {

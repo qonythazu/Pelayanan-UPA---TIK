@@ -165,4 +165,6 @@
     <string name="kirim_feedback">Kirim Feedback</string>
     <string name="nomor_telepon_harus_minimal_10_digit_dan_format_valid">Nomor telepon harus minimal 10 digit dan format valid</string>
     <string name="input_file">Input File (Opsional)</string>
+    <string name="belum_ada_notifikasi">Belum ada notifikasi</string>
+    <string name="notifikasi">Notifikasi</string>
 </resources>

@@ -211,4 +211,9 @@
             android:id="@+id/action_detailBarangFragment_to_formLaporKerusakanFragment"
             app:destination="@id/formLaporKerusakanFragment" />
     </fragment>
+    <fragment
+        android:id="@+id/notificationFragment"
+        android:name="com.dicoding.pelayananupa_tik.fcm.NotificationFragment"
+        android:label="fragment_notification"
+        tools:layout="@layout/fragment_notification" />
 </navigation>
