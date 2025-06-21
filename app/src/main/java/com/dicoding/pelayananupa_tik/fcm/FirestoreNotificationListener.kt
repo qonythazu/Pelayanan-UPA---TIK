@@ -8,7 +8,6 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
@@ -16,14 +15,11 @@ import com.google.firebase.firestore.Query
 class FirestoreNotificationListener(private val context: Context) {
 
     private val firestore = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
     private var listenerRegistration: ListenerRegistration? = null
 
     fun startListening() {
-        val currentUser = auth.currentUser ?: return
-
         listenerRegistration = firestore.collection("notifications")
-            .whereEqualTo("userEmail", currentUser.email)
+            .whereEqualTo("userEmail", "admin@example.com")
             .whereEqualTo("read", false)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshots, error ->

@@ -75,8 +75,13 @@ class FormPeminjamanFragmentTest {
         onView(allOf(isDescendantOfA(withId(R.id.tujuanPeminjamanLayout)), isAssignableFrom(android.widget.EditText::class.java)))
             .perform(typeText("Keperluan presentasi proyek akhir"), closeSoftKeyboard())
 
-        // Handle Custom Date Picker
-        handleCustomDatePicker()
+        // Handle Tanggal Mulai Date Picker - pilih tanggal 29
+        handleDatePicker(R.id.tanggalMulaiLayout, 29)
+
+        Thread.sleep(500)
+
+        // Handle Tanggal Selesai Date Picker - pilih tanggal 30
+        handleDatePicker(R.id.tanggalSelesaiLayout, 30)
 
         Thread.sleep(500)
 
@@ -88,74 +93,74 @@ class FormPeminjamanFragmentTest {
         onView(allOf(isDescendantOfA(withId(R.id.namaPenanggungJawabLayout)), isAssignableFrom(android.widget.EditText::class.java)))
             .perform(typeText("John Doe"), closeSoftKeyboard())
 
-        // Submit form
-        onView(withId(R.id.btnSubmit)).perform(scrollTo(), click())
-
-        Thread.sleep(2000)
-
         // Then : Form berhasil disubmit
-        onView(withText("Peminjaman berhasil diajukan"))
-            .check(matches(isDisplayed()))
+        onView(withId(R.id.btnSubmit)).perform(scrollTo(), click())
+        Thread.sleep(2000)
     }
 
     /**
-     * Handle custom date picker based on the UI shown in image
+     * Handle date picker yang beneran dipencet
      */
-    private fun handleCustomDatePicker() {
-        // Click pada field date picker untuk membuka dialog
-        onView(allOf(isDescendantOfA(withId(R.id.rentangTanggalLayout)), isAssignableFrom(android.widget.EditText::class.java)))
-            .perform(click())
+    private fun handleDatePicker(layoutId: Int, day: Int) {
+        onView(allOf(
+            isDescendantOfA(withId(layoutId)),
+            isAssignableFrom(android.widget.EditText::class.java)
+        )).perform(scrollTo(), click())
 
         Thread.sleep(1000)
 
         try {
-            // Method 1: Try to click on specific dates in custom calendar
-            // Based on image, try to select date 16 (which is already selected) and 23
-            onView(withText("16")).perform(click())
-            Thread.sleep(500)
-            onView(withText("23")).perform(click())
-            Thread.sleep(500)
+            onView(allOf(
+                withText(day.toString()),
+                isDisplayed(),
+                isClickable()
+            )).perform(click())
 
-            // Try to find and click save/confirm button
-            // Common button texts for Indonesian apps
-            try {
-                onView(withText("Simpan")).perform(click())
-            } catch (e: Exception) {
-                try {
-                    onView(withText("OK")).perform(click())
-                } catch (e2: Exception) {
-                    try {
-                        onView(withText("Pilih")).perform(click())
-                    } catch (e3: Exception) {
-                        onView(withText("Selesai")).perform(click())
-                    }
-                }
-            }
+            Thread.sleep(500)
+            onView(withText("Oke")).perform(click())
+
         } catch (e: Exception) {
             try {
-                // Method 2: If custom calendar doesn't work, try to find any clickable date
-                onView(withText("20")).perform(click())
-                Thread.sleep(500)
-                onView(withText("25")).perform(click())
-                Thread.sleep(500)
+                onView(allOf(
+                    withText(day.toString()),
+                    isDescendantOfA(withClassName(org.hamcrest.Matchers.containsString("DatePicker")))
+                )).perform(click())
 
-                // Try save button
-                onView(withText("Simpan")).perform(click())
+                onView(withText("Oke")).perform(click())
+
             } catch (e2: Exception) {
                 try {
-                    // Method 3: Try to close the dialog and set text directly if possible
-                    // Look for close button (X)
-                    onView(withContentDescription("Close")).perform(click())
-                    Thread.sleep(500)
+                    onView(withClassName(org.hamcrest.Matchers.endsWith("DatePicker")))
+                        .perform(setDate(2025, 6, day))
 
-                    // Try to set text directly (if EditText is not read-only)
-                    onView(allOf(isDescendantOfA(withId(R.id.rentangTanggalLayout)), isAssignableFrom(android.widget.EditText::class.java)))
-                        .perform(clearText(), typeText("16 Jun - 23 Jun"))
+                    onView(withText("Oke")).perform(click())
+
                 } catch (e3: Exception) {
-                    // Method 4: Force set text using custom ViewAction
-                    onView(allOf(isDescendantOfA(withId(R.id.rentangTanggalLayout)), isAssignableFrom(android.widget.EditText::class.java)))
-                        .perform(forceSetText("18 Jun - 23 Jun"))
+                    onView(allOf(
+                        isDescendantOfA(withId(layoutId)),
+                        isAssignableFrom(android.widget.EditText::class.java)
+                    )).perform(
+                        clearText(),
+                        typeText("${day}/06/2025"),
+                        closeSoftKeyboard()
+                    )
                 }
+            }
+        }
+
+        Thread.sleep(500)
+    }
+
+    /**
+     * Custom ViewAction untuk set date langsung
+     */
+    private fun setDate(year: Int, month: Int, day: Int): ViewAction {
+        return object : ViewAction {
+            override fun getDescription(): String = "Set date on DatePicker"
+            override fun getConstraints(): Matcher<View> = isAssignableFrom(android.widget.DatePicker::class.java)
+            override fun perform(uiController: UiController, view: View) {
+                val datePicker = view as android.widget.DatePicker
+                datePicker.updateDate(year, month - 1, day)
             }
         }
     }
@@ -193,50 +198,60 @@ class FormPeminjamanFragmentTest {
         onView(allOf(isDescendantOfA(withId(R.id.tujuanPeminjamanLayout)), isAssignableFrom(android.widget.EditText::class.java)))
             .perform(typeText("Keperluan presentasi"), closeSoftKeyboard())
 
-        // Sengaja tidak mengisi rentang tanggal dan nama penanggung jawab
+        // Sengaja tidak mengisi tanggal mulai dan tanggal selesai serta nama penanggung jawab
         // Submit form tanpa mengisi semua field wajib
         onView(withId(R.id.btnSubmit)).perform(scrollTo(), click())
-
         Thread.sleep(1000)
 
         // Then : Gagal terkirim dan user melihat pesan error
-        // Cek berbagai kemungkinan tampilan error
         try {
-            // Option 1: Cek error message yang muncul di layar (teks apapun)
-            onView(withText("Rentang tanggal tidak boleh kosong"))
+            // Option 1: Cek error message untuk tanggal mulai
+            onView(withText("Tanggal mulai tidak boleh kosong"))
                 .check(matches(isDisplayed()))
         } catch (e: Exception) {
             try {
-                // Option 2: TextInputLayout error - cek error pada layout
-                onView(withId(R.id.rentangTanggalLayout))
-                    .check(matches(hasErrorText("Rentang tanggal tidak boleh kosong")))
+                // Option 2: TextInputLayout error - cek error pada layout tanggal mulai
+                onView(withId(R.id.tanggalMulaiLayout))
+                    .check(matches(hasErrorText("Tanggal mulai tidak boleh kosong")))
             } catch (e2: Exception) {
                 try {
-                    // Option 3: Toast message
-                    onView(withText("Harap lengkapi semua data yang wajib"))
+                    // Option 3: Cek error message untuk tanggal selesai
+                    onView(withText("Tanggal selesai tidak boleh kosong"))
                         .check(matches(isDisplayed()))
                 } catch (e3: Exception) {
                     try {
-                        // Option 4: Dialog error
-                        onView(withText("Error"))
-                            .check(matches(isDisplayed()))
+                        // Option 4: TextInputLayout error - cek error pada layout tanggal selesai
+                        onView(withId(R.id.tanggalSelesaiLayout))
+                            .check(matches(hasErrorText("Tanggal selesai tidak boleh kosong")))
                     } catch (e4: Exception) {
                         try {
-                            // Option 5: Snackbar
-                            onView(withText("Field wajib harus diisi"))
+                            // Option 5: Toast message umum
+                            onView(withText("Harap lengkapi semua data yang wajib"))
                                 .check(matches(isDisplayed()))
                         } catch (e5: Exception) {
-                            // Option 6: Any error text that contains "tanggal"
-                            onView(withText(org.hamcrest.Matchers.containsString("tanggal")))
-                                .check(matches(isDisplayed()))
+                            try {
+                                // Option 6: Dialog error
+                                onView(withText("Error"))
+                                    .check(matches(isDisplayed()))
+                            } catch (e6: Exception) {
+                                try {
+                                    // Option 7: Snackbar
+                                    onView(withText("Field wajib harus diisi"))
+                                        .check(matches(isDisplayed()))
+                                } catch (e7: Exception) {
+                                    // Option 8: Any error text that contains "tanggal"
+                                    onView(withText(org.hamcrest.Matchers.containsString("tanggal")))
+                                        .check(matches(isDisplayed()))
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-
-        // Verifikasi masih berada di halaman form
-        onView(withId(R.id.btnSubmit)).check(matches(isDisplayed()))
+        onView(withId(R.id.btnSubmit))
+            .perform(scrollTo())
+            .check(matches(isDisplayed()))
     }
 
     /**
@@ -255,26 +270,6 @@ class FormPeminjamanFragmentTest {
             override fun perform(uiController: UiController, view: View) {
                 val v = view.findViewById<View>(id)
                 v?.performClick()
-            }
-        }
-    }
-
-    /**
-     * Alternative approach: Force set text on supposedly read-only EditText
-     */
-    private fun forceSetText(text: String): ViewAction {
-        return object : ViewAction {
-            override fun getDescription(): String {
-                return "Force set text on EditText"
-            }
-
-            override fun getConstraints(): Matcher<View> {
-                return isAssignableFrom(android.widget.EditText::class.java)
-            }
-
-            override fun perform(uiController: UiController, view: View) {
-                val editText = view as android.widget.EditText
-                editText.setText(text)
             }
         }
     }

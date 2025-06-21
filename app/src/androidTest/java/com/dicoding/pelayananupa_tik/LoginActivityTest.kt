@@ -58,7 +58,7 @@ class LoginActivityTest {
      * Then: User berpindah ke halaman beranda
      */
     @Test
-    fun givenUserOnLoginPage_whenLoginWithITKGoogleAccount_thenNavigateToHomePage() {
+    fun loginWithITKAccount() {
         // Given: User berada di halaman login
         scenario = ActivityScenario.launch(LoginActivity::class.java)
         onView(withId(R.id.btn_login))
@@ -79,7 +79,7 @@ class LoginActivityTest {
      * Then: User gagal login dan tetap berada di halaman login dan user mendapatkan pesan error "Maaf anda bukan civitas ITK"
      */
     @Test
-    fun givenUserOnLoginPage_whenLoginWithNonITKGoogleAccount_thenStayOnLoginPageWithError() {
+    fun loginWithNonITKAccount() {
         // Given: User berada di halaman login
         scenario = ActivityScenario.launch(LoginActivity::class.java)
         onView(withId(R.id.btn_login))

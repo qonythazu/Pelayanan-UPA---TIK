@@ -61,7 +61,7 @@ class MainActivityLogoutTest {
      * Then: User keluar dari akun dan berpindah ke halaman login dan user melihat pesan "Anda berhasil logout"
      */
     @Test
-    fun givenUserLoggedIn_whenLogoutButtonClicked_thenDoesNotCrash() {
+    fun logout() {
         // Given: User telah login
         scenario = ActivityScenario.launch(MainActivity::class.java)
 
