@@ -1,10 +1,12 @@
 package com.dicoding.pelayananupa_tik.fragment.historyPeminjaman
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -20,6 +22,7 @@ class SentItemFragment : Fragment() {
     private lateinit var historyAdapter: PeminjamanAdapter
     private lateinit var tvEmptyMessage: TextView
     private val db = FirebaseFirestore.getInstance()
+    private val historyList = mutableListOf<Pair<String, FormPeminjaman>>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -40,11 +43,73 @@ class SentItemFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        historyAdapter = PeminjamanAdapter(emptyList())
+        historyAdapter = PeminjamanAdapter(
+            historyList = historyList,
+            onTakenClick = null, // Tidak diperlukan untuk status "diajukan"
+            onReturnedClick = null, // Tidak diperlukan untuk status "diajukan"
+            onCancelClick = { documentId, formPeminjaman, position ->
+                handleCancelPeminjaman(documentId, formPeminjaman, position)
+            }
+        )
         recyclerView.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
             adapter = historyAdapter
         }
+    }
+
+    private fun handleCancelPeminjaman(documentId: String, formPeminjaman: FormPeminjaman, position: Int) {
+        val currentUserEmail = UserManager.getCurrentUserEmail()
+
+        if (currentUserEmail.isNullOrEmpty()) {
+            Toast.makeText(requireContext(), "User tidak terautentikasi", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        Log.d("SentItemFragment", "Canceling peminjaman: $documentId")
+
+        // Hapus dari Firestore
+        db.collection("form_peminjaman")
+            .document(documentId)
+            .delete()
+            .addOnSuccessListener {
+                Log.d("SentItemFragment", "Document successfully deleted from Firestore")
+
+                // Update local list juga (sudah dilakukan di adapter, tapi pastikan konsisten)
+                val itemToRemove = historyList.find { it.first == documentId }
+                if (itemToRemove != null) {
+                    val actualPosition = historyList.indexOf(itemToRemove)
+                    if (actualPosition != -1 && actualPosition < historyList.size) {
+                        // Item sudah dihapus dari adapter, tapi pastikan juga dihapus dari list lokal
+                        // Tidak perlu hapus lagi karena sudah dilakukan di adapter
+                        Log.d("SentItemFragment", "Local list updated, remaining items: ${historyList.size}")
+                    }
+                }
+
+                // Update UI jika list kosong
+                if (historyList.isEmpty()) {
+                    showEmptyState("Belum ada peminjaman yang diajukan")
+                }
+
+                Toast.makeText(requireContext(), "Peminjaman berhasil dibatalkan", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Log.e("SentItemFragment", "Error deleting document from Firestore", e)
+
+                // Kembalikan item ke list karena gagal hapus dari Firestore
+                if (position < historyList.size) {
+                    // Re-add item yang sudah dihapus dari adapter
+                    val deletedItem = Pair(documentId, formPeminjaman)
+                    historyList.add(position, deletedItem)
+                    historyAdapter.notifyItemInserted(position)
+                    historyAdapter.notifyItemRangeChanged(position, historyList.size)
+                }
+
+                Toast.makeText(
+                    requireContext(),
+                    "Gagal membatalkan peminjaman: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
     }
 
     private fun loadHistoryData() {
@@ -63,24 +128,30 @@ class SentItemFragment : Fragment() {
                 processResults(result)
             }
             .addOnFailureListener { e ->
+                Log.e("SentItemFragment", "Error fetching data", e)
                 showEmptyState("Gagal mengambil data: ${e.message}")
             }
     }
 
     private fun processResults(result: QuerySnapshot) {
-        val historyList = result.mapNotNull { document ->
+        historyList.clear() // Clear list sebelum populate
+
+        val newHistoryList = result.mapNotNull { document ->
             try {
                 val formPeminjaman = document.toObject(FormPeminjaman::class.java)
-                Pair(document.id, formPeminjaman) // Pair<DocumentId, FormPeminjaman>
+                Pair(document.id, formPeminjaman)
             } catch (e: Exception) {
+                Log.e("SentItemFragment", "Error parsing document: ${document.id}", e)
                 null
             }
         }
 
+        historyList.addAll(newHistoryList)
+
         if (historyList.isEmpty()) {
-            showEmptyState("Belum ada peminjaman yang disetujui")
+            showEmptyState("Belum ada peminjaman yang diajukan")
         } else {
-            showData(historyList)
+            showData()
         }
     }
 
@@ -90,10 +161,15 @@ class SentItemFragment : Fragment() {
         tvEmptyMessage.text = message
     }
 
-    private fun showData(historyList: List<Pair<String, FormPeminjaman>>) {
+    private fun showData() {
         recyclerView.visibility = View.VISIBLE
         tvEmptyMessage.visibility = View.GONE
-        historyAdapter.updateList(historyList)
+        historyAdapter.notifyDataSetChanged()
+    }
+
+    fun refreshData() {
+        Log.d("SentItemFragment", "Refreshing sent item data...")
+        loadHistoryData()
     }
 
     override fun onResume() {

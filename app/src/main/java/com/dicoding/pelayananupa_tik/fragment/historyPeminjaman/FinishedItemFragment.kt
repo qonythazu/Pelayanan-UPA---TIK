@@ -40,7 +40,7 @@ class FinishedItemFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        historyAdapter = PeminjamanAdapter(emptyList())
+        historyAdapter = PeminjamanAdapter(mutableListOf()) // Ubah dari emptyList() ke mutableListOf()
         recyclerView.apply {
             layoutManager = LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
             adapter = historyAdapter
@@ -75,7 +75,7 @@ class FinishedItemFragment : Fragment() {
             } catch (e: Exception) {
                 null
             }
-        }
+        }.toMutableList() // Konversi ke MutableList
 
         if (historyList.isEmpty()) {
             showEmptyState("Belum ada peminjaman yang selesai")
@@ -90,7 +90,7 @@ class FinishedItemFragment : Fragment() {
         tvEmptyMessage.text = message
     }
 
-    private fun showData(historyList: List<Pair<String, FormPeminjaman>>) {
+    private fun showData(historyList: MutableList<Pair<String, FormPeminjaman>>) { // Ubah parameter ke MutableList
         recyclerView.visibility = View.VISIBLE
         tvEmptyMessage.visibility = View.GONE
         historyAdapter.updateList(historyList)

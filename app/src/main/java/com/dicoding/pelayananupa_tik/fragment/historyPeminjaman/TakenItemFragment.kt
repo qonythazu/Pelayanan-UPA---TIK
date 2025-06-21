@@ -46,7 +46,7 @@ class TakenItemFragment : Fragment() {
 
     private fun setupRecyclerView() {
         historyAdapter = PeminjamanAdapter(
-            emptyList(),
+            mutableListOf(), // Ubah dari emptyList() ke mutableListOf()
             onReturnedClick = { documentId, formPeminjaman ->
                 handleReturnedClick(documentId, formPeminjaman)
             }
@@ -125,7 +125,7 @@ class TakenItemFragment : Fragment() {
             } catch (e: Exception) {
                 null
             }
-        }
+        }.toMutableList() // Konversi ke MutableList
 
         if (historyList.isEmpty()) {
             showEmptyState("Belum ada peminjaman yang diambil")
@@ -140,7 +140,7 @@ class TakenItemFragment : Fragment() {
         tvEmptyMessage.text = message
     }
 
-    private fun showData(historyList: List<Pair<String, FormPeminjaman>>) {
+    private fun showData(historyList: MutableList<Pair<String, FormPeminjaman>>) { // Ubah parameter ke MutableList
         recyclerView.visibility = View.VISIBLE
         tvEmptyMessage.visibility = View.GONE
         historyAdapter.updateList(historyList)

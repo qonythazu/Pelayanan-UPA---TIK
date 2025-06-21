@@ -1,10 +1,13 @@
 package com.dicoding.pelayananupa_tik.adapter
 
+import android.app.AlertDialog
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -14,9 +17,10 @@ import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.backend.model.FormPeminjaman
 
 class PeminjamanAdapter(
-    private var historyList: List<Pair<String, FormPeminjaman>>, // Pair<DocumentId, FormPeminjaman>
+    private var historyList: MutableList<Pair<String, FormPeminjaman>>, // Ubah ke MutableList
     private val onTakenClick: ((String, FormPeminjaman) -> Unit)? = null,
-    private val onReturnedClick: ((String, FormPeminjaman) -> Unit)? = null
+    private val onReturnedClick: ((String, FormPeminjaman) -> Unit)? = null,
+    private val onCancelClick: ((String, FormPeminjaman, Int) -> Unit)? = null // Tambahkan callback untuk cancel
 ) : RecyclerView.Adapter<PeminjamanAdapter.HistoryViewHolder>() {
 
     inner class HistoryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -27,6 +31,7 @@ class PeminjamanAdapter(
         val tvHistoryDate: TextView = itemView.findViewById(R.id.tv_history_date)
         val btnTaken: TextView = itemView.findViewById(R.id.btnTaken)
         val btnReturned: TextView = itemView.findViewById(R.id.btnReturned)
+        val btnCancel: TextView = itemView.findViewById(R.id.btnCancel)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HistoryViewHolder {
@@ -54,7 +59,7 @@ class PeminjamanAdapter(
         holder.tvHistoryDate.text = history.getFormattedRentangTanggal()
         loadImageWithBetterHandling(holder.imgHistoryItem, history.getDisplayPhotoUrl(), namaBarang)
         setStatusColor(holder.tvHistoryStatus, history.statusPeminjaman)
-        setupButtons(holder, documentId, history)
+        setupButtons(holder, documentId, history, position)
     }
 
     private fun cleanNamaBarang(namaBarang: String): String {
@@ -99,11 +104,18 @@ class PeminjamanAdapter(
         }
     }
 
-    private fun setupButtons(holder: HistoryViewHolder, documentId: String, history: FormPeminjaman) {
+    private fun setupButtons(holder: HistoryViewHolder, documentId: String, history: FormPeminjaman, position: Int) {
         holder.btnTaken.visibility = View.GONE
         holder.btnReturned.visibility = View.GONE
+        holder.btnCancel.visibility = View.GONE
 
         when (history.statusPeminjaman.lowercase()) {
+            "diajukan" -> {
+                holder.btnCancel.visibility = View.VISIBLE
+                holder.btnCancel.setOnClickListener {
+                    showCancelConfirmationDialog(holder.itemView.context, documentId, history, position)
+                }
+            }
             "disetujui" -> {
                 holder.btnTaken.visibility = View.VISIBLE
                 holder.btnTaken.setOnClickListener {
@@ -117,6 +129,46 @@ class PeminjamanAdapter(
                 }
             }
         }
+    }
+
+    private fun showCancelConfirmationDialog(
+        context: Context,
+        documentId: String,
+        history: FormPeminjaman,
+        position: Int
+    ) {
+        val namaBarang = cleanNamaBarang(history.getNamaBarang())
+
+        AlertDialog.Builder(context)
+            .setTitle("Konfirmasi Pembatalan")
+            .setMessage("Apakah Anda yakin ingin membatalkan peminjaman \"$namaBarang\"?")
+            .setPositiveButton("Ya") { dialog, _ ->
+                handleCancelConfirmation(context, documentId, history, position)
+                dialog.dismiss()
+            }
+            .setNegativeButton("Tidak") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(true)
+            .show()
+    }
+
+    private fun handleCancelConfirmation(
+        context: Context,
+        documentId: String,
+        history: FormPeminjaman,
+        position: Int
+    ) {
+        // Hapus item dari list
+        historyList.removeAt(position)
+        notifyItemRemoved(position)
+        notifyItemRangeChanged(position, historyList.size)
+
+        // Tampilkan pesan sukses
+        Toast.makeText(context, "Peminjaman berhasil dibatalkan", Toast.LENGTH_SHORT).show()
+
+        // Panggil callback untuk menangani pembatalan di level yang lebih tinggi
+        onCancelClick?.invoke(documentId, history, position)
     }
 
     private fun setStatusColor(textView: TextView, status: String) {
@@ -143,7 +195,7 @@ class PeminjamanAdapter(
         }
     }
 
-    fun updateList(newList: List<Pair<String, FormPeminjaman>>) {
+    fun updateList(newList: MutableList<Pair<String, FormPeminjaman>>) {
         historyList = newList
         notifyDataSetChanged()
     }

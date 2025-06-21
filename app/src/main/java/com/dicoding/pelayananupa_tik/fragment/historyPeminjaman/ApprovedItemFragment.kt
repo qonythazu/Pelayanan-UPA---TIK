@@ -46,9 +46,13 @@ class ApprovedItemFragment : Fragment() {
 
     private fun setupRecyclerView() {
         historyAdapter = PeminjamanAdapter(
-            emptyList(),
+            mutableListOf(), // Ubah dari emptyList() ke mutableListOf()
             onTakenClick = { documentId, formPeminjaman ->
                 handleTakenClick(documentId, formPeminjaman)
+            },
+            onCancelClick = { documentId, formPeminjaman, _ ->
+                // Handle pembatalan peminjaman
+                handleCancelClick(documentId, formPeminjaman)
             }
         )
         recyclerView.apply {
@@ -67,6 +71,28 @@ class ApprovedItemFragment : Fragment() {
             }
             .setNegativeButton("Tidak", null)
             .show()
+    }
+
+    private fun handleCancelClick(documentId: String, formPeminjaman: FormPeminjaman) {
+        // Update status ke "dibatalkan" di database
+        db.collection("form_peminjaman")
+            .document(documentId)
+            .update(
+                mapOf(
+                    "statusPeminjaman" to "dibatalkan",
+                    "tanggalPembatalan" to getCurrentDateTime()
+                )
+            )
+            .addOnSuccessListener {
+                Toast.makeText(context, "Peminjaman berhasil dibatalkan", Toast.LENGTH_SHORT).show()
+                // Data sudah dihapus dari RecyclerView oleh adapter
+                // Tidak perlu reload semua data
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(context, "Gagal membatalkan peminjaman: ${e.message}", Toast.LENGTH_SHORT).show()
+                // Refresh data jika gagal untuk mengembalikan item yang terhapus
+                loadHistoryData()
+            }
     }
 
     private fun updateStatusToTaken(documentId: String) {
@@ -126,7 +152,7 @@ class ApprovedItemFragment : Fragment() {
             } catch (e: Exception) {
                 null
             }
-        }
+        }.toMutableList() // Konversi ke MutableList
 
         if (historyList.isEmpty()) {
             showEmptyState("Belum ada peminjaman yang disetujui")
@@ -141,7 +167,7 @@ class ApprovedItemFragment : Fragment() {
         tvEmptyMessage.text = message
     }
 
-    private fun showData(historyList: List<Pair<String, FormPeminjaman>>) {
+    private fun showData(historyList: MutableList<Pair<String, FormPeminjaman>>) { // Ubah parameter ke MutableList
         recyclerView.visibility = View.VISIBLE
         tvEmptyMessage.visibility = View.GONE
         historyAdapter.updateList(historyList)
