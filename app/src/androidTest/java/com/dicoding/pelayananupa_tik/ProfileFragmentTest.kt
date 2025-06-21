@@ -98,7 +98,7 @@ class ProfileFragmentTest {
      * Then: User melihat pesan konfirmasi "Nomor telepon berhasil diperbarui" dan melihat perubahan yang diterapkan pada profil
      */
     @Test
-    fun givenUserLoggedInAndOnProfilePage_whenUserEditsPhoneWithValidNumber_thenShowSuccessMessageAndUpdateProfile() {
+    fun successEditPhoneNumber() {
         // Given: User telah login dan berada di halaman profile
         activityScenario = ActivityScenario.launch(MainActivity::class.java)
         onView(withId(R.id.profileFragment)).perform(click())
@@ -130,7 +130,7 @@ class ProfileFragmentTest {
      * Then: Gagal diperbarui dan user melihat pesan error dan user kembali ke halaman profil
      */
     @Test
-    fun givenUserLoggedInAndOnProfilePage_whenUserEditsPhoneWithInvalidNumber_thenShowErrorAndStayOnProfile() {
+    fun failEditPhoneNumber() {
         // Given: User telah login dan berada di halaman profile
         activityScenario = ActivityScenario.launch(MainActivity::class.java)
         onView(withId(R.id.profileFragment)).perform(click())

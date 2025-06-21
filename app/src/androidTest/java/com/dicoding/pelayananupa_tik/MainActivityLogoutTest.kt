@@ -67,6 +67,7 @@ class MainActivityLogoutTest {
 
         // When: Click logout button
         onView(withId(R.id.btn_logout)).perform(click())
+        onView(withText("Ya")).perform(click())
 
         // Then: App tidak crash (jika sampai sini berarti tidak crash)
     }

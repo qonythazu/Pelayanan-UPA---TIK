@@ -71,7 +71,7 @@ class ServiceStatusTest {
      * Then: User melihat status terkini dari layanan yang diajukan
      */
     @Test
-    fun givenUserLoggedInWithServiceHistory_whenOpenHistoryPage_thenShowsServiceStatus() {
+    fun notEmptyHistory() {
         // Given: User telah login dan pernah mengajukan layanan
         setupMockLoggedInUser()
         scenario = ActivityScenario.launch(MainActivity::class.java)
@@ -92,7 +92,7 @@ class ServiceStatusTest {
      * Then: User melihat pesan "Belum ada riwayat layanan"
      */
     @Test
-    fun givenUserLoggedInWithoutServiceHistory_whenOpenHistoryPage_thenShowsEmptyMessage() {
+    fun emptyHistory() {
         // Given: User telah login dan belum ada data layanan
         setupMockLoggedInUser()
         scenario = ActivityScenario.launch(MainActivity::class.java)

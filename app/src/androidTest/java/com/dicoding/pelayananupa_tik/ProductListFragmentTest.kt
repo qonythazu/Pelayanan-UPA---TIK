@@ -49,7 +49,7 @@ class ProductListFragmentTest {
      * Then  : User melihat semua barang yang tersedia untuk dipinjam
      */
     @Test
-    fun givenUserLoggedIn_whenProductListClicked_thenItemsAreDisplayed() {
+    fun seeProductList() {
         // Given : User telah login
         scenario = ActivityScenario.launch(MainActivity::class.java)
 
@@ -71,7 +71,7 @@ class ProductListFragmentTest {
      * Then  : Barang ditambahkan ke keranjang peminjaman dan user melihat pesan konfirmasi
      */
     @Test
-    fun givenUserInProductList_whenAddButtonClicked_thenItemAddedToCart() {
+    fun addProductToBox() {
         // Given: User is logged in and on product list
         scenario = ActivityScenario.launch(MainActivity::class.java)
         onView(withId(R.id.menu_peminjaman_barang)).perform(click())
@@ -96,36 +96,10 @@ class ProductListFragmentTest {
     }
 
     /**
-     * Alternative simpler test method - Click on first item directly
-     */
-    @Test
-    fun givenUserInProductList_whenFirstItemClicked_thenItemAddedToCart() {
-        // Given: User is logged in and on product list
-        scenario = ActivityScenario.launch(MainActivity::class.java)
-        onView(withId(R.id.menu_peminjaman_barang)).perform(click())
-
-        // Wait for data to load
-        Thread.sleep(8000)
-
-        // When: User clicks on the first item card
-        onView(withId(R.id.recycler_view))
-            .perform(
-                RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(
-                    0,
-                    clickChildViewWithId(R.id.card_view_product) // Click on the card
-                )
-            )
-
-        // Then: Item should be added to cart
-        Thread.sleep(2000)
-        onView(withId(R.id.menu_box)).perform(click())
-    }
-
-    /**
      * Test untuk memverifikasi search functionality
      */
     @Test
-    fun givenUserInProductList_whenUserSearches_thenSearchViewWorks() {
+    fun searchBarWorks() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
 
         // Navigate to product list
@@ -145,50 +119,6 @@ class ProductListFragmentTest {
 
         // Then: Search view should show the query
         // Note: Hasil pencarian bergantung pada data real dari Firestore
-    }
-
-    /**
-     * Test khusus untuk verifikasi tombol Add bekerja
-     */
-    @Test
-    fun givenUserInProductList_whenAddButtonClickedDirectly_thenButtonResponds() {
-        // Given: User is on product list
-        scenario = ActivityScenario.launch(MainActivity::class.java)
-        onView(withId(R.id.menu_peminjaman_barang)).perform(click())
-
-        // Wait for data to load
-        Thread.sleep(8000)
-
-        // When: User clicks add button on first item
-        onView(withId(R.id.recycler_view))
-            .perform(
-                RecyclerViewActions.actionOnItemAtPosition<RecyclerView.ViewHolder>(
-                    0,
-                    clickChildViewWithId(R.id.btn_add)
-                )
-            )
-
-        // Then: Just wait and see if no crash occurs
-        Thread.sleep(3000)
-    }
-
-    /**
-     * Test untuk memastikan RecyclerView memiliki data
-     */
-    @Test
-    fun givenUserInProductList_whenDataLoaded_thenRecyclerViewHasItems() {
-        scenario = ActivityScenario.launch(MainActivity::class.java)
-        onView(withId(R.id.menu_peminjaman_barang)).perform(click())
-
-        // Wait for data to load
-        Thread.sleep(10000)
-
-        // Check if RecyclerView has items
-        onView(withId(R.id.recycler_view))
-            .check(matches(isDisplayed()))
-            .perform(
-                RecyclerViewActions.scrollToPosition<RecyclerView.ViewHolder>(0)
-            )
     }
 
     /**

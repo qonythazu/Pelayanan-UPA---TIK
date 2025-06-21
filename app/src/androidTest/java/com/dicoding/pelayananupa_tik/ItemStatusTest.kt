@@ -75,7 +75,7 @@ class ItemStatusTest {
      * Then: User melihat semua barang yang dipinjam maupun yang telah dikembalikan
      */
     @Test
-    fun givenUserLoggedInWithItemHistory_whenOpenHistoryPage_thenShowsItemStatus() {
+    fun notEmptyHistory() {
         // Given: User telah login dan pernah mengajukan peminjaman barang
         setupMockLoggedInUser()
         scenario = ActivityScenario.launch(MainActivity::class.java)
@@ -96,7 +96,7 @@ class ItemStatusTest {
      * Then: User melihat pesan “Belum ada riwayat peminjaman” dan tidak menampilkan data apa pun
      */
     @Test
-    fun givenUserLoggedInWithoutItemHistory_whenOpenHistoryPage_thenShowsEmptyMessage() {
+    fun emptyHistory() {
         // Given: User telah login dan belum ada data layanan
         setupMockLoggedInUser()
         scenario = ActivityScenario.launch(MainActivity::class.java)
