@@ -93,7 +93,7 @@ class FormPembuatanWebDllFragmentTest {
      * Then: Berhasil terkirim dan user otomatis berpindah ke halaman riwayat
      */
     @Test
-    fun givenUserLoggedInAndOnFormPage_whenUserFillsAllRequiredDataAndSubmit_thenSuccessAndNavigateToHistory() {
+    fun formSubmissionBerhasil() {
         // Given: User telah login dan berada di halaman formulir pembuatan email, website, subdomain, hosting dan/atau VPS
         launchFragment()
 
@@ -161,7 +161,7 @@ class FormPembuatanWebDllFragmentTest {
      * Then: Gagal terkirim dan user melihat pesan error "Harap lengkapi semua data yang wajib" dan user kembali ke halaman formulir pembuatan email, website, subdomain, hosting dan/atau VPS
      */
     @Test
-    fun givenUserLoggedInAndOnFormPage_whenUserSubmitIncompleteForm_thenShowErrorAndStayOnForm() {
+    fun formSubmissionGagal() {
         // Given: User telah login dan berada di halaman formulir pembuatan email, website, subdomain, hosting dan/atau VPS
         launchFragment()
 

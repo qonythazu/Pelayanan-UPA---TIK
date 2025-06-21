@@ -147,7 +147,6 @@ class FormPeminjamanFragmentTest {
                 }
             }
         }
-
         Thread.sleep(500)
     }
 

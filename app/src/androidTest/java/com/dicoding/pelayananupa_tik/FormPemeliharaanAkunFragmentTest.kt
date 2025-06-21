@@ -93,7 +93,7 @@ class FormPemeliharaanAkunFragmentTest {
      * Then: Berhasil terkirim dan user otomatis berpindah ke halaman riwayat
      */
     @Test
-    fun givenUserLoggedInAndOnFormPage_whenUserFillsAllRequiredDataAndSubmit_thenSuccessAndNavigateToHistory() {
+    fun formSubmissionBerhasil() {
         // Given: User telah login dan berada di halaman formulir pemeliharaan akun
         launchFragment()
 
@@ -153,7 +153,7 @@ class FormPemeliharaanAkunFragmentTest {
      * Then: Gagal terkirim dan user melihat pesan error dan user kembali ke halaman formulir pemeliharaan akun
      */
     @Test
-    fun givenUserLoggedInAndOnFormPage_whenUserSubmitIncompleteForm_thenShowErrorAndStayOnForm() {
+    fun formSubmissionGagal() {
         // Given: User telah login dan berada di halaman formulir pemeliharaan akun
         launchFragment()
 

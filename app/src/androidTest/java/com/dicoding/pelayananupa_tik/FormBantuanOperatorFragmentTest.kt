@@ -93,7 +93,7 @@ class FormBantuanOperatorFragmentTest {
      * Then: Berhasil terkirim dan user otomatis berpindah ke halaman riwayat
      */
     @Test
-    fun givenUserLoggedInAndOnFormPage_whenUserFillsAllRequiredDataAndSubmit_thenSuccessAndNavigateToHistory() {
+    fun formSubmissionBerhasil() {
         // Given: User telah login dan berada di halaman formulir bantuan operator TIK
         launchFragment()
 
@@ -158,7 +158,7 @@ class FormBantuanOperatorFragmentTest {
      * Then: Gagal terkirim dan user melihat pesan error dan user kembali ke halaman formulir bantuan operator TIK
      */
     @Test
-    fun givenUserLoggedInAndOnFormPage_whenUserSubmitIncompleteForm_thenShowErrorAndStayOnForm() {
+    fun formSubmissionGagal() {
         // Given: User telah login dan berada di halaman formulir bantuan operator TIK
         launchFragment()
 
