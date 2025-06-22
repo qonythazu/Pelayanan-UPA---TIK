@@ -213,12 +213,6 @@ class FormPemeliharaanAkunFragment : Fragment() {
                 field = scenarioContext.formData.jenis,
                 errorMessage = "Harap pilih jenis pemeliharaan"
             )
-
-            file(
-                uri = selectedPdfUri,
-                context = requireContext(),
-                errorMessage = "Harap pilih file"
-            )
         }
 
         val result = ValidationHelper.validateFormWithRules(requireContext(), validationRules)
