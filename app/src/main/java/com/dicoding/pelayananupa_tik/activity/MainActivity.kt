@@ -38,7 +38,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var feedbackHelper: FeedbackHelper
     private lateinit var fcmManager: FCMManager
     private lateinit var notificationListener: FirestoreNotificationListener
-    private lateinit var navController: NavController
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->

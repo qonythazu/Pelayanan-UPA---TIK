@@ -5,17 +5,23 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.dicoding.pelayananupa_tik.R
 import com.dicoding.pelayananupa_tik.activity.MainActivity
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.*
+import kotlinx.coroutines.tasks.await
 
 class FirestoreNotificationListener(private val context: Context) {
 
     private val firestore = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
     private var listenerRegistration: ListenerRegistration? = null
+    private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     fun startListening() {
         listenerRegistration = firestore.collection("notifications")
@@ -40,11 +46,13 @@ class FirestoreNotificationListener(private val context: Context) {
                                 val diffMinutes = (now - notificationTime) / (1000 * 60)
 
                                 if (diffMinutes <= 1) {
-                                    showNotification(
+                                    // Cek apakah notifikasi ini untuk user yang sedang login
+                                    checkAndShowNotification(
                                         title = notification["title"] as? String ?: "Update",
                                         body = notification["body"] as? String ?: "Ada update baru",
                                         type = notification["type"] as? String ?: "",
                                         itemId = notification["documentId"] as? String ?: "",
+                                        collectionName = notification["collectionName"] as? String ?: "",
                                         notificationDocId = docChange.document.id
                                     )
                                 }
@@ -62,6 +70,86 @@ class FirestoreNotificationListener(private val context: Context) {
     fun stopListening() {
         listenerRegistration?.remove()
         listenerRegistration = null
+        coroutineScope.cancel()
+    }
+
+    private fun checkAndShowNotification(
+        title: String,
+        body: String,
+        type: String = "",
+        itemId: String = "",
+        collectionName: String = "",
+        notificationDocId: String = ""
+    ) {
+        // Dapatkan email user yang sedang login
+        val currentUserEmail = getCurrentUserEmail()
+
+        if (currentUserEmail == null) {
+            Log.w("NotificationListener", "User not authenticated")
+            return
+        }
+
+        if (itemId.isNotEmpty() && collectionName.isNotEmpty()) {
+            // Gunakan coroutine untuk pengecekan async
+            coroutineScope.launch {
+                try {
+                    val isUserNotification = checkIfNotificationForUser(
+                        collectionName,
+                        itemId,
+                        currentUserEmail
+                    )
+
+                    if (isUserNotification) {
+                        // Tampilkan notifikasi hanya jika memang untuk user ini
+                        showNotification(
+                            title = title,
+                            body = body,
+                            type = type,
+                            itemId = itemId,
+                            notificationDocId = notificationDocId
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e("NotificationListener", "Error checking notification ownership", e)
+                }
+            }
+        }
+    }
+
+    private fun getCurrentUserEmail(): String? {
+        return auth.currentUser?.email ?: run {
+            val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+            sharedPref?.getString("userEmail", null)
+        }
+    }
+
+    private suspend fun checkIfNotificationForUser(
+        collectionName: String,
+        documentId: String,
+        userEmail: String
+    ): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d("NotificationListener", "Checking form in collection: $collectionName, documentId: $documentId")
+
+                val formDoc = firestore.collection(collectionName)
+                    .document(documentId)
+                    .get()
+                    .await()
+
+                if (formDoc.exists()) {
+                    val formUserEmail = formDoc.getString("userEmail")
+                    Log.d("NotificationListener", "Form userEmail: $formUserEmail, Current user: $userEmail")
+                    formUserEmail == userEmail
+                } else {
+                    Log.d("NotificationListener", "Form document not found")
+                    false
+                }
+            } catch (e: Exception) {
+                Log.e("NotificationListener", "Error checking form document", e)
+                false
+            }
+        }
     }
 
     private fun showNotification(
