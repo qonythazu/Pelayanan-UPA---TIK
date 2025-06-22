@@ -47,8 +47,6 @@ class NotificationFragment : Fragment() {
         initializeFirebase()
         setupToolbar()
         setupRecyclerView()
-
-        // Get current user email
         currentUserEmail = getCurrentUserEmail()
 
         if (currentUserEmail != null) {
@@ -86,7 +84,6 @@ class NotificationFragment : Fragment() {
 
     private fun getCurrentUserEmail(): String? {
         return auth.currentUser?.email ?: run {
-            // Fallback: coba ambil dari SharedPreferences jika ada
             val sharedPref = activity?.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
             sharedPref?.getString("userEmail", null)
         }
@@ -94,7 +91,6 @@ class NotificationFragment : Fragment() {
 
     private fun loadNotifications() {
         currentUserEmail?.let { email ->
-            // Gunakan coroutine untuk operasi async
             CoroutineScope(Dispatchers.Main).launch {
                 try {
                     val userNotifications = getUserNotifications(email)
@@ -120,7 +116,6 @@ class NotificationFragment : Fragment() {
             try {
                 Log.d("NotificationFragment", "Loading notifications for user: $userEmail")
 
-                // Ambil semua notifikasi
                 val notificationsSnapshot = firestore.collection("notifications")
                     .orderBy("timestamp", Query.Direction.DESCENDING)
                     .get()
@@ -130,15 +125,12 @@ class NotificationFragment : Fragment() {
 
                 for (notificationDoc in notificationsSnapshot.documents) {
                     try {
-                        // Parse manual untuk menghindari error timestamp
                         val data = notificationDoc.data
                         if (data != null) {
                             val documentId = data["documentId"] as? String
                             val collectionName = data["collectionName"] as? String
                             val title = data["title"] as? String
                             val body = data["body"] as? String
-
-                            // Handle timestamp - bisa Timestamp atau String
                             val timestampString = when (val timestampValue = data["timestamp"]) {
                                 is com.google.firebase.Timestamp -> timestampValue.toDate().toString()
                                 is String -> timestampValue
@@ -148,7 +140,6 @@ class NotificationFragment : Fragment() {
                             Log.d("NotificationFragment", "Processing notification - Collection: $collectionName, DocumentId: $documentId")
 
                             if (!documentId.isNullOrEmpty() && !collectionName.isNullOrEmpty()) {
-                                // Cek apakah form ini milik user yang sedang login
                                 val isUserNotification = checkIfNotificationForUser(
                                     collectionName,
                                     documentId,
@@ -158,12 +149,11 @@ class NotificationFragment : Fragment() {
                                 Log.d("NotificationFragment", "Is notification for user: $isUserNotification")
 
                                 if (isUserNotification) {
-                                    // Buat NotificationModel sesuai dengan struktur yang ada
                                     val notification = NotificationModel(
                                         title = title ?: "",
                                         body = body ?: "",
                                         timestamp = timestampString,
-                                        documentId = notificationDoc.id, // Set dengan document ID dari Firestore
+                                        documentId = notificationDoc.id,
                                         collectionName = collectionName
                                     )
                                     userNotifications.add(notification)

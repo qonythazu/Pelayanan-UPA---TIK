@@ -46,7 +46,6 @@ class FirestoreNotificationListener(private val context: Context) {
                                 val diffMinutes = (now - notificationTime) / (1000 * 60)
 
                                 if (diffMinutes <= 1) {
-                                    // Cek apakah notifikasi ini untuk user yang sedang login
                                     checkAndShowNotification(
                                         title = notification["title"] as? String ?: "Update",
                                         body = notification["body"] as? String ?: "Ada update baru",
@@ -81,7 +80,6 @@ class FirestoreNotificationListener(private val context: Context) {
         collectionName: String = "",
         notificationDocId: String = ""
     ) {
-        // Dapatkan email user yang sedang login
         val currentUserEmail = getCurrentUserEmail()
 
         if (currentUserEmail == null) {
@@ -90,7 +88,6 @@ class FirestoreNotificationListener(private val context: Context) {
         }
 
         if (itemId.isNotEmpty() && collectionName.isNotEmpty()) {
-            // Gunakan coroutine untuk pengecekan async
             coroutineScope.launch {
                 try {
                     val isUserNotification = checkIfNotificationForUser(
@@ -100,7 +97,6 @@ class FirestoreNotificationListener(private val context: Context) {
                     )
 
                     if (isUserNotification) {
-                        // Tampilkan notifikasi hanya jika memang untuk user ini
                         showNotification(
                             title = title,
                             body = body,

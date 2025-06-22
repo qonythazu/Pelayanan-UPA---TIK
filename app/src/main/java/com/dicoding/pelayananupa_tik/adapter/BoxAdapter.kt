@@ -52,8 +52,6 @@ class BoxAdapter(
 
         holder.tvProductName.text = barang.namaBarang
         holder.tvProductCategory.text = barang.jenis
-
-        // Load image menggunakan Glide
         loadImage(holder.imgProduct, barang.photoUrl)
 
         holder.checkItem.isChecked = selectedItems.any { it.namaBarang == barang.namaBarang }
@@ -82,13 +80,12 @@ class BoxAdapter(
             Glide.with(imageView.context)
                 .load(photoUrl)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .placeholder(R.mipmap.ic_launcher) // Gambar sementara saat loading
-                .error(R.mipmap.ic_launcher) // Gambar jika gagal load
+                .placeholder(R.mipmap.ic_launcher)
+                .error(R.mipmap.ic_launcher)
                 .transition(DrawableTransitionOptions.withCrossFade())
                 .centerCrop()
                 .into(imageView)
         } else {
-            // Jika photoUrl kosong, gunakan gambar default
             imageView.setImageResource(R.mipmap.ic_launcher)
         }
     }
@@ -115,7 +112,6 @@ class BoxAdapter(
         safeNotifyDataSetChanged()
     }
 
-    // Helper method untuk menghindari crash saat RecyclerView sedang layout/scroll
     private fun safeNotifyDataSetChanged() {
         val rv = recyclerView
         if (rv != null && !rv.isComputingLayout) {

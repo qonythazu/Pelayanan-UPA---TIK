@@ -228,7 +228,6 @@ class LoginActivity : AppCompatActivity() {
             Toast.LENGTH_LONG
         ).show()
         auth.signOut()
-        // Tetap di halaman login (tidak navigasi ke halaman lain)
     }
 
     private fun signInWithGoogle() {
@@ -252,17 +251,14 @@ class LoginActivity : AppCompatActivity() {
         super.onStart()
         val currentUser = auth.currentUser
         if (currentUser != null && UserManager.isUserLoggedIn()) {
-            // Validasi email ITK saat app dimulai
             if (isITKEmail(currentUser.email ?: "")) {
                 lifecycleScope.launch {
                     UserManager.getCurrentUserData { userData ->
                         runOnUiThread {
                             if (userData != null) {
-                                // User sudah login sebelumnya, langsung navigasi
                                 scenarioContext.loginResult = LoginResult.SUCCESS
                                 updateUI(currentUser)
                             } else {
-                                // Initialize user data untuk user yang sudah login
                                 whenUserSelectsITKAccount(currentUser.email ?: "")
                                 thenUserSuccessfullyLogsInAndNavigatesToHomePage(currentUser)
                             }
