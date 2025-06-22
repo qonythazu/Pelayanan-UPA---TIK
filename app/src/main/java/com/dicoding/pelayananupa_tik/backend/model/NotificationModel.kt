@@ -6,5 +6,7 @@ data class NotificationModel(
     val title: String = "",
     val body: String = "",
     val timestamp: String = "",
-    @get:PropertyName("document_id") @set:PropertyName("document_id") var documentId: String = ""
+    @get:PropertyName("documentId") @set:PropertyName("documentId") var documentId: String = "",
+    @get:PropertyName("collectionName") @set:PropertyName("collectionName") var collectionName: String = ""
+
 )

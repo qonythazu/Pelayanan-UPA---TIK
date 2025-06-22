@@ -19,6 +19,8 @@ import com.dicoding.pelayananupa_tik.backend.model.NotificationModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.*
+import kotlinx.coroutines.tasks.await
 
 class NotificationFragment : Fragment() {
 
@@ -92,69 +94,124 @@ class NotificationFragment : Fragment() {
 
     private fun loadNotifications() {
         currentUserEmail?.let { email ->
-            // SOLUSI 1: Query berdasarkan document ID yang mengandung user email
-            // Jika document ID menggunakan format seperti: "userId_timestamp" atau "userEmail_timestamp"
+            // Gunakan coroutine untuk operasi async
+            CoroutineScope(Dispatchers.Main).launch {
+                try {
+                    val userNotifications = getUserNotifications(email)
 
-            firestore.collection("notifications")
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .get()
-                .addOnSuccessListener { snapshot ->
-                    if (snapshot != null && !snapshot.isEmpty) {
-                        val notifications = mutableListOf<NotificationModel>()
-
-                        for (document in snapshot.documents) {
-                            try {
-                                // Check apakah document ID mengandung email user saat ini
-                                // atau sesuai dengan pattern yang Anda gunakan
-                                if (isNotificationForCurrentUser(document.id, email)) {
-                                    val notification = document.toObject(NotificationModel::class.java)
-                                    notification?.let {
-                                        // Set documentId dari document ID
-                                        val notificationWithId = it.copy(documentId = document.id)
-                                        notifications.add(notificationWithId)
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Log.e("NotificationFragment", "Error parsing notification", e)
-                            }
-                        }
-
-                        if (notifications.isNotEmpty()) {
-                            showNotifications(notifications)
-                        } else {
-                            showEmptyState()
-                        }
+                    if (userNotifications.isNotEmpty()) {
+                        showNotifications(userNotifications)
                     } else {
                         showEmptyState()
                     }
-                }
-                .addOnFailureListener { exception ->
-                    Log.e("NotificationFragment", "Error loading notifications", exception)
+                } catch (e: Exception) {
+                    Log.e("NotificationFragment", "Error loading notifications", e)
                     showEmptyState()
                     Toast.makeText(context, "Gagal memuat notifikasi", Toast.LENGTH_SHORT).show()
                 }
+            }
         }
     }
 
-    /**
-     * Function untuk mengecek apakah notification ini untuk user saat ini
-     * berdasarkan document ID
-     *
-     * Sesuaikan logika ini dengan format document ID yang Anda gunakan
-     */
-    private fun isNotificationForCurrentUser(documentId: String, userEmail: String): Boolean {
-        // Contoh implementasi berdasarkan berbagai format document ID:
+    private suspend fun getUserNotifications(userEmail: String): List<NotificationModel> {
+        return withContext(Dispatchers.IO) {
+            val userNotifications = mutableListOf<NotificationModel>()
 
-        // Format 1: documentId mengandung email user
-        if (documentId.contains(userEmail, ignoreCase = true)) {
-            return true
-        }
+            try {
+                Log.d("NotificationFragment", "Loading notifications for user: $userEmail")
 
-        // Format 2: documentId dimulai dengan email user
-        if (documentId.startsWith(userEmail, ignoreCase = true)) {
-            return true
+                // Ambil semua notifikasi
+                val notificationsSnapshot = firestore.collection("notifications")
+                    .orderBy("timestamp", Query.Direction.DESCENDING)
+                    .get()
+                    .await()
+
+                Log.d("NotificationFragment", "Found ${notificationsSnapshot.documents.size} total notifications")
+
+                for (notificationDoc in notificationsSnapshot.documents) {
+                    try {
+                        // Parse manual untuk menghindari error timestamp
+                        val data = notificationDoc.data
+                        if (data != null) {
+                            val documentId = data["documentId"] as? String
+                            val collectionName = data["collectionName"] as? String
+                            val title = data["title"] as? String
+                            val body = data["body"] as? String
+
+                            // Handle timestamp - bisa Timestamp atau String
+                            val timestampString = when (val timestampValue = data["timestamp"]) {
+                                is com.google.firebase.Timestamp -> timestampValue.toDate().toString()
+                                is String -> timestampValue
+                                else -> ""
+                            }
+
+                            Log.d("NotificationFragment", "Processing notification - Collection: $collectionName, DocumentId: $documentId")
+
+                            if (!documentId.isNullOrEmpty() && !collectionName.isNullOrEmpty()) {
+                                // Cek apakah form ini milik user yang sedang login
+                                val isUserNotification = checkIfNotificationForUser(
+                                    collectionName,
+                                    documentId,
+                                    userEmail
+                                )
+
+                                Log.d("NotificationFragment", "Is notification for user: $isUserNotification")
+
+                                if (isUserNotification) {
+                                    // Buat NotificationModel sesuai dengan struktur yang ada
+                                    val notification = NotificationModel(
+                                        title = title ?: "",
+                                        body = body ?: "",
+                                        timestamp = timestampString,
+                                        documentId = notificationDoc.id, // Set dengan document ID dari Firestore
+                                        collectionName = collectionName
+                                    )
+                                    userNotifications.add(notification)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("NotificationFragment", "Error parsing notification document", e)
+                        // Lanjutkan ke document berikutnya
+                    }
+                }
+
+                Log.d("NotificationFragment", "Final user notifications count: ${userNotifications.size}")
+
+            } catch (e: Exception) {
+                Log.e("NotificationFragment", "Error in getUserNotifications", e)
+                throw e
+            }
+
+            userNotifications
         }
-        return false
+    }
+
+    private suspend fun checkIfNotificationForUser(
+        collectionName: String,
+        documentId: String,
+        userEmail: String
+    ): Boolean {
+        return try {
+            Log.d("NotificationFragment", "Checking form in collection: $collectionName, documentId: $documentId")
+
+            val formDoc = firestore.collection(collectionName)
+                .document(documentId)
+                .get()
+                .await()
+
+            if (formDoc.exists()) {
+                val formUserEmail = formDoc.getString("userEmail")
+                Log.d("NotificationFragment", "Form userEmail: $formUserEmail, Current user: $userEmail")
+                formUserEmail == userEmail
+            } else {
+                Log.d("NotificationFragment", "Form document not found")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("NotificationFragment", "Error checking form document", e)
+            false
+        }
     }
 
     private fun showNotifications(notifications: List<NotificationModel>) {
