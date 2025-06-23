@@ -126,9 +126,6 @@ class HistoryLayananFragment : Fragment() {
 
     private fun hasAnyServiceHistory(): Boolean {
         // TODO: Implement actual check to repository/database
-        // For now, returning true to show tabs with data
-        // In real implementation:
-        // return serviceRepository.hasUserServiceHistory()
         return true
     }
 

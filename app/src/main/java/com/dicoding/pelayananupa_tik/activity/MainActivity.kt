@@ -29,9 +29,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import com.google.firebase.auth.FirebaseAuth
 import android.Manifest
-import androidx.navigation.NavController
 import com.dicoding.pelayananupa_tik.fcm.FirestoreNotificationListener
-import com.dicoding.pelayananupa_tik.fcm.NotificationFragment
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -290,15 +288,17 @@ class MainActivity : AppCompatActivity() {
             if (!notificationType.isNullOrEmpty()) {
                 Log.d("FCM", "Handling notification click: $notificationType, itemId: $itemId")
 
-                // Navigate ke fragment/activity yang sesuai
                 when (notificationType) {
-                    "peminjaman" -> {
-                        // Navigate ke peminjaman detail atau list
-                        // navigateToPeminjamanDetail(itemId)
-                    }
-                    "layanan" -> {
-                        // Navigate ke layanan detail atau list
-                        // navigateToLayananDetail(itemId)
+                    "status_update" -> {
+                        try {
+                            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_home_fragment) as NavHostFragment
+                            val navController = navHostFragment.navController
+                            navController.navigate(R.id.historyFragment)
+
+                            Log.d("FCM", "Successfully navigated to historyFragment")
+                        } catch (e: Exception) {
+                            Log.e("FCM", "Error navigating from notification", e)
+                        }
                     }
                 }
             }
@@ -312,6 +312,52 @@ class MainActivity : AppCompatActivity() {
         val navController = navHostFragment.navController
 
         navView.setupWithNavController(navController)
+        navView.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.homeFragment -> {
+                    try {
+                        navController.navigate(R.id.homeFragment)
+                        Log.d(TAG, "Navigated to HomeFragment")
+                        true
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error navigating to HomeFragment", e)
+                        false
+                    }
+                }
+                R.id.historyFragment -> {
+                    try {
+                        navController.navigate(R.id.historyFragment)
+                        Log.d(TAG, "Navigated to HistoryFragment")
+                        true
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error navigating to HistoryFragment", e)
+                        false
+                    }
+                }
+                R.id.scanFragment -> {
+                    try {
+                        navController.navigate(R.id.scanFragment)
+                        Log.d(TAG, "Navigated to ScanFragment")
+                        true
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error navigating to ScanFragment", e)
+                        false
+                    }
+                }
+                R.id.profileFragment -> {
+                    try {
+                        navController.navigate(R.id.profileFragment)
+                        Log.d(TAG, "Navigated to ProfileFragment")
+                        true
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error navigating to ProfileFragment", e)
+                        false
+                    }
+                }
+                else -> false
+            }
+        }
+        navView.selectedItemId = R.id.homeFragment
     }
 
     private fun setupNotificationButton() {
@@ -323,26 +369,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun navigateToNotificationFragment() {
         try {
-            // Cek apakah NotificationFragment sudah ada di navigation graph
-            // Jika belum, kita akan replace fragment secara manual
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_home_fragment) as NavHostFragment
+            val navController = navHostFragment.navController
 
-            val currentFragment = supportFragmentManager.findFragmentById(R.id.nav_home_fragment)
-                ?.childFragmentManager?.primaryNavigationFragment
+            navController.navigate(R.id.notificationFragment)
 
-            if (currentFragment !is NotificationFragment) {
-                // Hide bottom navigation saat masuk ke notification
-                hideBottomNavigation()
-
-                // Replace fragment
-                val notificationFragment = NotificationFragment.newInstance()
-
-                supportFragmentManager.beginTransaction()
-                    .replace(R.id.nav_home_fragment, notificationFragment)
-                    .addToBackStack("notification")
-                    .commit()
-
-                Log.d(TAG, "Navigated to NotificationFragment")
-            }
+            Log.d(TAG, "Navigated to NotificationFragment using NavController")
         } catch (e: Exception) {
             Log.e(TAG, "Error navigating to notification fragment", e)
             Toast.makeText(this, "Gagal membuka notifikasi", Toast.LENGTH_SHORT).show()
